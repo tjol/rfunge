@@ -9,3 +9,4 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 divrem = "1.0"
+num = "0.4"
