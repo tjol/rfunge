@@ -17,11 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 pub mod fungespace;
-pub mod ip;
 pub mod interpreter;
+pub mod ip;
 
 pub use crate::fungespace::{
     bfvec, read_befunge, read_unefunge, BefungeVec64, FungeSpace, PagedFungeSpace,
 };
+pub use crate::interpreter::{InstructionResult, Interpreter, ProgramResult};
 pub use crate::ip::InstructionPointer;
-pub use crate::interpreter::InstructionResult;

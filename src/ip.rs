@@ -50,13 +50,21 @@ where
     pub private_data: HashMap<String, Rc<dyn Any>>,
 }
 
-impl<Space> InstructionPointer<i64, Space>
+pub trait CreateInstructionPointer<Space>: FungeIndex + Add<Output = Self>
+where
+    Space: FungeSpace<Self>,
+    Space::Output: From<i32> + ToPrimitive + Copy,
+{
+    fn new_ip() -> InstructionPointer<Self, Space>;
+}
+
+impl<Space> CreateInstructionPointer<Space> for i64
 where
     Space: FungeSpace<i64>,
     Space::Output: From<i32> + ToPrimitive + Copy,
 {
-    pub fn new() -> Self {
-        let mut instance = Self {
+    fn new_ip() -> InstructionPointer<i64, Space> {
+        let mut instance = InstructionPointer::<i64, Space> {
             location: 0,
             delta: 1,
             storage_offset: 0,
@@ -69,13 +77,13 @@ where
     }
 }
 
-impl<Space> InstructionPointer<BefungeVec64, Space>
+impl<Space> CreateInstructionPointer<Space> for BefungeVec64
 where
     Space: FungeSpace<BefungeVec64>,
     Space::Output: From<i32> + ToPrimitive + Copy,
 {
-    pub fn new() -> Self {
-        let mut instance = Self {
+    fn new_ip() -> InstructionPointer<BefungeVec64, Space> {
+        let mut instance = InstructionPointer::<BefungeVec64, Space> {
             location: bfvec(0, 0),
             delta: bfvec(1, 0),
             storage_offset: bfvec(0, 0),
@@ -85,6 +93,17 @@ where
         };
         instance.stack_stack.push_back(Vec::new());
         return instance;
+    }
+}
+
+impl<Idx, Space> InstructionPointer<Idx, Space>
+where
+    Idx: CreateInstructionPointer<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: From<i32> + ToPrimitive + Copy,
+{
+    pub fn new() -> Self {
+        Idx::new_ip()
     }
 }
 
