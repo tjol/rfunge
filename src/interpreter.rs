@@ -29,6 +29,7 @@ use std::ops::{Add, Div, Mul, Rem, Sub};
 pub enum InstructionResult {
     Continue,
     StayPut,
+    Skip,
     Exit,
     Panic,
 }
@@ -88,6 +89,31 @@ where
         loop {
             let last_result = match next_instruction.to_u32().and_then(char::from_u32) {
                 Some('@') => InstructionResult::Exit,
+                Some('#') => {
+                    // Trampoline
+                    ip.location = ip.location + ip.delta;
+                    InstructionResult::Skip
+                }
+                Some(';') => {
+                    loop {
+                        let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
+                        ip.location = new_loc;
+                        if Some(';') == new_val.to_u32().and_then(char::from_u32) {
+                            break;
+                        }
+                    }
+                    InstructionResult::Skip
+                }
+                Some('$') => {
+                    ip.pop();
+                    InstructionResult::Continue
+                }
+                Some(':') => {
+                    let n = ip.pop();
+                    ip.push(n);
+                    ip.push(n);
+                    InstructionResult::Continue
+                }
                 Some(digit) if digit >= '0' && digit <= '9' => {
                     ip.push(Space::Output::from((digit as i32) - ('0' as i32)));
                     InstructionResult::Continue
@@ -171,7 +197,8 @@ where
             };
 
             match last_result {
-                InstructionResult::Continue => {
+                InstructionResult::Continue | InstructionResult::Skip => {
+                    // Skip will need special treatment in concurrent funge
                     let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
                     ip.location = new_loc;
                     next_instruction = new_val;
