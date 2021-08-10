@@ -142,6 +142,12 @@ type Instruction<Idx, Space> =
     fn(&mut InstructionPointer<Idx, Space>, &mut Space) -> InstructionResult;
 type InstructionLayer<Idx, Space> = Vec<Option<Instruction<Idx, Space>>>;
 
+#[derive(Debug, Clone)]
+pub enum InstructionMode {
+    Normal,
+    String
+}
+
 /// Struct encapulating the dynamic instructions loaded for an IP
 /// It has multiple layers, and fingerprints are able to add a new
 /// layer to the instruction set (which can later be popped)
@@ -152,6 +158,7 @@ where
     Space: FungeSpace<Idx>,
     Space::Output: From<i32> + ToPrimitive + Copy,
 {
+    pub mode: InstructionMode,
     layers: Vec<InstructionLayer<Idx, Space>>,
 }
 
@@ -179,7 +186,7 @@ where
         let mut layers = Vec::new();
         layers.push(instruction_vec);
 
-        Self { layers: layers }
+        Self { mode: InstructionMode::Normal, layers: layers }
     }
 
     /// Get the function associated with a given character, if any

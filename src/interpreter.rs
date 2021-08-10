@@ -18,7 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::fungespace::index::{bfvec, BefungeVec64};
 use super::fungespace::{FungeIndex, FungeSpace};
-use super::ip::InstructionPointer;
+use super::ip::{InstructionMode, InstructionPointer};
 use num::ToPrimitive;
 use std::fmt::Display;
 use std::io;
@@ -84,127 +84,23 @@ where
     pub fn run(&mut self) -> ProgramResult {
         let last_ip_idx = self.ips.len() - 1;
         let ip = &mut self.ips[last_ip_idx];
-        let mut next_instruction = &self.space[ip.location];
+        let mut next_instruction = self.space[ip.location];
 
         loop {
-            let last_result = match next_instruction.to_u32().and_then(char::from_u32) {
-                Some('@') => InstructionResult::Exit,
-                Some('#') => {
-                    // Trampoline
-                    ip.location = ip.location + ip.delta;
-                    InstructionResult::Skip
-                }
-                Some(';') => {
-                    loop {
-                        let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
-                        ip.location = new_loc;
-                        if Some(';') == new_val.to_u32().and_then(char::from_u32) {
-                            break;
-                        }
-                    }
-                    InstructionResult::Skip
-                }
-                Some('$') => {
-                    ip.pop();
-                    InstructionResult::Continue
-                }
-                Some(':') => {
-                    let n = ip.pop();
-                    ip.push(n);
-                    ip.push(n);
-                    InstructionResult::Continue
-                }
-                Some(digit) if digit >= '0' && digit <= '9' => {
-                    ip.push(Space::Output::from((digit as i32) - ('0' as i32)));
-                    InstructionResult::Continue
-                }
-                Some(digit) if digit >= 'a' && digit <= 'f' => {
-                    ip.push(Space::Output::from(0xa + (digit as i32) - ('a' as i32)));
-                    InstructionResult::Continue
-                }
-                Some('.') => {
-                    print!("{} ", ip.pop());
-                    io::stdout().flush().unwrap();
-                    InstructionResult::Continue
-                }
-                Some(',') => {
-                    if let Some(c) = ip.pop().to_u32().and_then(char::from_u32) {
-                        print!("{}", c);
-                    } else {
-                        print!("�");
-                    }
-                    InstructionResult::Continue
-                }
-                Some('+') => {
-                    let b = ip.pop();
-                    let a = ip.pop();
-                    ip.push(a + b);
-                    InstructionResult::Continue
-                }
-                Some('-') => {
-                    let b = ip.pop();
-                    let a = ip.pop();
-                    ip.push(a - b);
-                    InstructionResult::Continue
-                }
-                Some('*') => {
-                    let b = ip.pop();
-                    let a = ip.pop();
-                    ip.push(a * b);
-                    InstructionResult::Continue
-                }
-                Some('/') => {
-                    let b = ip.pop();
-                    let a = ip.pop();
-                    ip.push(a / b);
-                    InstructionResult::Continue
-                }
-                Some('%') => {
-                    let b = ip.pop();
-                    let a = ip.pop();
-                    ip.push(a % b);
-                    InstructionResult::Continue
-                }
-                Some('j') => {
-                    ip.location = ip.location + MotionCmds::pop_vector(ip);
-                    InstructionResult::StayPut
-                }
-                Some('x') => {
-                    ip.delta = MotionCmds::pop_vector(ip);
-                    InstructionResult::Continue
-                }
-                Some('r') => {
-                    ip.delta = ip.delta * (-1);
-                    InstructionResult::Continue
-                }
-                Some('z') => InstructionResult::Continue,
-                Some(c) => {
-                    if MotionCmds::apply_delta(c, ip) {
-                        InstructionResult::Continue
-                    } else {
-                        // reflect
-                        eprintln!("Unknown instruction: '{}'", c);
-                        ip.delta = ip.delta * (-1);
-                        InstructionResult::Continue
-                    }
-                }
-                None => {
-                    // reflect
-                    eprintln!("Unknown non-Unicode instruction!");
-                    ip.delta = ip.delta * (-1);
-                    InstructionResult::Continue
-                }
+            let result = match ip.instructions.mode {
+                InstructionMode::Normal => Self::exec_instr(ip, &mut self.space, next_instruction),
+                InstructionMode::String => Self::read_string(ip, &mut self.space, next_instruction),
             };
 
-            match last_result {
+            match result {
                 InstructionResult::Continue | InstructionResult::Skip => {
                     // Skip will need special treatment in concurrent funge
                     let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
                     ip.location = new_loc;
-                    next_instruction = new_val;
+                    next_instruction = *new_val;
                 }
                 InstructionResult::StayPut => {
-                    next_instruction = &self.space[ip.location];
+                    next_instruction = self.space[ip.location];
                 }
                 InstructionResult::Exit => {
                     break;
@@ -216,6 +112,151 @@ where
         }
 
         ProgramResult::Ok
+    }
+
+    fn exec_instr(
+        ip: &mut InstructionPointer<Idx, Space>,
+        space: &mut Space,
+        raw_instruction: Space::Output,
+    ) -> InstructionResult {
+        match raw_instruction.to_u32().and_then(char::from_u32) {
+            Some('@') => InstructionResult::Exit,
+            Some('#') => {
+                // Trampoline
+                ip.location = ip.location + ip.delta;
+                InstructionResult::Skip
+            }
+            Some(';') => {
+                loop {
+                    let (new_loc, new_val) = space.move_by(ip.location, ip.delta);
+                    ip.location = new_loc;
+                    if Some(';') == new_val.to_u32().and_then(char::from_u32) {
+                        break;
+                    }
+                }
+                InstructionResult::Skip
+            }
+            Some('$') => {
+                ip.pop();
+                InstructionResult::Continue
+            }
+            Some(':') => {
+                let n = ip.pop();
+                ip.push(n);
+                ip.push(n);
+                InstructionResult::Continue
+            }
+            Some(digit) if digit >= '0' && digit <= '9' => {
+                ip.push(Space::Output::from((digit as i32) - ('0' as i32)));
+                InstructionResult::Continue
+            }
+            Some(digit) if digit >= 'a' && digit <= 'f' => {
+                ip.push(Space::Output::from(0xa + (digit as i32) - ('a' as i32)));
+                InstructionResult::Continue
+            }
+            Some('"') => {
+                ip.instructions.mode = InstructionMode::String;
+                ip.location = ip.location + ip.delta;
+                InstructionResult::StayPut
+            }
+            Some('.') => {
+                print!("{} ", ip.pop());
+                io::stdout().flush().unwrap();
+                InstructionResult::Continue
+            }
+            Some(',') => {
+                if let Some(c) = ip.pop().to_u32().and_then(char::from_u32) {
+                    print!("{}", c);
+                } else {
+                    print!("�");
+                }
+                InstructionResult::Continue
+            }
+            Some('+') => {
+                let b = ip.pop();
+                let a = ip.pop();
+                ip.push(a + b);
+                InstructionResult::Continue
+            }
+            Some('-') => {
+                let b = ip.pop();
+                let a = ip.pop();
+                ip.push(a - b);
+                InstructionResult::Continue
+            }
+            Some('*') => {
+                let b = ip.pop();
+                let a = ip.pop();
+                ip.push(a * b);
+                InstructionResult::Continue
+            }
+            Some('/') => {
+                let b = ip.pop();
+                let a = ip.pop();
+                ip.push(a / b);
+                InstructionResult::Continue
+            }
+            Some('%') => {
+                let b = ip.pop();
+                let a = ip.pop();
+                ip.push(a % b);
+                InstructionResult::Continue
+            }
+            Some('j') => {
+                ip.location = ip.location + MotionCmds::pop_vector(ip);
+                InstructionResult::StayPut
+            }
+            Some('x') => {
+                ip.delta = MotionCmds::pop_vector(ip);
+                InstructionResult::Continue
+            }
+            Some('r') => {
+                ip.delta = ip.delta * (-1);
+                InstructionResult::Continue
+            }
+            Some('z') => InstructionResult::Continue,
+            Some(c) => {
+                if MotionCmds::apply_delta(c, ip) {
+                    InstructionResult::Continue
+                } else {
+                    // reflect
+                    eprintln!("Unknown instruction: '{}'", c);
+                    ip.delta = ip.delta * (-1);
+                    InstructionResult::Continue
+                }
+            }
+            None => {
+                // reflect
+                eprintln!("Unknown non-Unicode instruction!");
+                ip.delta = ip.delta * (-1);
+                InstructionResult::Continue
+            }
+        }
+    }
+
+    fn read_string(
+        ip: &mut InstructionPointer<Idx, Space>,
+        _space: &mut Space,
+        raw_instruction: Space::Output,
+    ) -> InstructionResult {
+        match raw_instruction.to_u32().and_then(char::from_u32) {
+            Some('"') => {
+                ip.instructions.mode = InstructionMode::Normal;
+                InstructionResult::Continue
+            }
+            Some(' ') => {
+                ip.push(raw_instruction);
+                // skip over the following spaces
+                InstructionResult::Continue
+            }
+            Some(_) | None => {
+                // Some other character
+                ip.push(raw_instruction);
+                // Do not skip over the following spaces
+                ip.location = ip.location + ip.delta;
+                InstructionResult::StayPut
+            }
+        }
     }
 }
 
