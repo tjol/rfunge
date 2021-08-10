@@ -23,7 +23,7 @@ use num::ToPrimitive;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
-use std::ops::{Add, Mul}; // for flush()
+use std::ops::{Add, Div, Mul, Rem, Sub};
 
 #[derive(Debug, Clone)]
 pub enum InstructionResult {
@@ -52,7 +52,15 @@ pub struct Interpreter<Idx, Space>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy + Display,
+    Space::Output: From<i32>
+        + ToPrimitive
+        + Add<Output = Space::Output>
+        + Sub<Output = Space::Output>
+        + Mul<Output = Space::Output>
+        + Div<Output = Space::Output>
+        + Rem<Output = Space::Output>
+        + Copy
+        + Display,
 {
     pub ips: Vec<InstructionPointer<Idx, Space>>,
     pub space: Space,
@@ -62,7 +70,15 @@ impl<Idx, Space> Interpreter<Idx, Space>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy + Display,
+    Space::Output: From<i32>
+        + ToPrimitive
+        + Add<Output = Space::Output>
+        + Sub<Output = Space::Output>
+        + Mul<Output = Space::Output>
+        + Div<Output = Space::Output>
+        + Rem<Output = Space::Output>
+        + Copy
+        + Display,
 {
     pub fn run(&mut self) -> ProgramResult {
         let last_ip_idx = self.ips.len() - 1;
@@ -91,6 +107,36 @@ where
                     } else {
                         print!("�");
                     }
+                    InstructionResult::Continue
+                }
+                Some('+') => {
+                    let b = ip.pop();
+                    let a = ip.pop();
+                    ip.push(a + b);
+                    InstructionResult::Continue
+                }
+                Some('-') => {
+                    let b = ip.pop();
+                    let a = ip.pop();
+                    ip.push(a - b);
+                    InstructionResult::Continue
+                }
+                Some('*') => {
+                    let b = ip.pop();
+                    let a = ip.pop();
+                    ip.push(a * b);
+                    InstructionResult::Continue
+                }
+                Some('/') => {
+                    let b = ip.pop();
+                    let a = ip.pop();
+                    ip.push(a / b);
+                    InstructionResult::Continue
+                }
+                Some('%') => {
+                    let b = ip.pop();
+                    let a = ip.pop();
+                    ip.push(a % b);
                     InstructionResult::Continue
                 }
                 Some('j') => {
