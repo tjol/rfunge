@@ -129,9 +129,30 @@ pub trait FungeValue:
     }
 }
 
-impl FungeValue for i32 {}
-impl FungeValue for i64 {}
-impl FungeValue for i128 {}
+impl<T> FungeValue for T where
+    T: From<i32>
+        + ToPrimitive
+        + FromPrimitive
+        + Signed
+        + Add<Output = Self>
+        + Sub<Output = Self>
+        + Mul<Output = Self>
+        + Div<Output = Self>
+        + Rem<Output = Self>
+        + Neg
+        + AddAssign
+        + SubAssign
+        + MulAssign
+        + DivAssign
+        + RemAssign
+        + DivRem<Output = (Self, Self)>
+        + Ord
+        + Eq
+        + Copy
+        + Display
+        + Debug
+{
+}
 
 /// Read a string into a befunge space
 pub fn read_unefunge<T, FungeSpaceT>(space: &mut FungeSpaceT, src: &str)
