@@ -103,7 +103,7 @@ where
         space: &mut Space,
         raw_instruction: Space::Output,
     ) -> InstructionResult {
-        match raw_instruction.to_u32().and_then(char::from_u32) {
+        match raw_instruction.try_to_char() {
             Some('@') => InstructionResult::Exit,
             Some('#') => {
                 // Trampoline
@@ -131,11 +131,11 @@ where
                 InstructionResult::Continue
             }
             Some(digit) if digit >= '0' && digit <= '9' => {
-                ip.push(Space::Output::from((digit as i32) - ('0' as i32)));
+                ip.push(((digit as i32) - ('0' as i32)).into());
                 InstructionResult::Continue
             }
             Some(digit) if digit >= 'a' && digit <= 'f' => {
-                ip.push(Space::Output::from(0xa + (digit as i32) - ('a' as i32)));
+                ip.push((0xa + (digit as i32) - ('a' as i32)).into());
                 InstructionResult::Continue
             }
             Some('"') => {
@@ -149,11 +149,7 @@ where
                 InstructionResult::Continue
             }
             Some(',') => {
-                if let Some(c) = ip.pop().to_u32().and_then(char::from_u32) {
-                    print!("{}", c);
-                } else {
-                    print!("�");
-                }
+                print!("{}", ip.pop().to_char());
                 InstructionResult::Continue
             }
             Some('+') => {
