@@ -167,7 +167,7 @@ where
             Some(',') => {
                 let c = ip.pop();
                 if match self.env.io_mode {
-                    IOMode::Text => write!(self.env.output, "{}", c),
+                    IOMode::Text => write!(self.env.output, "{}", c.to_char()),
                     IOMode::Binary => self
                         .env
                         .output

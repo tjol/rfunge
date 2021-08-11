@@ -16,12 +16,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-
 use std::any::Any;
 use std::collections::HashMap;
 use std::collections::LinkedList;
 use std::fmt::{Debug, Formatter};
-use std::ops::Add;
+use std::ops::{Add, Index};
 use std::rc::Rc;
 
 use num::ToPrimitive;
@@ -61,16 +60,16 @@ where
     fn new_ip() -> InstructionPointer<Self, Space>;
 }
 
-impl<Space> CreateInstructionPointer<Space> for i64
+impl<T, Space> CreateInstructionPointer<Space> for T
 where
-    Space: FungeSpace<i64>,
-    Space::Output: FungeValue,
+    T: FungeValue,
+    Space: FungeSpace<T> + Index<T, Output = T>,
 {
-    fn new_ip() -> InstructionPointer<i64, Space> {
-        let mut instance = InstructionPointer::<i64, Space> {
-            location: 0,
-            delta: 1,
-            storage_offset: 0,
+    fn new_ip() -> InstructionPointer<T, Space> {
+        let mut instance = InstructionPointer::<T, Space> {
+            location: 0.into(),
+            delta: 1.into(),
+            storage_offset: 0.into(),
             stack_stack: LinkedList::new(),
             instructions: InstructionSet::new(),
             private_data: HashMap::new(),

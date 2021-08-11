@@ -20,11 +20,61 @@ pub mod fungespace;
 pub mod interpreter;
 pub mod ip;
 
+use std::hash::Hash;
+
+use divrem::{DivEuclid, DivRemEuclid, RemEuclid};
+
 pub use crate::fungespace::{
     bfvec, read_befunge, read_befunge_bin, read_unefunge, read_unefunge_bin, BefungeVec,
-    FungeSpace, PagedFungeSpace,
+    FungeSpace, FungeValue, PagedFungeSpace,
 };
 pub use crate::interpreter::{
     IOMode, InstructionResult, Interpreter, InterpreterEnvironment, ProgramResult,
 };
 pub use crate::ip::InstructionPointer;
+
+/// Create a new Unefunge interpreter using the default implementation and
+/// parameters.
+///
+/// `T` is the type of a unefunge cell (probably either `i32` or `i64`)
+///
+/// The environment, env, is where you pass IO functions and interpreter
+/// settings.
+///
+/// After creating the interpreter, you can fill fungespace with
+/// [read_unefunge] or [read_unefunge_bin].
+pub fn new_unefunge_interpreter<T>(
+    env: InterpreterEnvironment,
+) -> Interpreter<T, PagedFungeSpace<T, T>>
+where
+    T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
+{
+    Interpreter {
+        ips: vec![InstructionPointer::new()],
+        space: PagedFungeSpace::<T, T>::new_with_page_size(1000.into()),
+        env: env,
+    }
+}
+
+/// Create a new Unefunge interpreter using the default implementation and
+/// parameters.
+///
+/// `T` is the type of a unefunge cell (probably either `i32` or `i64`)
+///
+/// The environment, env, is where you pass IO functions and interpreter
+/// settings.
+///
+/// After creating the interpreter, you can fill fungespace with
+/// [read_befunge] or [read_befunge_bin].
+pub fn new_befunge_interpreter<T>(
+    env: InterpreterEnvironment,
+) -> Interpreter<BefungeVec<T>, PagedFungeSpace<BefungeVec<T>, T>>
+where
+    T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
+{
+    Interpreter {
+        ips: vec![InstructionPointer::new()],
+        space: PagedFungeSpace::<BefungeVec<T>, T>::new_with_page_size(bfvec(80.into(), 25.into())),
+        env: env,
+    }
+}
