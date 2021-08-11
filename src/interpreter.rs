@@ -25,7 +25,7 @@ use super::fungespace::index::{bfvec, BefungeVec};
 use super::fungespace::{FungeIndex, FungeSpace, FungeValue};
 use super::ip::{InstructionMode, InstructionPointer};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstructionResult {
     Continue,
     StayPut,
@@ -34,13 +34,13 @@ pub enum InstructionResult {
     Panic,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramResult {
     Ok,
     Panic,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IOMode {
     Text,
     Binary,
@@ -56,29 +56,40 @@ where
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self;
 }
 
-pub struct Interpreter<Idx, Space>
+pub struct Interpreter<Idx, Space, Rd, Wr, Wf>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Rd: Read,
+    Wr: Write,
+    Wf: FnMut(&str),
 {
     pub ips: Vec<InstructionPointer<Idx, Space>>,
     pub space: Space,
-    pub env: InterpreterEnvironment,
+    pub env: InterpreterEnvironment<Rd, Wr, Wf>,
 }
 
-pub struct InterpreterEnvironment {
-    pub output: Box<dyn Write>,
-    pub input: Option<Box<dyn Read>>,
-    pub warn: Option<Box<dyn FnMut(&str)>>,
+pub struct InterpreterEnvironment<Rd, Wr, Wf>
+where
+    Rd: Read,
+    Wr: Write,
+    Wf: FnMut(&str),
+{
+    pub input: Rd,
+    pub output: Wr,
+    pub warn: Wf,
     pub io_mode: IOMode,
 }
 
-impl<Idx, Space> Interpreter<Idx, Space>
+impl<Idx, Space, Rd, Wr, Wf> Interpreter<Idx, Space, Rd, Wr, Wf>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Rd: Read,
+    Wr: Write,
+    Wf: FnMut(&str),
 {
     pub fn run(&mut self) -> ProgramResult {
         let ip_idx = self.ips.len() - 1;
@@ -139,6 +150,13 @@ where
                 ip.pop();
                 InstructionResult::Continue
             }
+            Some('\\') => {
+                let a = ip.pop();
+                let b = ip.pop();
+                ip.push(a);
+                ip.push(b);
+                InstructionResult::Continue
+            }
             Some(':') => {
                 let n = ip.pop();
                 ip.push(n);
@@ -157,6 +175,12 @@ where
                 ip.instructions.mode = InstructionMode::String;
                 ip.location = ip.location + ip.delta;
                 InstructionResult::StayPut
+            }
+            Some('\'') => {
+                let (loc, v) = self.space.move_by(ip.location, ip.delta);
+                ip.push(*v);
+                ip.location = loc;
+                InstructionResult::Continue
             }
             Some('.') => {
                 if write!(self.env.output, "{} ", ip.pop()).is_err() {
@@ -201,7 +225,7 @@ where
             Some('/') => {
                 let b = ip.pop();
                 let a = ip.pop();
-                ip.push(a / b);
+                ip.push(if b != 0.into() { a / b } else { 0.into() });
                 InstructionResult::Continue
             }
             Some('%') => {
@@ -211,8 +235,8 @@ where
                 InstructionResult::Continue
             }
             Some('j') => {
-                ip.location = ip.location + MotionCmds::pop_vector(ip);
-                InstructionResult::StayPut
+                ip.location = ip.location + ip.delta * ip.pop();
+                InstructionResult::Continue
             }
             Some('x') => {
                 ip.delta = MotionCmds::pop_vector(ip);
@@ -265,9 +289,7 @@ where
     }
 
     fn warn(&mut self, msg: &str) {
-        if let Some(warn_f) = &mut self.env.warn {
-            warn_f(msg)
-        }
+        (self.env.warn)(msg)
     }
 }
 
