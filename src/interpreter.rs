@@ -16,14 +16,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::fungespace::index::{bfvec, BefungeVec64};
-use super::fungespace::{FungeIndex, FungeSpace};
+use super::fungespace::index::{bfvec, BefungeVec};
+use super::fungespace::{FungeIndex, FungeSpace, FungeValue};
 use super::ip::{InstructionMode, InstructionPointer};
 use num::ToPrimitive;
-use std::fmt::Display;
 use std::io;
 use std::io::Write;
-use std::ops::{Add, Div, Mul, Rem, Sub};
+use std::ops::{Add, Mul};
 
 #[derive(Debug, Clone)]
 pub enum InstructionResult {
@@ -40,10 +39,11 @@ pub enum ProgramResult {
     Panic,
 }
 
-pub trait MotionCmds<Space>: FungeIndex + Add<Output = Self> + Mul<i64, Output = Self>
+pub trait MotionCmds<Space>:
+    FungeIndex + Add<Output = Self> + Mul<Space::Output, Output = Self>
 where
     Space: FungeSpace<Self>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool;
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self;
@@ -53,15 +53,7 @@ pub struct Interpreter<Idx, Space>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32>
-        + ToPrimitive
-        + Add<Output = Space::Output>
-        + Sub<Output = Space::Output>
-        + Mul<Output = Space::Output>
-        + Div<Output = Space::Output>
-        + Rem<Output = Space::Output>
-        + Copy
-        + Display,
+    Space::Output: FungeValue,
 {
     pub ips: Vec<InstructionPointer<Idx, Space>>,
     pub space: Space,
@@ -71,15 +63,7 @@ impl<Idx, Space> Interpreter<Idx, Space>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32>
-        + ToPrimitive
-        + Add<Output = Space::Output>
-        + Sub<Output = Space::Output>
-        + Mul<Output = Space::Output>
-        + Div<Output = Space::Output>
-        + Rem<Output = Space::Output>
-        + Copy
-        + Display,
+    Space::Output: FungeValue,
 {
     pub fn run(&mut self) -> ProgramResult {
         let last_ip_idx = self.ips.len() - 1;
@@ -211,7 +195,7 @@ where
                 InstructionResult::Continue
             }
             Some('r') => {
-                ip.delta = ip.delta * (-1);
+                ip.delta = ip.delta * (-1).into();
                 InstructionResult::Continue
             }
             Some('z') => InstructionResult::Continue,
@@ -221,14 +205,14 @@ where
                 } else {
                     // reflect
                     eprintln!("Unknown instruction: '{}'", c);
-                    ip.delta = ip.delta * (-1);
+                    ip.delta = ip.delta * (-1).into();
                     InstructionResult::Continue
                 }
             }
             None => {
                 // reflect
                 eprintln!("Unknown non-Unicode instruction!");
-                ip.delta = ip.delta * (-1);
+                ip.delta = ip.delta * (-1).into();
                 InstructionResult::Continue
             }
         }
@@ -261,19 +245,19 @@ where
 }
 
 // Unefunge implementation of MotionCmds
-impl<Space> MotionCmds<Space> for i64
+impl<T, Space> MotionCmds<Space> for T
 where
-    Space: FungeSpace<Self>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    T: FungeValue,
+    Space: FungeSpace<Self, Output = T>,
 {
     fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool {
         match instruction {
             '>' => {
-                ip.delta = 1;
+                ip.delta = T::from(1);
                 true
             }
             '<' => {
-                ip.delta = -1;
+                ip.delta = T::from(-1);
                 true
             }
             _ => false,
@@ -281,32 +265,32 @@ where
     }
 
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self {
-        ip.pop().to_i64().or(Some(0)).unwrap()
+        ip.pop()
     }
 }
 
 // Befunge implementation of MotionCmds
-impl<Space> MotionCmds<Space> for BefungeVec64
+impl<T, Space> MotionCmds<Space> for BefungeVec<T>
 where
-    Space: FungeSpace<Self>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space: FungeSpace<Self, Output = T>,
+    T: FungeValue,
 {
     fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool {
         match instruction {
             '>' => {
-                ip.delta = bfvec(1, 0);
+                ip.delta = bfvec(1.into(), 0.into());
                 true
             }
             '<' => {
-                ip.delta = bfvec(-1, 0);
+                ip.delta = bfvec((-1).into(), 0.into());
                 true
             }
             '^' => {
-                ip.delta = bfvec(0, -1);
+                ip.delta = bfvec(0.into(), (-1).into());
                 true
             }
             'v' => {
-                ip.delta = bfvec(0, 1);
+                ip.delta = bfvec(0.into(), 1.into());
                 true
             }
             ']' => {
@@ -322,8 +306,8 @@ where
     }
 
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self {
-        let y = ip.pop().to_i64().or(Some(0)).unwrap();
-        let x = ip.pop().to_i64().or(Some(0)).unwrap();
+        let y = ip.pop();
+        let x = ip.pop();
         return bfvec(x, y);
     }
 }

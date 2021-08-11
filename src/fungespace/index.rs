@@ -21,13 +21,16 @@ use std::cmp::{max, min};
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
-use super::{FungeArrayIdx, FungeIndex};
+use super::{FungeArrayIdx, FungeIndex, FungeValue};
 
 // ----------------------------------------------------------------------
 // Implementation of funge index traits for i64 (Unefunge)
 // ----------------------------------------------------------------------
 
-impl FungeIndex for i64 {
+impl<T> FungeIndex for T
+where
+    T: FungeValue,
+{
     fn joint_min(&self, other: &Self) -> Self {
         min(*self, *other)
     }
@@ -37,17 +40,20 @@ impl FungeIndex for i64 {
     }
 }
 
-impl FungeArrayIdx for i64 {
+impl<T> FungeArrayIdx for T
+where
+    T: FungeValue + RemEuclid,
+{
     fn to_lin_index(&self, array_size: &Self) -> usize {
-        self.rem_euclid(array_size) as usize
+        self.rem_euclid(*array_size).to_usize().unwrap()
     }
 
     fn from_lin_index(lin_idx: usize, _array_size: &Self) -> Self {
-        lin_idx as i64
+        T::from_usize(lin_idx).unwrap()
     }
 
     fn lin_size(&self) -> usize {
-        (*self) as usize
+        self.to_usize().unwrap()
     }
 }
 
@@ -57,23 +63,35 @@ impl FungeArrayIdx for i64 {
 
 /// A Befunge index
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BefungeVec64 {
-    pub x: i64,
-    pub y: i64,
+pub struct BefungeVec<T>
+where
+    T: FungeValue,
+{
+    pub x: T,
+    pub y: T,
 }
 
-/// Convenience function to create a [BefungeVec64]
-pub fn bfvec(x: i64, y: i64) -> BefungeVec64 {
-    BefungeVec64 { x: x, y: y }
+/// Convenience function to create a [BefungeVec]
+pub fn bfvec<T>(x: T, y: T) -> BefungeVec<T>
+where
+    T: FungeValue,
+{
+    BefungeVec::<T> { x: x, y: y }
 }
 
-impl Display for BefungeVec64 {
+impl<T> Display for BefungeVec<T>
+where
+    T: FungeValue,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
     }
 }
 
-impl Add for BefungeVec64 {
+impl<T> Add for BefungeVec<T>
+where
+    T: FungeValue,
+{
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
         Self {
@@ -83,7 +101,10 @@ impl Add for BefungeVec64 {
     }
 }
 
-impl Sub for BefungeVec64 {
+impl<T> Sub for BefungeVec<T>
+where
+    T: FungeValue,
+{
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
         Self {
@@ -93,9 +114,12 @@ impl Sub for BefungeVec64 {
     }
 }
 
-impl Mul<i64> for BefungeVec64 {
+impl<T> Mul<T> for BefungeVec<T>
+where
+    T: FungeValue,
+{
     type Output = Self;
-    fn mul(self, rhs: i64) -> Self {
+    fn mul(self, rhs: T) -> Self {
         Self {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -103,7 +127,10 @@ impl Mul<i64> for BefungeVec64 {
     }
 }
 
-impl Mul for BefungeVec64 {
+impl<T> Mul for BefungeVec<T>
+where
+    T: FungeValue,
+{
     type Output = Self;
     fn mul(self, rhs: Self) -> Self {
         Self {
@@ -113,7 +140,10 @@ impl Mul for BefungeVec64 {
     }
 }
 
-impl Div for BefungeVec64 {
+impl<T> Div for BefungeVec<T>
+where
+    T: FungeValue,
+{
     type Output = Self;
     fn div(self, rhs: Self) -> Self {
         Self {
@@ -123,7 +153,10 @@ impl Div for BefungeVec64 {
     }
 }
 
-impl Rem for BefungeVec64 {
+impl<T> Rem for BefungeVec<T>
+where
+    T: FungeValue,
+{
     type Output = Self;
     fn rem(self, rhs: Self) -> Self {
         Self {
@@ -133,7 +166,10 @@ impl Rem for BefungeVec64 {
     }
 }
 
-impl DivRem for BefungeVec64 {
+impl<T> DivRem for BefungeVec<T>
+where
+    T: FungeValue,
+{
     type Output = (Self, Self);
     fn div_rem(self, rhs: Self) -> (Self, Self) {
         let (x_d, x_r) = self.x.div_rem(rhs.x);
@@ -142,7 +178,10 @@ impl DivRem for BefungeVec64 {
     }
 }
 
-impl DivEuclid for BefungeVec64 {
+impl<T> DivEuclid for BefungeVec<T>
+where
+    T: FungeValue + DivEuclid,
+{
     fn div_euclid(self, rhs: Self) -> Self {
         Self {
             x: self.x.div_euclid(rhs.x),
@@ -151,7 +190,10 @@ impl DivEuclid for BefungeVec64 {
     }
 }
 
-impl RemEuclid for BefungeVec64 {
+impl<T> RemEuclid for BefungeVec<T>
+where
+    T: FungeValue + RemEuclid,
+{
     fn rem_euclid(self, rhs: Self) -> Self {
         Self {
             x: self.x.rem_euclid(rhs.x),
@@ -160,7 +202,10 @@ impl RemEuclid for BefungeVec64 {
     }
 }
 
-impl DivRemEuclid for BefungeVec64 {
+impl<T> DivRemEuclid for BefungeVec<T>
+where
+    T: FungeValue + DivRemEuclid,
+{
     fn div_rem_euclid(self, rhs: Self) -> (Self, Self) {
         let (x_d, x_r) = self.x.div_rem_euclid(rhs.x);
         let (y_d, y_r) = self.y.div_rem_euclid(rhs.y);
@@ -168,7 +213,10 @@ impl DivRemEuclid for BefungeVec64 {
     }
 }
 
-impl FungeIndex for BefungeVec64 {
+impl<T> FungeIndex for BefungeVec<T>
+where
+    T: FungeValue,
+{
     fn joint_min(&self, other: &Self) -> Self {
         Self {
             x: min(self.x, other.x),
@@ -184,22 +232,25 @@ impl FungeIndex for BefungeVec64 {
     }
 }
 
-impl FungeArrayIdx for BefungeVec64 {
+impl<T> FungeArrayIdx for BefungeVec<T>
+where
+    T: FungeValue + RemEuclid,
+{
     fn to_lin_index(&self, array_size: &Self) -> usize {
         let trunc = self.rem_euclid(*array_size);
-        (trunc.x + trunc.y * array_size.x) as usize
+        (trunc.x + trunc.y * array_size.x).to_usize().unwrap()
     }
 
     fn from_lin_index(lin_idx: usize, array_size: &Self) -> Self {
-        let (y, x) = lin_idx.div_rem(array_size.x as usize);
+        let (y, x) = lin_idx.div_rem(array_size.x.to_usize().unwrap());
         Self {
-            x: x as i64,
-            y: y as i64,
+            x: T::from_usize(x).unwrap(),
+            y: T::from_usize(y).unwrap(),
         }
     }
 
     fn lin_size(&self) -> usize {
-        return (self.x * self.y) as usize;
+        return (self.x * self.y).to_usize().unwrap();
     }
 }
 
@@ -254,7 +305,7 @@ mod tests {
     #[test]
     fn test_2d_arraymethods() {
         assert_eq!(bfvec(5, 3).to_lin_index(&bfvec(10, 10)), 35);
-        assert_eq!(BefungeVec64::from_lin_index(13, &bfvec(6, 10)), bfvec(1, 2));
+        assert_eq!(BefungeVec::from_lin_index(13, &bfvec(6, 10)), bfvec(1, 2));
         assert_eq!(bfvec(13, 5).lin_size(), 65);
     }
 }

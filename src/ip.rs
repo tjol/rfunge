@@ -16,8 +16,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::fungespace::index::{bfvec, BefungeVec64};
-use super::fungespace::{FungeIndex, FungeSpace};
+use super::fungespace::index::{bfvec, BefungeVec};
+use super::fungespace::{FungeIndex, FungeSpace, FungeValue};
 use super::interpreter::InstructionResult;
 use num::ToPrimitive;
 use std::any::Any;
@@ -77,16 +77,16 @@ where
     }
 }
 
-impl<Space> CreateInstructionPointer<Space> for BefungeVec64
+impl<T, Space> CreateInstructionPointer<Space> for BefungeVec<T>
 where
-    Space: FungeSpace<BefungeVec64>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    T: FungeValue,
+    Space: FungeSpace<BefungeVec<T>, Output = T>,
 {
-    fn new_ip() -> InstructionPointer<BefungeVec64, Space> {
-        let mut instance = InstructionPointer::<BefungeVec64, Space> {
-            location: bfvec(0, 0),
-            delta: bfvec(1, 0),
-            storage_offset: bfvec(0, 0),
+    fn new_ip() -> InstructionPointer<BefungeVec<T>, Space> {
+        let mut instance = InstructionPointer::<BefungeVec<T>, Space> {
+            location: bfvec(0.into(), 0.into()),
+            delta: bfvec(1.into(), 0.into()),
+            storage_offset: bfvec(0.into(), 0.into()),
             stack_stack: LinkedList::new(),
             instructions: InstructionSet::new(),
             private_data: HashMap::new(),
@@ -145,7 +145,7 @@ type InstructionLayer<Idx, Space> = Vec<Option<Instruction<Idx, Space>>>;
 #[derive(Debug, Clone)]
 pub enum InstructionMode {
     Normal,
-    String
+    String,
 }
 
 /// Struct encapulating the dynamic instructions loaded for an IP
@@ -186,7 +186,10 @@ where
         let mut layers = Vec::new();
         layers.push(instruction_vec);
 
-        Self { mode: InstructionMode::Normal, layers: layers }
+        Self {
+            mode: InstructionMode::Normal,
+            layers: layers,
+        }
     }
 
     /// Get the function associated with a given character, if any
@@ -213,13 +216,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::fungespace::index::BefungeVec64;
     use super::super::fungespace::paged::PagedFungeSpace;
     use super::*;
 
     #[test]
     fn test_stack() {
-        let mut ip = InstructionPointer::<BefungeVec64, PagedFungeSpace<BefungeVec64, i64>>::new();
+        let mut ip =
+            InstructionPointer::<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>::new();
 
         assert_eq!(ip.pop(), 0);
         ip.push(1);
@@ -241,8 +244,9 @@ mod tests {
 
     #[test]
     fn test_instruction_layers() {
-        type Instr = Instruction<BefungeVec64, PagedFungeSpace<BefungeVec64, i64>>;
-        let mut is = InstructionSet::<BefungeVec64, PagedFungeSpace<BefungeVec64, i64>>::new();
+        type Instr = Instruction<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>;
+        let mut is =
+            InstructionSet::<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>::new();
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), None));
         assert!(matches!(is.get_instruction('3' as i64), None));
@@ -260,8 +264,8 @@ mod tests {
     }
 
     fn nop_for_test(
-        _ip: &mut InstructionPointer<BefungeVec64, PagedFungeSpace<BefungeVec64, i64>>,
-        _sp: &mut PagedFungeSpace<BefungeVec64, i64>,
+        _ip: &mut InstructionPointer<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>,
+        _sp: &mut PagedFungeSpace<BefungeVec<i64>, i64>,
     ) -> InstructionResult {
         InstructionResult::Continue
     }

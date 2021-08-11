@@ -18,7 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use rfunge::{InstructionPointer, Interpreter, PagedFungeSpace};
 //use rfunge::read_unefunge;
-use rfunge::{bfvec, read_befunge, BefungeVec64};
+use rfunge::{bfvec, read_befunge, BefungeVec};
 
 fn main() {
     let argv: Vec<String> = std::env::args().collect();
@@ -38,7 +38,7 @@ fn main() {
     // Set up the interpreter
     let mut interpreter = Interpreter {
         ips: vec![InstructionPointer::new()],
-        space: PagedFungeSpace::<BefungeVec64, i64>::new_with_page_size(bfvec(80, 25)),
+        space: PagedFungeSpace::<BefungeVec<i64>, i64>::new_with_page_size(bfvec(80, 25)),
     };
 
     read_befunge(&mut interpreter.space, &src);

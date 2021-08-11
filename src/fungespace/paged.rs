@@ -16,17 +16,17 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use divrem::{DivEuclid, DivRem, DivRemEuclid};
+use divrem::{DivEuclid, DivRem, DivRemEuclid, RemEuclid};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{Add, Div, Index, IndexMut, Mul};
 
-use super::index::BefungeVec64;
-use super::{FungeArrayIdx, FungeSpace};
+use super::index::BefungeVec;
+use super::{FungeArrayIdx, FungeSpace, FungeValue};
 
 /// Trait required for indices when used with [PagedFungeSpace]
-pub trait PageSpaceVector:
-    Mul<i64, Output = Self>
+pub trait PageSpaceVector<T>:
+    Mul<T, Output = Self>
     + FungeArrayIdx
     + Div<Output = Self>
     + DivEuclid
@@ -35,6 +35,8 @@ pub trait PageSpaceVector:
     + Add<Output = Self>
     + Mul<Output = Self>
     + Hash
+where
+    T: FungeValue,
 {
     /// Return `Some(n)`, where `n` is the smallest integer such that
     /// `self + n * delta` lies within the line segment (unefunge),
@@ -43,15 +45,15 @@ pub trait PageSpaceVector:
     ///
     /// If there is no such point (becuase the line defined `self + n * delta`
     /// doesn't pass through the region indicated), return `None`.
-    fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<i64>;
+    fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<T>;
 }
 
 /// Implementation of funge space that stores fixed-size segments of funge-space
 /// as arrays.
 pub struct PagedFungeSpace<Idx, Elem>
 where
-    Idx: PageSpaceVector,
-    Elem: From<i32> + Copy,
+    Idx: PageSpaceVector<Elem>,
+    Elem: FungeValue,
 {
     page_size: Idx,
     pages: HashMap<Idx, Vec<Elem>>,
@@ -60,8 +62,8 @@ where
 
 impl<Idx, Elem> PagedFungeSpace<Idx, Elem>
 where
-    Idx: PageSpaceVector,
-    Elem: From<i32> + Copy,
+    Idx: PageSpaceVector<Elem>,
+    Elem: FungeValue,
 {
     pub fn new_with_page_size(page_size: Idx) -> Self {
         Self {
@@ -74,8 +76,8 @@ where
 
 impl<Idx, Elem> Index<Idx> for PagedFungeSpace<Idx, Elem>
 where
-    Idx: PageSpaceVector,
-    Elem: From<i32> + Copy,
+    Idx: PageSpaceVector<Elem>,
+    Elem: FungeValue,
 {
     type Output = Elem;
     fn index(&self, idx: Idx) -> &Elem {
@@ -90,8 +92,8 @@ where
 
 impl<Idx, Elem> IndexMut<Idx> for PagedFungeSpace<Idx, Elem>
 where
-    Idx: PageSpaceVector,
-    Elem: From<i32> + Copy,
+    Idx: PageSpaceVector<Elem>,
+    Elem: FungeValue,
 {
     fn index_mut(&mut self, idx: Idx) -> &mut Elem {
         let (page_idx, idx_in_page) = idx.div_rem_euclid(self.page_size);
@@ -108,8 +110,8 @@ where
 
 impl<Idx, Elem> FungeSpace<Idx> for PagedFungeSpace<Idx, Elem>
 where
-    Idx: PageSpaceVector,
-    Elem: From<i32> + Copy + Eq,
+    Idx: PageSpaceVector<Elem>,
+    Elem: FungeValue,
 {
     fn move_by(&self, start: Idx, delta: Idx) -> (Idx, &Elem) {
         let mut idx = start + delta;
@@ -129,7 +131,7 @@ where
         }
 
         // We've hit the edge, time for some maths
-        let mut page_dists: Vec<(Idx, i64)> = self
+        let mut page_dists: Vec<(Idx, Elem)> = self
             .pages
             .keys()
             .filter_map(|k| {
@@ -149,7 +151,7 @@ where
         // Are there any pages further than the one we last checked?
         let pages_ahead = page_dists.iter().filter(|(_, d)| *d > cur_dist);
         // Are there any further back? -- there must be
-        let pages_astern = page_dists.iter().filter(|(_, d)| *d <= 0);
+        let pages_astern = page_dists.iter().filter(|(_, d)| *d <= 0.into());
         let distant_pages = pages_ahead.chain(pages_astern);
 
         for (target_page_idx, dist) in distant_pages {
@@ -201,22 +203,25 @@ where
     }
 }
 
-impl PageSpaceVector for i64 {
-    fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<i64> {
-        if *delta > 0 {
-            let (dist, rem) = (*start - *self).div_rem_euclid(delta);
+impl<T> PageSpaceVector<T> for T
+where
+    T: FungeValue + Hash + DivEuclid + RemEuclid + DivRemEuclid,
+{
+    fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<T> {
+        if *delta > 0.into() {
+            let (dist, rem) = (*start - *self).div_rem_euclid(*delta);
 
-            if rem == 0 {
+            if rem == 0.into() {
                 Some(dist)
-            } else if self + (dist + 1) * delta < start + size {
-                Some(dist + 1)
+            } else if (*self) + (dist + 1.into()) * (*delta) < ((*start) + (*size)) {
+                Some(dist + 1.into())
             } else {
                 None
             }
-        } else if *delta < 0 {
-            let dist = (*start + *size - 1 - *self).div_euclid(*delta);
+        } else if *delta < 0.into() {
+            let dist = ((*start) + (*size) - 1.into() - (*self)).div_euclid(*delta);
 
-            if self + dist * delta >= *start {
+            if (*self) + dist * (*delta) >= (*start) {
                 Some(dist)
             } else {
                 None
@@ -227,17 +232,21 @@ impl PageSpaceVector for i64 {
     }
 }
 
-impl PageSpaceVector for BefungeVec64 {
-    fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<i64> {
+impl<T> PageSpaceVector<T> for BefungeVec<T>
+where
+    T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
+{
+    fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<T> {
         // If the top-left corner and the bottom-right corner of the region
         // are on opposite sides of the line, we might have a hit.
         let rel_topleft = *start - *self;
         let rel_bottomright = (*start + *size) - *self;
         let cross_tl = rel_topleft.x * delta.y - delta.x * rel_topleft.y;
         let cross_br = rel_bottomright.x * delta.y - delta.x * rel_bottomright.y;
-        if cross_tl.signum() != cross_br.signum() || (cross_tl == 0 && cross_br == 0) {
+        if cross_tl.signum() != cross_br.signum() || (cross_tl == 0.into() && cross_br == 0.into())
+        {
             // The line crosses our region. Is there a "stop"?
-            if delta.x == 0 {
+            if delta.x == 0.into() {
                 return self.y.dist_of_region(&delta.y, &start.y, &size.y);
             } else {
                 let mut dist = self.x.dist_of_region(&delta.x, &start.x, &size.x)?;
@@ -245,7 +254,7 @@ impl PageSpaceVector for BefungeVec64 {
 
                 // Make sure Y in in bounds
                 while first_pos.y < start.y || first_pos.y >= start.y + size.y {
-                    dist += 1;
+                    dist += 1.into();
                     first_pos = *self + *delta * dist;
                     if first_pos.x >= start.x + size.x {
                         // Oops, we overshot
@@ -263,7 +272,7 @@ impl PageSpaceVector for BefungeVec64 {
 
 #[cfg(test)]
 mod tests {
-    use super::super::index::{bfvec, BefungeVec64};
+    use super::super::index::{bfvec, BefungeVec};
     use super::super::tests as gen_tests;
     use super::*;
 
@@ -275,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_befunge_motion() {
-        let mut space = PagedFungeSpace::<BefungeVec64, i64>::new_with_page_size(bfvec(80, 25));
+        let mut space = PagedFungeSpace::<BefungeVec<i64>, i64>::new_with_page_size(bfvec(80, 25));
         gen_tests::test_befunge_motion(&mut space);
     }
 }

@@ -19,9 +19,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 pub mod index;
 pub mod paged;
 
-use std::ops::{Index, IndexMut};
+use divrem::DivRem;
+use num::{FromPrimitive, Signed, ToPrimitive};
+use std::fmt::{Debug, Display};
+use std::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Rem, RemAssign, Sub,
+    SubAssign,
+};
 
-pub use self::index::{bfvec, BefungeVec64};
+pub use self::index::{bfvec, BefungeVec};
 pub use self::paged::PagedFungeSpace;
 
 /// Generic index into funge space. Specific implementations of funge-space
@@ -86,17 +92,58 @@ pub trait FungeArrayIdx: FungeIndex {
     fn from_lin_index(lin_idx: usize, array_size: &Self) -> Self;
 }
 
+/// A value that can live in funge space
+pub trait FungeValue:
+    From<i32>
+    + ToPrimitive
+    + FromPrimitive
+    + Signed
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Mul<Output = Self>
+    + Div<Output = Self>
+    + Rem<Output = Self>
+    + Neg
+    + AddAssign
+    + SubAssign
+    + MulAssign
+    + DivAssign
+    + RemAssign
+    + DivRem<Output = (Self, Self)>
+    + Ord
+    + Eq
+    + Copy
+    + Display
+    + Debug
+{
+    /// Return the value as a character, if the unicode code point exists
+    fn try_to_char(&self) -> Option<char> {
+        self.to_u32().and_then(char::from_u32)
+    }
+    /// Return the value as a character, or U+FFFD �
+    fn to_char(&self) -> char {
+        match self.try_to_char() {
+            Some(c) => c,
+            None => '�',
+        }
+    }
+}
+
+impl FungeValue for i32 {}
+impl FungeValue for i64 {}
+impl FungeValue for i128 {}
+
 /// Read a string into a befunge space
-pub fn read_unefunge<FungeSpaceT>(space: &mut FungeSpaceT, src: &str)
+pub fn read_unefunge<T, FungeSpaceT>(space: &mut FungeSpaceT, src: &str)
 where
-    FungeSpaceT: FungeSpace<i64>,
-    <FungeSpaceT as Index<i64>>::Output: From<i32>,
+    T: FungeValue + FungeIndex,
+    FungeSpaceT: FungeSpace<T> + Index<T, Output = T>,
 {
     let mut i = 0;
     for line in src.lines() {
         for c in line.chars() {
             if c != ' ' {
-                space[i] = (c as i32).into();
+                space[i.into()] = (c as i32).into();
             }
             i += 1;
         }
@@ -104,15 +151,16 @@ where
 }
 
 /// Read a string into a befunge space
-pub fn read_befunge<FungeSpaceT>(space: &mut FungeSpaceT, src: &str)
+pub fn read_befunge<T, FungeSpaceT>(space: &mut FungeSpaceT, src: &str)
 where
-    FungeSpaceT: FungeSpace<BefungeVec64>,
-    <FungeSpaceT as Index<BefungeVec64>>::Output: From<i32>,
+    T: FungeValue,
+    FungeSpaceT: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
 {
     for (y, line) in src.lines().enumerate() {
         for (x, c) in line.chars().enumerate() {
             if c != ' ' {
-                space[bfvec(x as i64, y as i64)] = (c as i32).into();
+                space[bfvec(T::from_usize(x).unwrap(), T::from_usize(y).unwrap())] =
+                    (c as i32).into();
             }
         }
     }
@@ -121,68 +169,76 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Debug;
 
     // Generic tests for implementors to call
-    pub fn test_unefunge_motion<FungeSpaceT, Elem>(space: &mut FungeSpaceT)
+    pub fn test_unefunge_motion<T, FungeSpaceT>(space: &mut FungeSpaceT)
     where
-        FungeSpaceT: FungeSpace<i64> + Index<i64, Output = Elem>,
-        Elem: From<i32> + Eq + Copy + Debug,
+        T: FungeValue + FungeIndex,
+        FungeSpaceT: FungeSpace<T> + Index<T, Output = T>,
     {
         read_unefunge(space, "   3      a  d  ");
-        assert_eq!(space[3], Elem::from('3' as i32));
-        assert_eq!(space.move_by(3, 1), (10, &Elem::from('a' as i32)));
-        assert_eq!(space.move_by(3, -1), (13, &Elem::from('d' as i32)));
-        assert_eq!(space.move_by(10, -3), (13, &Elem::from('d' as i32)));
+        assert_eq!(space[3.into()], T::from('3' as i32));
+        assert_eq!(
+            space.move_by(3.into(), 1.into()),
+            (10.into(), &T::from('a' as i32))
+        );
+        assert_eq!(
+            space.move_by(3.into(), (-1).into()),
+            (13.into(), &T::from('d' as i32))
+        );
+        assert_eq!(
+            space.move_by(10.into(), (-3).into()),
+            (13.into(), &T::from('d' as i32))
+        );
     }
 
-    pub fn test_befunge_motion<FungeSpaceT, Elem>(space: &mut FungeSpaceT)
+    pub fn test_befunge_motion<T, FungeSpaceT>(space: &mut FungeSpaceT)
     where
-        FungeSpaceT: FungeSpace<BefungeVec64> + Index<BefungeVec64, Output = Elem>,
-        Elem: From<i32> + Eq + Copy + Debug,
+        T: FungeValue,
+        FungeSpaceT: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
     {
         read_befunge(space, "1   5  8\n\n  a b    c\r\n A");
 
-        assert_eq!(space[bfvec(2, 2)], Elem::from('a' as i32));
+        assert_eq!(space[bfvec(2.into(), 2.into())], T::from('a' as i32));
         assert_eq!(
-            space.move_by(bfvec(2, 2), bfvec(1, 1)),
-            (bfvec(0, 0), &Elem::from('1' as i32))
+            space.move_by(bfvec(2.into(), 2.into()), bfvec(1.into(), 1.into())),
+            (bfvec(0.into(), 0.into()), &T::from('1' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(2, 2), bfvec(-3, -3)),
-            (bfvec(2, 2), &Elem::from('a' as i32))
+            space.move_by(bfvec(2.into(), 2.into()), bfvec((-3).into(), (-3).into())),
+            (bfvec(2.into(), 2.into()), &T::from('a' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(0, 0), bfvec(-2, 0)),
-            (bfvec(4, 0), &Elem::from('5' as i32))
+            space.move_by(bfvec(0.into(), 0.into()), bfvec((-2).into(), 0.into())),
+            (bfvec(4.into(), 0.into()), &T::from('5' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(4, 0), bfvec(0, 1)),
-            (bfvec(4, 2), &Elem::from('b' as i32))
+            space.move_by(bfvec(4.into(), 0.into()), bfvec(0.into(), 1.into())),
+            (bfvec(4.into(), 2.into()), &T::from('b' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(7, 0), bfvec(2, -1)),
-            (bfvec(1, 3), &Elem::from('A' as i32))
+            space.move_by(bfvec(7.into(), 0.into()), bfvec(2.into(), (-1).into())),
+            (bfvec(1.into(), 3.into()), &T::from('A' as i32))
         );
 
         // Try something very far away
-        space[bfvec(32000, 8000)] = Elem::from('0' as i32);
-        space[bfvec(32000, 2)] = Elem::from('0' as i32);
+        space[bfvec(32000.into(), 8000.into())] = T::from('0' as i32);
+        space[bfvec(32000.into(), 2.into())] = T::from('0' as i32);
         assert_eq!(
-            space.move_by(bfvec(0, 0), bfvec(4, 1)),
-            (bfvec(32000, 8000), &Elem::from('0' as i32))
+            space.move_by(bfvec(0.into(), 0.into()), bfvec(4.into(), 1.into())),
+            (bfvec(32000.into(), 8000.into()), &T::from('0' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(32000, 8000), bfvec(0, 1)),
-            (bfvec(32000, 2), &Elem::from('0' as i32))
+            space.move_by(bfvec(32000.into(), 8000.into()), bfvec(0.into(), 1.into())),
+            (bfvec(32000.into(), 2.into()), &T::from('0' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(32000, 2), bfvec(-1, 0)),
-            (bfvec(9, 2), &Elem::from('c' as i32))
+            space.move_by(bfvec(32000.into(), 2.into()), bfvec((-1).into(), 0.into())),
+            (bfvec(9.into(), 2.into()), &T::from('c' as i32))
         );
 
         // Check the dimensions
-        assert_eq!(space.min_idx(), Some(bfvec(0, 0)));
-        assert_eq!(space.max_idx(), Some(bfvec(32000, 8000)));
+        assert_eq!(space.min_idx(), Some(bfvec(0.into(), 0.into())));
+        assert_eq!(space.max_idx(), Some(bfvec(32000.into(), 8000.into())));
     }
 }
