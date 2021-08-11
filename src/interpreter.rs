@@ -308,6 +308,11 @@ where
             '<' => {
                 ip.delta = T::from(-1);
                 true
+            },
+            '_' => {
+                let p = ip.pop();
+                ip.delta = if p == T::zero() { T::from(1) } else { T::from(-1) };
+                true
             }
             _ => false,
         }
@@ -348,6 +353,16 @@ where
             }
             '[' => {
                 ip.delta = bfvec(ip.delta.y, -ip.delta.x);
+                true
+            },
+            '_' => {
+                let p = ip.pop();
+                ip.delta = if p == T::zero() { bfvec(1.into(), 0.into()) } else { bfvec((-1).into(), 0.into()) };
+                true
+            },
+            '|' => {
+                let p = ip.pop();
+                ip.delta = if p == T::zero() { bfvec(0.into(), 1.into()) } else { bfvec(0.into(), (-1).into()) };
                 true
             }
             _ => false,
