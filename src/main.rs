@@ -16,16 +16,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use rfunge::{InstructionPointer, Interpreter, PagedFungeSpace};
-//use rfunge::read_unefunge;
-use rfunge::{bfvec, read_befunge, BefungeVec};
+use rfunge::{IOMode, InstructionPointer, Interpreter, InterpreterEnvironment, PagedFungeSpace};
+use rfunge::{bfvec, read_befunge_bin, BefungeVec};
 
 fn main() {
     let argv: Vec<String> = std::env::args().collect();
 
     let filename = &argv[1];
 
-    let src = std::fs::read_to_string(filename).unwrap();
+    // let src = std::fs::read_to_string(filename).unwrap();
 
     // // Set up the interpreter
     // let mut interpreter = Interpreter {
@@ -39,9 +38,19 @@ fn main() {
     let mut interpreter = Interpreter {
         ips: vec![InstructionPointer::new()],
         space: PagedFungeSpace::<BefungeVec<i64>, i64>::new_with_page_size(bfvec(80, 25)),
+        env: InterpreterEnvironment {
+            output: Box::new(std::io::stdout()),
+            input: Some(Box::new(std::io::stdin())),
+            warn: Some(Box::new(|s| eprintln!("{}", s))),
+            io_mode: IOMode::Text,
+        },
     };
 
-    read_befunge(&mut interpreter.space, &src);
+    // read_befunge(&mut interpreter.space, &src);
+    {
+        let mut src_file = std::fs::File::open(filename).unwrap();
+        read_befunge_bin(&mut interpreter.space, &mut src_file).unwrap();
+    }
 
     interpreter.run();
 }

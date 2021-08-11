@@ -21,7 +21,10 @@ pub mod interpreter;
 pub mod ip;
 
 pub use crate::fungespace::{
-    bfvec, read_befunge, read_unefunge, BefungeVec, FungeSpace, PagedFungeSpace,
+    bfvec, read_befunge, read_befunge_bin, read_unefunge, read_unefunge_bin, BefungeVec,
+    FungeSpace, PagedFungeSpace,
 };
-pub use crate::interpreter::{InstructionResult, Interpreter, ProgramResult};
+pub use crate::interpreter::{
+    IOMode, InstructionResult, Interpreter, InterpreterEnvironment, ProgramResult,
+};
 pub use crate::ip::InstructionPointer;

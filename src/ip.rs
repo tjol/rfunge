@@ -16,10 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::fungespace::index::{bfvec, BefungeVec};
-use super::fungespace::{FungeIndex, FungeSpace, FungeValue};
-use super::interpreter::InstructionResult;
-use num::ToPrimitive;
+
 use std::any::Any;
 use std::collections::HashMap;
 use std::collections::LinkedList;
@@ -27,13 +24,19 @@ use std::fmt::{Debug, Formatter};
 use std::ops::Add;
 use std::rc::Rc;
 
+use num::ToPrimitive;
+
+use super::fungespace::index::{bfvec, BefungeVec};
+use super::fungespace::{FungeIndex, FungeSpace, FungeValue};
+use super::interpreter::InstructionResult;
+
 /// Struct encapsulating the state of the/an IP
 #[derive(Debug, Clone)]
 pub struct InstructionPointer<Idx, Space>
 where
     Idx: FungeIndex + Add<Output = Idx>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     /// Location of the IP (initial: the origin)
     pub location: Idx,
@@ -53,7 +56,7 @@ where
 pub trait CreateInstructionPointer<Space>: FungeIndex + Add<Output = Self>
 where
     Space: FungeSpace<Self>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     fn new_ip() -> InstructionPointer<Self, Space>;
 }
@@ -61,7 +64,7 @@ where
 impl<Space> CreateInstructionPointer<Space> for i64
 where
     Space: FungeSpace<i64>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     fn new_ip() -> InstructionPointer<i64, Space> {
         let mut instance = InstructionPointer::<i64, Space> {
@@ -100,7 +103,7 @@ impl<Idx, Space> InstructionPointer<Idx, Space>
 where
     Idx: CreateInstructionPointer<Space>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     pub fn new() -> Self {
         Idx::new_ip()
@@ -111,7 +114,7 @@ impl<Idx, Space> InstructionPointer<Idx, Space>
 where
     Idx: FungeIndex + Add<Output = Idx>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     /// Get the top of the stack stack
     pub fn stack(&self) -> &Vec<Space::Output> {
@@ -142,7 +145,7 @@ type Instruction<Idx, Space> =
     fn(&mut InstructionPointer<Idx, Space>, &mut Space) -> InstructionResult;
 type InstructionLayer<Idx, Space> = Vec<Option<Instruction<Idx, Space>>>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum InstructionMode {
     Normal,
     String,
@@ -156,7 +159,7 @@ pub struct InstructionSet<Idx, Space>
 where
     Idx: FungeIndex + Add<Output = Idx>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     pub mode: InstructionMode,
     layers: Vec<InstructionLayer<Idx, Space>>,
@@ -166,7 +169,7 @@ impl<Idx, Space> Debug for InstructionSet<Idx, Space>
 where
     Idx: FungeIndex + Add<Output = Idx>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // Function pointers don't implement Debug, so we need a work around
@@ -178,7 +181,7 @@ impl<Idx, Space> InstructionSet<Idx, Space>
 where
     Idx: FungeIndex + Add<Output = Idx>,
     Space: FungeSpace<Idx>,
-    Space::Output: From<i32> + ToPrimitive + Copy,
+    Space::Output: FungeValue,
 {
     pub fn new() -> Self {
         let mut instruction_vec = Vec::new();

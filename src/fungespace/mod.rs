@@ -19,13 +19,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 pub mod index;
 pub mod paged;
 
-use divrem::DivRem;
-use num::{FromPrimitive, Signed, ToPrimitive};
 use std::fmt::{Debug, Display};
-use std::ops::{
-    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Rem, RemAssign, Sub,
-    SubAssign,
-};
+use std::io;
+use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
+use std::ops::{BitAnd, BitOr, BitXor, Neg, Not};
+use std::ops::{BitAndAssign, BitOrAssign, BitXorAssign};
+use std::ops::{Index, IndexMut};
+
+use divrem::DivRem;
+use num::{FromPrimitive, Num, Signed, ToPrimitive};
 
 pub use self::index::{bfvec, BefungeVec};
 pub use self::paged::PagedFungeSpace;
@@ -94,22 +96,25 @@ pub trait FungeArrayIdx: FungeIndex {
 
 /// A value that can live in funge space
 pub trait FungeValue:
-    From<i32>
+    Num
     + ToPrimitive
     + FromPrimitive
+    + From<i32>
     + Signed
-    + Add<Output = Self>
-    + Sub<Output = Self>
-    + Mul<Output = Self>
-    + Div<Output = Self>
-    + Rem<Output = Self>
+    + DivRem<Output = (Self, Self)>
+    + BitAnd<Output = Self>
+    + BitOr<Output = Self>
+    + BitXor<Output = Self>
+    + Not<Output = Self>
     + Neg
     + AddAssign
     + SubAssign
     + MulAssign
     + DivAssign
     + RemAssign
-    + DivRem<Output = (Self, Self)>
+    + BitAndAssign
+    + BitOrAssign
+    + BitXorAssign
     + Ord
     + Eq
     + Copy
@@ -130,22 +135,25 @@ pub trait FungeValue:
 }
 
 impl<T> FungeValue for T where
-    T: From<i32>
+    T: Num
         + ToPrimitive
         + FromPrimitive
+        + From<i32>
         + Signed
-        + Add<Output = Self>
-        + Sub<Output = Self>
-        + Mul<Output = Self>
-        + Div<Output = Self>
-        + Rem<Output = Self>
+        + DivRem<Output = (Self, Self)>
+        + BitAnd<Output = Self>
+        + BitOr<Output = Self>
+        + BitXor<Output = Self>
+        + Not<Output = Self>
         + Neg
         + AddAssign
         + SubAssign
         + MulAssign
         + DivAssign
         + RemAssign
-        + DivRem<Output = (Self, Self)>
+        + BitAndAssign
+        + BitOrAssign
+        + BitXorAssign
         + Ord
         + Eq
         + Copy
@@ -184,6 +192,88 @@ where
                     (c as i32).into();
             }
         }
+    }
+}
+
+/// Read binary / latin1 from a stream into a unefunge space
+pub fn read_unefunge_bin<T, S, R>(space: &mut S, input: &mut R) -> io::Result<usize>
+where
+    T: FungeValue,
+    S: FungeSpace<T> + Index<T, Output = T>,
+    R: io::Read,
+{
+    const BUF_LEN: usize = 4096;
+    let mut buf = [0_u8; BUF_LEN];
+    let mut total: usize = 0;
+
+    let mut idx: T = 0.into();
+
+    loop {
+        let n = input.read(&mut buf)?;
+        if n == 0 {
+            return Ok(total);
+        }
+
+        let mut i = 0;
+        while i < n {
+            match buf[i] {
+                10 | 13 => {} // skip CR & LF
+                byte => {
+                    space[idx] = (byte as i32).into();
+                    idx += 1.into();
+                }
+            }
+            i += 1;
+        }
+        total += n;
+    }
+}
+
+/// Read binary / latin1 from a stream into a befunge space
+pub fn read_befunge_bin<T, S, R>(space: &mut S, input: &mut R) -> io::Result<usize>
+where
+    T: FungeValue,
+    S: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
+    R: io::Read,
+{
+    const BUF_LEN: usize = 4096;
+    let mut buf = [0_u8; BUF_LEN];
+    let mut total: usize = 0;
+
+    let mut x: T = 0.into();
+    let mut y: T = 0.into();
+
+    loop {
+        let n = input.read(&mut buf)?;
+        if n == 0 {
+            return Ok(total);
+        }
+
+        let mut i = 0;
+        while i < n {
+            match buf[i] {
+                10 => {
+                    // line feed
+                    x = 0.into();
+                    y += 1.into();
+                }
+                13 => {
+                    // carriage return
+                    x = 0.into();
+                    y += 1.into();
+                    // Check for CRLF
+                    if buf[i + 1] == 10 {
+                        i += 1;
+                    }
+                }
+                byte => {
+                    space[bfvec(x, y)] = (byte as i32).into();
+                    x += 1.into();
+                }
+            }
+            i += 1;
+        }
+        total += n;
     }
 }
 

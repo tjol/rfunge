@@ -16,15 +16,16 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::io::{Read, Write};
+use std::ops::{Add, Mul};
+
+use num::ToPrimitive;
+
 use super::fungespace::index::{bfvec, BefungeVec};
 use super::fungespace::{FungeIndex, FungeSpace, FungeValue};
 use super::ip::{InstructionMode, InstructionPointer};
-use num::ToPrimitive;
-use std::io;
-use std::io::Write;
-use std::ops::{Add, Mul};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum InstructionResult {
     Continue,
     StayPut,
@@ -33,10 +34,16 @@ pub enum InstructionResult {
     Panic,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ProgramResult {
     Ok,
     Panic,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum IOMode {
+    Text,
+    Binary,
 }
 
 pub trait MotionCmds<Space>:
@@ -57,6 +64,14 @@ where
 {
     pub ips: Vec<InstructionPointer<Idx, Space>>,
     pub space: Space,
+    pub env: InterpreterEnvironment,
+}
+
+pub struct InterpreterEnvironment {
+    pub output: Box<dyn Write>,
+    pub input: Option<Box<dyn Read>>,
+    pub warn: Option<Box<dyn FnMut(&str)>>,
+    pub io_mode: IOMode,
 }
 
 impl<Idx, Space> Interpreter<Idx, Space>
@@ -66,15 +81,18 @@ where
     Space::Output: FungeValue,
 {
     pub fn run(&mut self) -> ProgramResult {
-        let last_ip_idx = self.ips.len() - 1;
-        let ip = &mut self.ips[last_ip_idx];
-        let mut next_instruction = self.space[ip.location];
+        let ip_idx = self.ips.len() - 1;
+        let mut next_instruction = self.space[self.ips[ip_idx].location];
 
         loop {
-            let result = match ip.instructions.mode {
-                InstructionMode::Normal => Self::exec_instr(ip, &mut self.space, next_instruction),
-                InstructionMode::String => Self::read_string(ip, &mut self.space, next_instruction),
+            let ip = &self.ips[ip_idx];
+            let instr_mode = ip.instructions.mode;
+            let result = match instr_mode {
+                InstructionMode::Normal => self.exec_instr(ip_idx, next_instruction),
+                InstructionMode::String => self.read_string(ip_idx, next_instruction),
             };
+
+            let ip = &mut self.ips[ip_idx];
 
             match result {
                 InstructionResult::Continue | InstructionResult::Skip => {
@@ -98,11 +116,8 @@ where
         ProgramResult::Ok
     }
 
-    fn exec_instr(
-        ip: &mut InstructionPointer<Idx, Space>,
-        space: &mut Space,
-        raw_instruction: Space::Output,
-    ) -> InstructionResult {
+    fn exec_instr(&mut self, ip_idx: usize, raw_instruction: Space::Output) -> InstructionResult {
+        let ip = &mut self.ips[ip_idx];
         match raw_instruction.try_to_char() {
             Some('@') => InstructionResult::Exit,
             Some('#') => {
@@ -112,7 +127,7 @@ where
             }
             Some(';') => {
                 loop {
-                    let (new_loc, new_val) = space.move_by(ip.location, ip.delta);
+                    let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
                     ip.location = new_loc;
                     if Some(';') == new_val.to_u32().and_then(char::from_u32) {
                         break;
@@ -144,12 +159,25 @@ where
                 InstructionResult::StayPut
             }
             Some('.') => {
-                print!("{} ", ip.pop());
-                io::stdout().flush().unwrap();
+                if write!(self.env.output, "{} ", ip.pop()).is_err() {
+                    self.warn("IO Error");
+                }
                 InstructionResult::Continue
             }
             Some(',') => {
-                print!("{}", ip.pop().to_char());
+                let c = ip.pop();
+                if match self.env.io_mode {
+                    IOMode::Text => write!(self.env.output, "{}", c),
+                    IOMode::Binary => self
+                        .env
+                        .output
+                        .write(&[(c & 0xff.into()).to_u8().unwrap()])
+                        .and_then(|_| Ok(())),
+                }
+                .is_err()
+                {
+                    self.warn("IO Error");
+                }
                 InstructionResult::Continue
             }
             Some('+') => {
@@ -200,25 +228,22 @@ where
                     InstructionResult::Continue
                 } else {
                     // reflect
-                    eprintln!("Unknown instruction: '{}'", c);
                     ip.delta = ip.delta * (-1).into();
+                    self.warn(&format!("Unknown instruction: '{}'", c));
                     InstructionResult::Continue
                 }
             }
             None => {
                 // reflect
-                eprintln!("Unknown non-Unicode instruction!");
                 ip.delta = ip.delta * (-1).into();
+                self.warn("Unknown non-Unicode instruction!");
                 InstructionResult::Continue
             }
         }
     }
 
-    fn read_string(
-        ip: &mut InstructionPointer<Idx, Space>,
-        _space: &mut Space,
-        raw_instruction: Space::Output,
-    ) -> InstructionResult {
+    fn read_string(&mut self, ip_idx: usize, raw_instruction: Space::Output) -> InstructionResult {
+        let ip = &mut self.ips[ip_idx];
         match raw_instruction.to_u32().and_then(char::from_u32) {
             Some('"') => {
                 ip.instructions.mode = InstructionMode::Normal;
@@ -236,6 +261,12 @@ where
                 ip.location = ip.location + ip.delta;
                 InstructionResult::StayPut
             }
+        }
+    }
+
+    fn warn(&mut self, msg: &str) {
+        if let Some(warn_f) = &mut self.env.warn {
+            warn_f(msg)
         }
     }
 }
