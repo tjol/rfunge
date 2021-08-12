@@ -177,8 +177,8 @@ where
                 InstructionResult::StayPut
             }
             Some('\'') => {
-                let (loc, v) = self.space.move_by(ip.location, ip.delta);
-                ip.push(*v);
+                let loc = ip.location + ip.delta;
+                ip.push(self.space[loc]);
                 ip.location = loc;
                 InstructionResult::Continue
             }
@@ -255,15 +255,31 @@ where
             }
             Some('k') => {
                 let n = ip.pop();
-                let (new_loc, new_val_ref) = self.space.move_by(ip.location, ip.delta);
-                let new_val = *new_val_ref;
+                let (mut new_loc, new_val_ref) = self.space.move_by(ip.location, ip.delta);
+                let mut new_val = *new_val_ref;
                 let mut loop_result = InstructionResult::Continue;
-                if let Some(n) = n.to_usize() {
-                    if n == 0 {
+                if let Some(n) = n.to_isize() {
+                    if n <= 0 {
                         // surprising behaviour! 1k leads to the next instruction
                         // being executed twice, 0k to it being skipped
                         ip.location = new_loc;
+                        loop_result = InstructionResult::Continue;
                     } else {
+                        let mut new_val_c = new_val.to_char();
+                        while new_val_c == '#' || new_val_c == ';' {
+                            // skip what must be skipped
+                            // fake-execute!
+                            let ip = &mut self.ips[ip_idx];
+                            let old_loc = ip.location;
+                            ip.location = new_loc;
+                            self.exec_instr(ip_idx, new_val);
+                            let ip = &mut self.ips[ip_idx];
+                            let (new_loc2, new_val_ref) = self.space.move_by(ip.location, ip.delta);
+                            new_loc = new_loc2;
+                            new_val = *new_val_ref;
+                            ip.location = old_loc;
+                            new_val_c = new_val.to_char();
+                        }
                         for _ in 0..n {
                             match self.exec_instr(ip_idx, new_val) {
                                 InstructionResult::Continue => {}
@@ -274,6 +290,9 @@ where
                             }
                         }
                     }
+                } else {
+                    // Reflect on overflow
+                    ip.delta = ip.delta * (-1).into();
                 }
                 loop_result
             }

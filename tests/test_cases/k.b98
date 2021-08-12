@@ -1,0 +1,16 @@
+k;This is to test some edge cases of k... ;@v;
+        Directional commands should be easy 2
+    three rights makes a left!     @]k3   .1k
+    k and j are a tricky combo      @>2.v  @<
+ k and ;   v,!'@v@@@@@@@@jk:k23.$k300003<   @
+   are     >' , >4.2k'@\7-2*-|
+ undefined        v.6 @;v;k.5<
+ behaviour        v  .6 <   > 7.   @
+                 v>#z01-kz>3k;'!,@;]
+                 >        ^
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Modified version of k.b98_undef that accepts
+multiple valid paths to the end and gives the
+same result in most interpreters, just not
+cfunge and jsfunge.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
