@@ -76,9 +76,12 @@ where
 pub fn bfvec<Tout, Tin>(x: Tin, y: Tin) -> BefungeVec<Tout>
 where
     Tout: FungeValue,
-    Tin: Into<Tout>
+    Tin: Into<Tout>,
 {
-    BefungeVec::<Tout> { x: x.into(), y: y.into() }
+    BefungeVec::<Tout> {
+        x: x.into(),
+        y: y.into(),
+    }
 }
 
 impl<T> Display for BefungeVec<T>
@@ -291,7 +294,10 @@ mod tests {
         assert_eq!(bfvec(3, 4) - bfvec(7, 15), bfvec::<i32, _>(-4, -11));
         assert_eq!(bfvec(4, 7) * 3, bfvec(12, 21));
         assert_eq!(bfvec(-32, -27) / bfvec(16, 16), bfvec::<i32, _>(-2, -1));
-        assert_eq!(bfvec(-32, -27).div_euclid(bfvec(16, 16)), bfvec::<i32, _>(-2, -2));
+        assert_eq!(
+            bfvec(-32, -27).div_euclid(bfvec(16, 16)),
+            bfvec::<i32, _>(-2, -2)
+        );
         assert_eq!(
             bfvec::<i32, _>(56, -3).div_rem_euclid(bfvec(-25, -25)),
             (bfvec(-2, 1), bfvec(6, 22))
@@ -301,13 +307,19 @@ mod tests {
     #[test]
     fn test_2d_min_max() {
         assert_eq!(bfvec::<i32, _>(0, 5).joint_min(&bfvec(2, 2)), bfvec(0, 2));
-        assert_eq!(bfvec::<i32, _>(9, 12).joint_max(&bfvec(10, 5)), bfvec(10, 12));
+        assert_eq!(
+            bfvec::<i32, _>(9, 12).joint_max(&bfvec(10, 5)),
+            bfvec(10, 12)
+        );
     }
 
     #[test]
     fn test_2d_arraymethods() {
         assert_eq!(bfvec::<i32, _>(5, 3).to_lin_index(&bfvec(10, 10)), 35);
-        assert_eq!(BefungeVec::<i32>::from_lin_index(13, &bfvec(6, 10)), bfvec(1, 2));
+        assert_eq!(
+            BefungeVec::<i32>::from_lin_index(13, &bfvec(6, 10)),
+            bfvec(1, 2)
+        );
         assert_eq!(bfvec::<i32, _>(13, 5).lin_size(), 65);
     }
 }

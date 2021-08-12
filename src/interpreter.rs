@@ -234,6 +234,17 @@ where
                 ip.push(a % b);
                 InstructionResult::Continue
             }
+            Some('`') => {
+                let b = ip.pop();
+                let a = ip.pop();
+                ip.push(if a > b { 1.into() } else { 0.into() });
+                InstructionResult::Continue
+            }
+            Some('!') => {
+                let v = ip.pop();
+                ip.push(if v == 0.into() { 1.into() } else { 0.into() });
+                InstructionResult::Continue
+            }
             Some('j') => {
                 ip.location = ip.location + ip.delta * ip.pop();
                 InstructionResult::Continue
@@ -241,6 +252,30 @@ where
             Some('x') => {
                 ip.delta = MotionCmds::pop_vector(ip);
                 InstructionResult::Continue
+            }
+            Some('k') => {
+                let n = ip.pop();
+                let (new_loc, new_val_ref) = self.space.move_by(ip.location, ip.delta);
+                let new_val = *new_val_ref;
+                let mut loop_result = InstructionResult::Continue;
+                if let Some(n) = n.to_usize() {
+                    if n == 0 {
+                        // surprising behaviour! 1k leads to the next instruction
+                        // being executed twice, 0k to it being skipped
+                        ip.location = new_loc;
+                    } else {
+                        for _ in 0..n {
+                            match self.exec_instr(ip_idx, new_val) {
+                                InstructionResult::Continue => {}
+                                res => {
+                                    loop_result = res;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                loop_result
             }
             Some('r') => {
                 ip.delta = ip.delta * (-1).into();
@@ -308,10 +343,14 @@ where
             '<' => {
                 ip.delta = T::from(-1);
                 true
-            },
+            }
             '_' => {
                 let p = ip.pop();
-                ip.delta = if p == T::zero() { T::from(1) } else { T::from(-1) };
+                ip.delta = if p == T::zero() {
+                    T::from(1)
+                } else {
+                    T::from(-1)
+                };
                 true
             }
             _ => false,
@@ -354,15 +393,23 @@ where
             '[' => {
                 ip.delta = bfvec(ip.delta.y, -ip.delta.x);
                 true
-            },
+            }
             '_' => {
                 let p = ip.pop();
-                ip.delta = if p == T::zero() { bfvec(1, 0) } else { bfvec(-1, 0) };
+                ip.delta = if p == T::zero() {
+                    bfvec(1, 0)
+                } else {
+                    bfvec(-1, 0)
+                };
                 true
-            },
+            }
             '|' => {
                 let p = ip.pop();
-                ip.delta = if p == T::zero() { bfvec(0, 1) } else { bfvec(0, -1) };
+                ip.delta = if p == T::zero() {
+                    bfvec(0, 1)
+                } else {
+                    bfvec(0, -1)
+                };
                 true
             }
             _ => false,
