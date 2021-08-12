@@ -16,10 +16,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use colored::Colorize;
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
 use std::io;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use rfunge::{
@@ -28,7 +29,7 @@ use rfunge::{
 
 const TEST_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
 
-fn get_bf98_tests() -> io::Result<Vec<(PathBuf, PathBuf)>> {
+fn get_b98_tests() -> io::Result<Vec<(PathBuf, PathBuf)>> {
     let mut test_cases = HashMap::new();
     let mut expected_out_files = HashMap::new();
     let test_cases_dir = Path::new(TEST_ROOT).join("test_cases");
@@ -58,7 +59,11 @@ fn get_bf98_tests() -> io::Result<Vec<(PathBuf, PathBuf)>> {
     return Ok(result);
 }
 
-fn run_bf98_test(program_path: &Path, output_path: &Path) {
+fn run_b98_test(program_path: &Path, output_path: &Path) {
+    let program_name = program_path.file_name().unwrap().to_string_lossy();
+    eprint!("befunge test {} ... ", program_name);
+    io::stderr().flush().unwrap();
+
     let mut output = Vec::<u8>::new();
     let mut warn_log = Vec::<String>::new();
     {
@@ -87,13 +92,12 @@ fn run_bf98_test(program_path: &Path, output_path: &Path) {
         assert!(matches!(ref_file.read(&mut test_buf), Ok(0))); // check EOF
     }
     assert_eq!(output, ref_out);
-    eprintln!("{:?} ok", program_path);
+    eprintln!("{}", "ok".green());
 }
 
-#[test]
-fn test_examples() {
-    let test_fns = get_bf98_tests().unwrap();
+fn main() {
+    let test_fns = get_b98_tests().unwrap();
     for (test_path, result_path) in test_fns {
-        run_bf98_test(&test_path, &result_path);
+        run_b98_test(&test_path, &result_path);
     }
 }

@@ -10,3 +10,10 @@ license = "AGPL-3.0-or-later"
 [dependencies]
 divrem = "1.0"
 num = "0.4"
+
+[dev-dependencies]
+colored = "2.0"
+
+[[test]]
+name = "test_examples"
+harness = false
