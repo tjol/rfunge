@@ -81,7 +81,7 @@ where
 {
     Interpreter {
         ips: vec![InstructionPointer::new()],
-        space: PagedFungeSpace::<BefungeVec<T>, T>::new_with_page_size(bfvec(80.into(), 25.into())),
+        space: PagedFungeSpace::<BefungeVec<T>, T>::new_with_page_size(bfvec(80, 25)),
         env: env,
     }
 }

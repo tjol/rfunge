@@ -73,11 +73,12 @@ where
 }
 
 /// Convenience function to create a [BefungeVec]
-pub fn bfvec<T>(x: T, y: T) -> BefungeVec<T>
+pub fn bfvec<Tout, Tin>(x: Tin, y: Tin) -> BefungeVec<Tout>
 where
-    T: FungeValue,
+    Tout: FungeValue,
+    Tin: Into<Tout>
 {
-    BefungeVec::<T> { x: x, y: y }
+    BefungeVec::<Tout> { x: x.into(), y: y.into() }
 }
 
 impl<T> Display for BefungeVec<T>
@@ -286,27 +287,27 @@ mod tests {
 
     #[test]
     fn test_2d_math() {
-        assert_eq!(bfvec(0, 5) + bfvec(12, -3), bfvec(12, 2));
-        assert_eq!(bfvec(3, 4) - bfvec(7, 15), bfvec(-4, -11));
+        assert_eq!(bfvec(0, 5) + bfvec(12, -3), bfvec::<i32, _>(12, 2));
+        assert_eq!(bfvec(3, 4) - bfvec(7, 15), bfvec::<i32, _>(-4, -11));
         assert_eq!(bfvec(4, 7) * 3, bfvec(12, 21));
-        assert_eq!(bfvec(-32, -27) / bfvec(16, 16), bfvec(-2, -1));
-        assert_eq!(bfvec(-32, -27).div_euclid(bfvec(16, 16)), bfvec(-2, -2));
+        assert_eq!(bfvec(-32, -27) / bfvec(16, 16), bfvec::<i32, _>(-2, -1));
+        assert_eq!(bfvec(-32, -27).div_euclid(bfvec(16, 16)), bfvec::<i32, _>(-2, -2));
         assert_eq!(
-            bfvec(56, -3).div_rem_euclid(bfvec(-25, -25)),
+            bfvec::<i32, _>(56, -3).div_rem_euclid(bfvec(-25, -25)),
             (bfvec(-2, 1), bfvec(6, 22))
         );
     }
 
     #[test]
     fn test_2d_min_max() {
-        assert_eq!(bfvec(0, 5).joint_min(&bfvec(2, 2)), bfvec(0, 2));
-        assert_eq!(bfvec(9, 12).joint_max(&bfvec(10, 5)), bfvec(10, 12));
+        assert_eq!(bfvec::<i32, _>(0, 5).joint_min(&bfvec(2, 2)), bfvec(0, 2));
+        assert_eq!(bfvec::<i32, _>(9, 12).joint_max(&bfvec(10, 5)), bfvec(10, 12));
     }
 
     #[test]
     fn test_2d_arraymethods() {
-        assert_eq!(bfvec(5, 3).to_lin_index(&bfvec(10, 10)), 35);
-        assert_eq!(BefungeVec::from_lin_index(13, &bfvec(6, 10)), bfvec(1, 2));
-        assert_eq!(bfvec(13, 5).lin_size(), 65);
+        assert_eq!(bfvec::<i32, _>(5, 3).to_lin_index(&bfvec(10, 10)), 35);
+        assert_eq!(BefungeVec::<i32>::from_lin_index(13, &bfvec(6, 10)), bfvec(1, 2));
+        assert_eq!(bfvec::<i32, _>(13, 5).lin_size(), 65);
     }
 }

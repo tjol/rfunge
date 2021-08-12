@@ -332,19 +332,19 @@ where
     fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool {
         match instruction {
             '>' => {
-                ip.delta = bfvec(1.into(), 0.into());
+                ip.delta = bfvec(1, 0);
                 true
             }
             '<' => {
-                ip.delta = bfvec((-1).into(), 0.into());
+                ip.delta = bfvec(-1, 0);
                 true
             }
             '^' => {
-                ip.delta = bfvec(0.into(), (-1).into());
+                ip.delta = bfvec(0, -1);
                 true
             }
             'v' => {
-                ip.delta = bfvec(0.into(), 1.into());
+                ip.delta = bfvec(0, 1);
                 true
             }
             ']' => {
@@ -357,12 +357,12 @@ where
             },
             '_' => {
                 let p = ip.pop();
-                ip.delta = if p == T::zero() { bfvec(1.into(), 0.into()) } else { bfvec((-1).into(), 0.into()) };
+                ip.delta = if p == T::zero() { bfvec(1, 0) } else { bfvec(-1, 0) };
                 true
             },
             '|' => {
                 let p = ip.pop();
-                ip.delta = if p == T::zero() { bfvec(0.into(), 1.into()) } else { bfvec(0.into(), (-1).into()) };
+                ip.delta = if p == T::zero() { bfvec(0, 1) } else { bfvec(0, -1) };
                 true
             }
             _ => false,

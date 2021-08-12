@@ -86,9 +86,9 @@ where
 {
     fn new_ip() -> InstructionPointer<BefungeVec<T>, Space> {
         let mut instance = InstructionPointer::<BefungeVec<T>, Space> {
-            location: bfvec(0.into(), 0.into()),
-            delta: bfvec(1.into(), 0.into()),
-            storage_offset: bfvec(0.into(), 0.into()),
+            location: bfvec(0, 0),
+            delta: bfvec(1, 0),
+            storage_offset: bfvec(0, 0),
             stack_stack: LinkedList::new(),
             instructions: InstructionSet::new(),
             private_data: HashMap::new(),

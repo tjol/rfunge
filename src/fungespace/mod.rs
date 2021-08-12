@@ -310,46 +310,46 @@ mod tests {
     {
         read_befunge(space, "1   5  8\n\n  a b    c\r\n A");
 
-        assert_eq!(space[bfvec(2.into(), 2.into())], T::from('a' as i32));
+        assert_eq!(space[bfvec(2, 2)], T::from('a' as i32));
         assert_eq!(
-            space.move_by(bfvec(2.into(), 2.into()), bfvec(1.into(), 1.into())),
-            (bfvec(0.into(), 0.into()), &T::from('1' as i32))
+            space.move_by(bfvec(2, 2), bfvec(1, 1)),
+            (bfvec(0, 0), &T::from('1' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(2.into(), 2.into()), bfvec((-3).into(), (-3).into())),
-            (bfvec(2.into(), 2.into()), &T::from('a' as i32))
+            space.move_by(bfvec(2, 2), bfvec(-3, -3)),
+            (bfvec(2, 2), &T::from('a' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(0.into(), 0.into()), bfvec((-2).into(), 0.into())),
-            (bfvec(4.into(), 0.into()), &T::from('5' as i32))
+            space.move_by(bfvec(0, 0), bfvec(-2, 0)),
+            (bfvec(4, 0), &T::from('5' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(4.into(), 0.into()), bfvec(0.into(), 1.into())),
-            (bfvec(4.into(), 2.into()), &T::from('b' as i32))
+            space.move_by(bfvec(4, 0), bfvec(0, 1)),
+            (bfvec(4, 2), &T::from('b' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(7.into(), 0.into()), bfvec(2.into(), (-1).into())),
-            (bfvec(1.into(), 3.into()), &T::from('A' as i32))
+            space.move_by(bfvec(7, 0), bfvec(2, -1)),
+            (bfvec(1, 3), &T::from('A' as i32))
         );
 
         // Try something very far away
-        space[bfvec(32000.into(), 8000.into())] = T::from('0' as i32);
-        space[bfvec(32000.into(), 2.into())] = T::from('0' as i32);
+        space[bfvec(32000, 8000)] = T::from('0' as i32);
+        space[bfvec(32000, 2)] = T::from('0' as i32);
         assert_eq!(
-            space.move_by(bfvec(0.into(), 0.into()), bfvec(4.into(), 1.into())),
-            (bfvec(32000.into(), 8000.into()), &T::from('0' as i32))
+            space.move_by(bfvec(0, 0), bfvec(4, 1)),
+            (bfvec(32000, 8000), &T::from('0' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(32000.into(), 8000.into()), bfvec(0.into(), 1.into())),
-            (bfvec(32000.into(), 2.into()), &T::from('0' as i32))
+            space.move_by(bfvec(32000, 8000), bfvec(0, 1)),
+            (bfvec(32000, 2), &T::from('0' as i32))
         );
         assert_eq!(
-            space.move_by(bfvec(32000.into(), 2.into()), bfvec((-1).into(), 0.into())),
-            (bfvec(9.into(), 2.into()), &T::from('c' as i32))
+            space.move_by(bfvec(32000, 2), bfvec(-1, 0)),
+            (bfvec(9, 2), &T::from('c' as i32))
         );
 
         // Check the dimensions
-        assert_eq!(space.min_idx(), Some(bfvec(0.into(), 0.into())));
-        assert_eq!(space.max_idx(), Some(bfvec(32000.into(), 8000.into())));
+        assert_eq!(space.min_idx(), Some(bfvec(0, 0)));
+        assert_eq!(space.max_idx(), Some(bfvec(32000, 8000)));
     }
 }
