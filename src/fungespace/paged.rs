@@ -22,7 +22,7 @@ use std::ops::{Add, Div, Index, IndexMut, Mul};
 
 use divrem::{DivEuclid, DivRem, DivRemEuclid, RemEuclid};
 
-use super::index::BefungeVec;
+use super::index::{bfvec, BefungeVec};
 use super::{FungeArrayIdx, FungeSpace, FungeValue};
 
 /// Trait required for indices when used with [PagedFungeSpace]
@@ -144,10 +144,11 @@ where
             .collect();
         page_dists.sort_by_key(|(_, d)| *d);
 
-        let cur_page = start.div_euclid(self.page_size);
-        let cur_dist = start
-            .dist_of_region(&delta, &(cur_page * self.page_size), &self.page_size)
-            .unwrap();
+        // let cur_page = start.div_euclid(self.page_size);
+        // let cur_dist = start
+        //     .dist_of_region(&delta, &(cur_page * self.page_size), &self.page_size)
+        //     .unwrap();
+        let cur_dist: Elem = 0.into();
 
         // Are there any pages further than the one we last checked?
         let pages_ahead = page_dists.iter().filter(|(_, d)| *d > cur_dist);
@@ -242,10 +243,13 @@ where
         // are on opposite sides of the line, we might have a hit.
         let rel_topleft = *start - *self;
         let rel_bottomright = (*start + *size) - *self;
+        let rel_topright = bfvec::<T, T>(rel_bottomright.x, rel_topleft.y);
+        let rel_bottomleft = bfvec::<T, T>(rel_topleft.x, rel_bottomright.y);
         let cross_tl = rel_topleft.x * delta.y - delta.x * rel_topleft.y;
         let cross_br = rel_bottomright.x * delta.y - delta.x * rel_bottomright.y;
-        if cross_tl.signum() != cross_br.signum() || (cross_tl == 0.into() && cross_br == 0.into())
-        {
+        let cross_tr = rel_topright.x * delta.y - delta.x * rel_topright.y;
+        let cross_bl = rel_bottomleft.x * delta.y - delta.x * rel_bottomleft.y;
+        if cross_tl.signum() != cross_br.signum() || cross_tr.signum() != cross_bl.signum() {
             // The line crosses our region. Is there a "stop"?
             if delta.x == 0.into() {
                 return self.y.dist_of_region(&delta.y, &start.y, &size.y);
