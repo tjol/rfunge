@@ -3,9 +3,9 @@ k;This is to test some edge cases of k... ;@v;
     three rights makes a left!     @]k3   .1k
     k and j are a tricky combo      @>2.v  @<
  k and ;   v,!'@v@@@@@@@@jk:k23.$k300003<   @
-   are     >' , >4.2k'@\7-2*-|
- undefined        v,b'@;v;k.5<
- behaviour        v  ,a'<         > 6.@  >',,@
+   are     >' , >4.2k'@\7-2*-| @v@@# k<
+ undefined        v,b'@;v;k.5< @>7.@  4
+ behaviour        v  ,a'<         > 6.^  >',,@
               v,r'>#z01-kv'#,>' ,3k;'!,@;]
               >              ^    > '~,  >'$,@
                          >'x,^
@@ -13,20 +13,20 @@ k;This is to test some edge cases of k... ;@v;
 This edge-case test shows different behaviours
 for the various interpreters:
 RC/Funge
-    1 2 3 4 5 ar 6 
+    1 2 3 4 5 ar 6 7 
 FBBI
-    1 2 3 4 5 b# 6 
+    1 2 3 4 5 b# 6 7 
 CBBI
-    1 2 3 4 5 a# 6 
+    1 2 3 4 5 a# 6 7 
 PyFunge
-    1 2 3 4 5 bx 6 
+    1 2 3 4 5 bx 6 7 
 jsFunge-98
     1 2 3 4 5 ax !
 cfunge
-    1 2 3 ! 4 5 br 6 
+    1 2 3 ! 4 5 br 6 7 
 The cfunge and JSfunge results are probably
 bugs, the other results all look reasonable.
 
 rfunge currently does
-    1 2 3 4 5 a# 6 
+    1 2 3 4 5 a# 6 7 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@

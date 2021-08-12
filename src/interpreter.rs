@@ -134,7 +134,7 @@ where
             Some('#') => {
                 // Trampoline
                 ip.location = ip.location + ip.delta;
-                InstructionResult::Skip
+                InstructionResult::Continue
             }
             Some(';') => {
                 loop {
@@ -179,6 +179,12 @@ where
             Some('\'') => {
                 let loc = ip.location + ip.delta;
                 ip.push(self.space[loc]);
+                ip.location = loc;
+                InstructionResult::Continue
+            }
+            Some('s') => {
+                let loc = ip.location + ip.delta;
+                self.space[loc] = ip.pop();
                 ip.location = loc;
                 InstructionResult::Continue
             }
@@ -231,7 +237,7 @@ where
             Some('%') => {
                 let b = ip.pop();
                 let a = ip.pop();
-                ip.push(a % b);
+                ip.push(if b != 0.into() { a % b } else { 0.into() });
                 InstructionResult::Continue
             }
             Some('`') => {
@@ -253,6 +259,16 @@ where
                 ip.delta = MotionCmds::pop_vector(ip);
                 InstructionResult::Continue
             }
+            Some('p') => {
+                let loc = MotionCmds::pop_vector(ip);
+                self.space[loc] = ip.pop();
+                InstructionResult::Continue
+            }
+            Some('g') => {
+                let loc = MotionCmds::pop_vector(ip);
+                ip.push(self.space[loc]);
+                InstructionResult::Continue
+            }
             Some('k') => {
                 let n = ip.pop();
                 let (mut new_loc, new_val_ref) = self.space.move_by(ip.location, ip.delta);
@@ -266,7 +282,7 @@ where
                         loop_result = InstructionResult::Continue;
                     } else {
                         let mut new_val_c = new_val.to_char();
-                        while new_val_c == '#' || new_val_c == ';' {
+                        while new_val_c == ';' {
                             // skip what must be skipped
                             // fake-execute!
                             let ip = &mut self.ips[ip_idx];
