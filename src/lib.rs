@@ -21,7 +21,6 @@ pub mod interpreter;
 pub mod ip;
 
 use std::hash::Hash;
-use std::io::{Read, Write};
 
 use divrem::{DivEuclid, DivRemEuclid, RemEuclid};
 
@@ -44,14 +43,11 @@ pub use crate::ip::InstructionPointer;
 ///
 /// After creating the interpreter, you can fill fungespace with
 /// [read_unefunge] or [read_unefunge_bin].
-pub fn new_unefunge_interpreter<T, Rd, Wr, Wf>(
-    env: InterpreterEnvironment<Rd, Wr, Wf>,
-) -> Interpreter<T, PagedFungeSpace<T, T>, Rd, Wr, Wf>
+pub fn new_unefunge_interpreter<T>(
+    env: InterpreterEnvironment,
+) -> Interpreter<T, PagedFungeSpace<T, T>>
 where
     T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
-    Rd: Read,
-    Wr: Write,
-    Wf: FnMut(&str),
 {
     Interpreter {
         ips: vec![InstructionPointer::new()],
@@ -70,14 +66,11 @@ where
 ///
 /// After creating the interpreter, you can fill fungespace with
 /// [read_befunge] or [read_befunge_bin].
-pub fn new_befunge_interpreter<T, Rd, Wr, Wf>(
-    env: InterpreterEnvironment<Rd, Wr, Wf>,
-) -> Interpreter<BefungeVec<T>, PagedFungeSpace<BefungeVec<T>, T>, Rd, Wr, Wf>
+pub fn new_befunge_interpreter<T>(
+    env: InterpreterEnvironment,
+) -> Interpreter<BefungeVec<T>, PagedFungeSpace<BefungeVec<T>, T>>
 where
     T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
-    Rd: Read,
-    Wr: Write,
-    Wf: FnMut(&str),
 {
     Interpreter {
         ips: vec![InstructionPointer::new()],

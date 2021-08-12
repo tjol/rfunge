@@ -56,40 +56,29 @@ where
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self;
 }
 
-pub struct Interpreter<Idx, Space, Rd, Wr, Wf>
+pub struct Interpreter<'a, Idx, Space>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
-    Rd: Read,
-    Wr: Write,
-    Wf: FnMut(&str),
 {
     pub ips: Vec<InstructionPointer<Idx, Space>>,
     pub space: Space,
-    pub env: InterpreterEnvironment<Rd, Wr, Wf>,
+    pub env: InterpreterEnvironment<'a>,
 }
 
-pub struct InterpreterEnvironment<Rd, Wr, Wf>
-where
-    Rd: Read,
-    Wr: Write,
-    Wf: FnMut(&str),
-{
-    pub input: Rd,
-    pub output: Wr,
-    pub warn: Wf,
+pub struct InterpreterEnvironment<'a> {
+    pub input: &'a mut dyn Read,
+    pub output: &'a mut dyn Write,
+    pub warn: &'a mut dyn FnMut(&str),
     pub io_mode: IOMode,
 }
 
-impl<Idx, Space, Rd, Wr, Wf> Interpreter<Idx, Space, Rd, Wr, Wf>
+impl<'a, Idx, Space> Interpreter<'a, Idx, Space>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
-    Rd: Read,
-    Wr: Write,
-    Wf: FnMut(&str),
 {
     pub fn run(&mut self) -> ProgramResult {
         let ip_idx = self.ips.len() - 1;
@@ -449,6 +438,18 @@ where
                 } else {
                     bfvec(0, -1)
                 };
+                true
+            }
+            'w' => {
+                let b = ip.pop();
+                let a = ip.pop();
+                if a > b {
+                    // ]
+                    ip.delta = bfvec(-ip.delta.y, ip.delta.x)
+                } else if a < b {
+                    // [
+                    ip.delta = bfvec(ip.delta.y, -ip.delta.x)
+                }
                 true
             }
             _ => false,

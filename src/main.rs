@@ -23,10 +23,13 @@ fn main() {
     let filename = &argv[1];
 
     // Set up the interpreter
-    let mut interpreter = new_befunge_interpreter::<i64, _, _, _>(InterpreterEnvironment {
-        output: std::io::stdout(),
-        input: std::io::stdin(),
-        warn: (|s| eprintln!("{}", s)),
+    let mut stdout = std::io::stdout();
+    let mut stdin = std::io::stdin();
+    let mut warn_fn = |s: &str| eprintln!("{}", s.to_owned());
+    let mut interpreter = new_befunge_interpreter::<i64>(InterpreterEnvironment {
+        output: &mut stdout,
+        input: &mut stdin,
+        warn: &mut warn_fn,
         io_mode: IOMode::Text,
     });
 

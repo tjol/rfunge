@@ -66,12 +66,14 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
 
     let mut output = Vec::<u8>::new();
     let mut warn_log = Vec::<String>::new();
+    let mut input = io::empty();
+    let mut warn_f = |s: &str| warn_log.push(s.to_owned());
     {
         // Set up the interpreter
-        let mut interpreter = new_befunge_interpreter::<i32, _, _, _>(InterpreterEnvironment {
+        let mut interpreter = new_befunge_interpreter::<i32>(InterpreterEnvironment {
             output: &mut output,
-            input: io::empty(),
-            warn: (|s| warn_log.push(s.to_owned())),
+            input: &mut input,
+            warn: &mut warn_f,
             io_mode: IOMode::Binary,
         });
 
