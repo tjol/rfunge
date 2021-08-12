@@ -150,6 +150,10 @@ where
                 ip.pop();
                 InstructionResult::Continue
             }
+            Some('n') => {
+                ip.stack_mut().drain(0..);
+                InstructionResult::Continue
+            }
             Some('\\') => {
                 let a = ip.pop();
                 let b = ip.pop();
