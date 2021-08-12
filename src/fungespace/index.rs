@@ -25,7 +25,7 @@ use divrem::{DivEuclid, DivRem, DivRemEuclid, RemEuclid};
 use super::{FungeArrayIdx, FungeIndex, FungeValue};
 
 // ----------------------------------------------------------------------
-// Implementation of funge index traits for i64 (Unefunge)
+// Implementation of funge index traits for scalars (Unefunge)
 // ----------------------------------------------------------------------
 
 impl<T> FungeIndex for T
