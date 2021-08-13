@@ -29,7 +29,7 @@ pub use crate::fungespace::{
     FungeSpace, FungeValue, PagedFungeSpace,
 };
 pub use crate::interpreter::{
-    IOMode, InstructionResult, Interpreter, InterpreterEnvironment, ProgramResult,
+    GenericEnv, IOMode, InstructionResult, Interpreter, InterpreterEnv, ProgramResult,
 };
 pub use crate::ip::InstructionPointer;
 
@@ -43,11 +43,10 @@ pub use crate::ip::InstructionPointer;
 ///
 /// After creating the interpreter, you can fill fungespace with
 /// [read_unefunge] or [read_unefunge_bin].
-pub fn new_unefunge_interpreter<T>(
-    env: InterpreterEnvironment,
-) -> Interpreter<T, PagedFungeSpace<T, T>>
+pub fn new_unefunge_interpreter<T, Env>(env: Env) -> Interpreter<T, PagedFungeSpace<T, T>, Env>
 where
     T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
+    Env: InterpreterEnv,
 {
     Interpreter {
         ips: vec![InstructionPointer::new()],
@@ -66,11 +65,12 @@ where
 ///
 /// After creating the interpreter, you can fill fungespace with
 /// [read_befunge] or [read_befunge_bin].
-pub fn new_befunge_interpreter<T>(
-    env: InterpreterEnvironment,
-) -> Interpreter<BefungeVec<T>, PagedFungeSpace<BefungeVec<T>, T>>
+pub fn new_befunge_interpreter<T, Env>(
+    env: Env,
+) -> Interpreter<BefungeVec<T>, PagedFungeSpace<BefungeVec<T>, T>, Env>
 where
     T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
+    Env: InterpreterEnv,
 {
     Interpreter {
         ips: vec![InstructionPointer::new()],

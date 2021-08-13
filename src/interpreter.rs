@@ -56,29 +56,63 @@ where
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self;
 }
 
-pub struct Interpreter<'a, Idx, Space>
+pub struct Interpreter<Idx, Space, Env>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     pub ips: Vec<InstructionPointer<Idx, Space>>,
     pub space: Space,
-    pub env: InterpreterEnvironment<'a>,
+    pub env: Env,
 }
 
-pub struct InterpreterEnvironment<'a> {
-    pub input: &'a mut dyn Read,
-    pub output: &'a mut dyn Write,
-    pub warn: &'a mut dyn FnMut(&str),
+pub trait InterpreterEnv {
+    fn get_iomode(&self) -> IOMode;
+    fn output_writer(&mut self) -> &mut dyn Write;
+    fn input_reader(&mut self) -> &mut dyn Read;
+    fn warn(&mut self, msg: &str);
+}
+
+pub struct GenericEnv<Rd, Wr, Wfn>
+where
+    Rd: Read,
+    Wr: Write,
+    Wfn: FnMut(&str),
+{
     pub io_mode: IOMode,
+    pub input: Rd,
+    pub output: Wr,
+    pub warning_cb: Wfn,
 }
 
-impl<'a, Idx, Space> Interpreter<'a, Idx, Space>
+impl<Rd, Wr, Wfn> InterpreterEnv for GenericEnv<Rd, Wr, Wfn>
+where
+    Rd: Read,
+    Wr: Write,
+    Wfn: FnMut(&str),
+{
+    fn get_iomode(&self) -> IOMode {
+        self.io_mode
+    }
+    fn output_writer(&mut self) -> &mut dyn Write {
+        &mut self.output
+    }
+    fn input_reader(&mut self) -> &mut dyn Read {
+        &mut self.input
+    }
+    fn warn(&mut self, msg: &str) {
+        (self.warning_cb)(msg)
+    }
+}
+
+impl<Idx, Space, Env> Interpreter<Idx, Space, Env>
 where
     Idx: MotionCmds<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     pub fn run(&mut self) -> ProgramResult {
         let ip_idx = self.ips.len() - 1;
@@ -182,24 +216,24 @@ where
                 InstructionResult::Continue
             }
             Some('.') => {
-                if write!(self.env.output, "{} ", ip.pop()).is_err() {
-                    self.warn("IO Error");
+                if write!(self.env.output_writer(), "{} ", ip.pop()).is_err() {
+                    self.env.warn("IO Error");
                 }
                 InstructionResult::Continue
             }
             Some(',') => {
                 let c = ip.pop();
-                if match self.env.io_mode {
-                    IOMode::Text => write!(self.env.output, "{}", c.to_char()),
+                if match self.env.get_iomode() {
+                    IOMode::Text => write!(self.env.output_writer(), "{}", c.to_char()),
                     IOMode::Binary => self
                         .env
-                        .output
+                        .output_writer()
                         .write(&[(c & 0xff.into()).to_u8().unwrap()])
                         .and_then(|_| Ok(())),
                 }
                 .is_err()
                 {
-                    self.warn("IO Error");
+                    self.env.warn("IO Error");
                 }
                 InstructionResult::Continue
             }
@@ -316,14 +350,14 @@ where
                 } else {
                     // reflect
                     ip.delta = ip.delta * (-1).into();
-                    self.warn(&format!("Unknown instruction: '{}'", c));
+                    self.env.warn(&format!("Unknown instruction: '{}'", c));
                     InstructionResult::Continue
                 }
             }
             None => {
                 // reflect
                 ip.delta = ip.delta * (-1).into();
-                self.warn("Unknown non-Unicode instruction!");
+                self.env.warn("Unknown non-Unicode instruction!");
                 InstructionResult::Continue
             }
         }
@@ -349,10 +383,6 @@ where
                 InstructionResult::StayPut
             }
         }
-    }
-
-    fn warn(&mut self, msg: &str) {
-        (self.env.warn)(msg)
     }
 }
 

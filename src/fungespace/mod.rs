@@ -20,7 +20,6 @@ pub mod index;
 pub mod paged;
 
 use std::fmt::{Debug, Display};
-use std::io;
 use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 use std::ops::{BitAnd, BitOr, BitXor, Neg, Not};
 use std::ops::{BitAndAssign, BitOrAssign, BitXorAssign};
@@ -195,85 +194,57 @@ where
     }
 }
 
-/// Read binary / latin1 from a stream into a unefunge space
-pub fn read_unefunge_bin<T, S, R>(space: &mut S, input: &mut R) -> io::Result<usize>
+/// Read a binary / latin1 file into a unefunge space
+pub fn read_unefunge_bin<T, S>(space: &mut S, src: &[u8])
 where
     T: FungeValue,
     S: FungeSpace<T> + Index<T, Output = T>,
-    R: io::Read,
 {
-    const BUF_LEN: usize = 4096;
-    let mut buf = [0_u8; BUF_LEN];
-    let mut total: usize = 0;
-
     let mut idx: T = 0.into();
 
-    loop {
-        let n = input.read(&mut buf)?;
-        if n == 0 {
-            return Ok(total);
-        }
-
-        let mut i = 0;
-        while i < n {
-            match buf[i] {
-                10 | 13 => {} // skip CR & LF
-                byte => {
-                    space[idx] = (byte as i32).into();
-                    idx += 1.into();
-                }
+    for byte in src {
+        match byte {
+            10 | 13 => {} // skip CR & LF
+            byte => {
+                space[idx] = (*byte as i32).into();
+                idx += 1.into();
             }
-            i += 1;
         }
-        total += n;
     }
 }
 
-/// Read binary / latin1 from a stream into a befunge space
-pub fn read_befunge_bin<T, S, R>(space: &mut S, input: &mut R) -> io::Result<usize>
+/// Read a binary / latin1 file into a befunge space
+pub fn read_befunge_bin<T, S>(space: &mut S, src: &[u8])
 where
     T: FungeValue,
     S: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
-    R: io::Read,
 {
-    const BUF_LEN: usize = 4096;
-    let mut buf = [0_u8; BUF_LEN];
-    let mut total: usize = 0;
-
     let mut x: T = 0.into();
     let mut y: T = 0.into();
 
-    loop {
-        let n = input.read(&mut buf)?;
-        if n == 0 {
-            return Ok(total);
-        }
-
-        let mut i = 0;
-        while i < n {
-            match buf[i] {
-                10 => {
-                    // line feed
+    let mut recent_cr = false;
+    for byte in src {
+        match byte {
+            10 => {
+                // line feed
+                if !recent_cr {
                     x = 0.into();
                     y += 1.into();
                 }
-                13 => {
-                    // carriage return
-                    x = 0.into();
-                    y += 1.into();
-                    // Check for CRLF
-                    if buf[i + 1] == 10 {
-                        i += 1;
-                    }
-                }
-                byte => {
-                    space[bfvec(x, y)] = (byte as i32).into();
-                    x += 1.into();
-                }
+                recent_cr = false;
             }
-            i += 1;
+            13 => {
+                // carriage return
+                x = 0.into();
+                y += 1.into();
+                recent_cr = true;
+            }
+            byte => {
+                space[bfvec(x, y)] = (*byte as i32).into();
+                x += 1.into();
+                recent_cr = false;
+            }
         }
-        total += n;
     }
 }
 

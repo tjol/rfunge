@@ -23,9 +23,7 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use rfunge::{
-    new_befunge_interpreter, read_befunge_bin, IOMode, InterpreterEnvironment, ProgramResult,
-};
+use rfunge::{new_befunge_interpreter, read_befunge_bin, GenericEnv, IOMode, ProgramResult};
 
 const TEST_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
 
@@ -66,33 +64,29 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
 
     let mut output = Vec::<u8>::new();
     let mut warn_log = Vec::<String>::new();
-    let mut input = io::empty();
-    let mut warn_f = |s: &str| warn_log.push(s.to_owned());
     {
         // Set up the interpreter
-        let mut interpreter = new_befunge_interpreter::<i32>(InterpreterEnvironment {
-            output: &mut output,
-            input: &mut input,
-            warn: &mut warn_f,
+        let mut interpreter = new_befunge_interpreter::<i32, _>(GenericEnv {
             io_mode: IOMode::Binary,
+            output: &mut output,
+            input: std::io::empty(),
+            warning_cb: |s: &str| warn_log.push(s.to_owned()),
         });
 
         {
-            let mut src_file = File::open(program_path).unwrap();
-            read_befunge_bin(&mut interpreter.space, &mut src_file).unwrap();
+            let mut src = Vec::<u8>::new();
+            File::open(program_path)
+                .and_then(|mut f| f.read_to_end(&mut src))
+                .unwrap();
+            read_befunge_bin(&mut interpreter.space, &src);
         }
 
         assert_eq!(interpreter.run(), ProgramResult::Ok);
     }
-    let mut ref_out: Vec<u8> = vec![0; output.len()];
-    {
-        let mut ref_file = File::open(output_path).unwrap();
-        let read_result = ref_file.read(&mut ref_out);
-        assert!(matches!(read_result, Ok(_)));
-        assert_eq!(read_result.unwrap(), output.len());
-        let mut test_buf: Vec<u8> = vec![0; 1];
-        assert!(matches!(ref_file.read(&mut test_buf), Ok(0))); // check EOF
-    }
+    let mut ref_out = Vec::<u8>::new();
+    File::open(output_path)
+        .and_then(|mut f| f.read_to_end(&mut ref_out))
+        .unwrap();
     assert_eq!(output, ref_out);
     eprintln!("{}", "ok".green());
 }

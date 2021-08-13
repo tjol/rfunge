@@ -16,28 +16,31 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use rfunge::{new_befunge_interpreter, read_befunge_bin, IOMode, InterpreterEnvironment};
+use std::fs::File;
+use std::io::Read;
+
+use rfunge::{new_befunge_interpreter, read_befunge_bin, GenericEnv, IOMode};
 
 fn main() {
     let argv: Vec<String> = std::env::args().collect();
     let filename = &argv[1];
 
     // Set up the interpreter
-    let mut stdout = std::io::stdout();
-    let mut stdin = std::io::stdin();
-    let mut warn_fn = |s: &str| eprintln!("{}", s.to_owned());
-    let mut interpreter = new_befunge_interpreter::<i64>(InterpreterEnvironment {
-        output: &mut stdout,
-        input: &mut stdin,
-        warn: &mut warn_fn,
+    let mut interpreter = new_befunge_interpreter::<i64, _>(GenericEnv {
         io_mode: IOMode::Text,
+        output: std::io::stdout(),
+        input: std::io::stdin(),
+        warning_cb: |s: &str| eprintln!("{}", s.to_owned()),
     });
 
     // let src = std::fs::read_to_string(filename).unwrap();
     // read_befunge(&mut interpreter.space, &src);
     {
-        let mut src_file = std::fs::File::open(filename).unwrap();
-        read_befunge_bin(&mut interpreter.space, &mut src_file).unwrap();
+        let mut src = Vec::<u8>::new();
+        File::open(filename)
+            .and_then(|mut f| f.read_to_end(&mut src))
+            .unwrap();
+        read_befunge_bin(&mut interpreter.space, &src);
     }
 
     interpreter.run();
