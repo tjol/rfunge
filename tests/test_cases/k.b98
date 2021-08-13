@@ -9,9 +9,9 @@ k;This is to test some edge cases of k... ;@v;
                  v>#z01-kz>3k;'!,@;]
                  >        ^
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-Modified version of k.b98_undef that accepts
-multiple valid paths to the end and gives the
-same result in most interpreters, just not
+Modified version of the k edge cases test that
+accepts multiple valid paths to the end and gives
+the same result in most interpreters, just not
 cfunge and jsfunge.
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
