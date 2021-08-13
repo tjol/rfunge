@@ -1,0 +1,23 @@
+01a2*5                                   x
+
+
+Flying into empty space at certain angles
+(specifically, at any path that did not
+intersect the NE-SW diagonal) would cause
+rfunge to crash before change 60fea977.
+This tests that that bug is fixed.
+
+
+
+
+
+
+
+
+
+
+
+
+                               v-50*2a 01<
+
+                               >                 xa"ko",,,@
