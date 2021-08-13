@@ -20,6 +20,12 @@ pub mod fungespace;
 pub mod interpreter;
 pub mod ip;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod capi;
+
+#[cfg(target_arch = "wasm32")]
+mod wasm;
+
 use std::hash::Hash;
 
 use divrem::{DivEuclid, DivRemEuclid, RemEuclid};

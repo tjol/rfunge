@@ -1,2 +1,3 @@
 /target
 /.vs*
+/www/wasm_pkg
