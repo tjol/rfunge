@@ -16,10 +16,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufRead, BufReader};
 use std::ops::{Add, Mul};
 
 use num::ToPrimitive;
+use unicode_reader::CodePoints;
 
 use super::fungespace::index::{bfvec, BefungeVec};
 use super::fungespace::{FungeIndex, FungeSpace, FungeValue};
@@ -234,6 +235,44 @@ where
                 .is_err()
                 {
                     self.env.warn("IO Error");
+                }
+                InstructionResult::Continue
+            }
+            Some('~') => {
+                match self.env.get_iomode() {
+                    IOMode::Binary => {
+                        let mut buf = [0_u8; 1];
+                        if matches!(self.env.input_reader().read(&mut buf), Ok(1)) {
+                            ip.push((buf[0] as i32).into());
+                        } else {
+                            // reflect
+                            ip.delta = ip.delta * (-1).into();
+                        }
+                    }
+                    IOMode::Text => {
+                        if let Some(Ok(c)) = CodePoints::from(self.env.input_reader().bytes()).next() {
+                            ip.push((c as i32).into());
+                        } else {
+                            // reflect
+                            ip.delta = ip.delta * (-1).into();
+                        }
+                    }
+                };
+                InstructionResult::Continue
+            }
+            Some('&') => {
+                let mut s = String::new();
+                if BufReader::new(self.env.input_reader()).read_line(&mut s).is_ok() {
+                    let maybe_i: Result<i32, _> = s.trim().parse();
+                    if let Ok(i) = maybe_i {
+                        ip.push(i.into());
+                    } else {
+                        // reflect
+                        ip.delta = ip.delta * (-1).into();
+                    }
+                } else {
+                    // reflect
+                    ip.delta = ip.delta * (-1).into();
                 }
                 InstructionResult::Continue
             }
