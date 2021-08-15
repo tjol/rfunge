@@ -18,6 +18,7 @@ regex = "1.5"
 unicode_reader = "1.0.1"
 pkg-version = "1.0.0"
 chrono = { version = "0.4", default-features = false }
+getrandom = "0.2"
 
 [dev-dependencies]
 colored = "2.0"
@@ -25,6 +26,7 @@ colored = "2.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.63"
 wee_alloc = "0.4.5"
+getrandom = { version = "0.2", features = ["js"] }
 #console_error_panic_hook = "0.1.6"
 
 [profile.release]

@@ -335,7 +335,11 @@ where
     Env: InterpreterEnv,
 {
     let mut sysinfo_cells = Vec::<Space::Output>::new();
+    // what should we push?
+    let n = ip.pop();
     let exec_flag = env.have_execute();
+    // Set everything up first
+
     // 1. flags
     let mut impl_flags = 0;
     if env.have_file_input() {
@@ -461,9 +465,6 @@ where
     }
     sysinfo_cells.push(0.into());
     sysinfo_cells.push(0.into());
-
-    // what should we push?
-    let n = ip.pop();
 
     if n > (sysinfo_cells.len() as i32).into() {
         // pick one pre-sysinfo cell

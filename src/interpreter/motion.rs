@@ -18,6 +18,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::ops::{Add, Mul, Sub};
 
+use getrandom::getrandom;
+
 use super::ip::InstructionPointer;
 use super::InterpreterEnv;
 use crate::fungespace::index::{bfvec, BefungeVec};
@@ -70,6 +72,16 @@ where
                 } else {
                     T::from(-1)
                 };
+                true
+            }
+            '?' => {
+                let mut rnd = [0_u8; 1];
+                getrandom(&mut rnd).ok();
+                if rnd[0] & 1 == 1 {
+                    ip.delta = T::from(1);
+                } else {
+                    ip.delta = T::from(-1);
+                }
                 true
             }
             _ => false,
@@ -150,6 +162,17 @@ where
                     // [
                     ip.delta = bfvec(ip.delta.y, -ip.delta.x)
                 }
+                true
+            }
+            '?' => {
+                let mut rnd = [0_u8; 1];
+                getrandom(&mut rnd).ok();
+                ip.delta = match rnd[0] & 3 {
+                    0 => bfvec(1, 0),
+                    1 => bfvec(0, 1),
+                    2 => bfvec(-1, 0),
+                    _ => bfvec(0, -1),
+                };
                 true
             }
             _ => false,
