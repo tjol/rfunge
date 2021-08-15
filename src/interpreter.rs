@@ -456,10 +456,17 @@ where
             Some('u') => {
                 let nstacks = ip.stack_stack.len();
                 if nstacks > 1 {
-                    if let Some(n) = ip.pop().to_usize() {
-                        for _ in 0..n {
-                            let v = ip.stack_stack[nstacks - 2].pop().unwrap_or(0.into());
-                            ip.push(v);
+                    if let Some(n) = ip.pop().to_isize() {
+                        if n > 0 {
+                            for _ in 0..n {
+                                let v = ip.stack_stack[nstacks - 2].pop().unwrap_or(0.into());
+                                ip.push(v);
+                            }
+                        } else if n < 0 {
+                            for _ in 0..(-n) {
+                                let v = ip.pop();
+                                ip.stack_stack[nstacks - 2].push(v);
+                            }
                         }
                     } else {
                         // reflect
