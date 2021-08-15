@@ -26,7 +26,7 @@ use num::ToPrimitive;
 use super::instruction_set::exec_instruction;
 use super::ip::InstructionPointer;
 use super::motion::MotionCmds;
-use super::IOMode;
+use super::{ExecMode, IOMode};
 use super::{InstructionResult, InterpreterEnv};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
@@ -290,6 +290,27 @@ where
     .is_err()
     {
         ip.reflect();
+    }
+
+    InstructionResult::Continue
+}
+
+pub fn execute<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    if env.have_execute() == ExecMode::Disabled {
+        ip.reflect();
+    } else {
+        let cmd = ip.pop_0gnirts();
+        ip.push(env.execute_command(&cmd).into());
     }
 
     InstructionResult::Continue
