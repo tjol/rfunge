@@ -18,7 +18,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 pub mod fungespace;
 pub mod interpreter;
-pub mod ip;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod capi;
@@ -35,9 +34,9 @@ pub use crate::fungespace::{
     FungeSpace, FungeValue, PagedFungeSpace,
 };
 pub use crate::interpreter::{
-    GenericEnv, IOMode, InstructionResult, Interpreter, InterpreterEnv, ProgramResult,
+    GenericEnv, IOMode, InstructionPointer, InstructionResult, Interpreter, InterpreterEnv,
+    ProgramResult,
 };
-pub use crate::ip::InstructionPointer;
 
 /// Create a new Unefunge interpreter using the default implementation and
 /// parameters.
