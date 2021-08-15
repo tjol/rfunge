@@ -16,7 +16,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::io::{Read, Write, BufRead, BufReader};
+use std::cmp::{max, min};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::ops::{Add, Mul};
 
 use num::ToPrimitive;
@@ -55,6 +56,7 @@ where
 {
     fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool;
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self;
+    fn push_vector(ip: &mut InstructionPointer<Self, Space>, v: Self);
 }
 
 pub struct Interpreter<Idx, Space, Env>
@@ -164,7 +166,7 @@ where
                 loop {
                     let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
                     ip.location = new_loc;
-                    if Some(';') == new_val.to_u32().and_then(char::from_u32) {
+                    if new_val.to_char() == ';' {
                         break;
                     }
                 }
@@ -250,7 +252,9 @@ where
                         }
                     }
                     IOMode::Text => {
-                        if let Some(Ok(c)) = CodePoints::from(self.env.input_reader().bytes()).next() {
+                        if let Some(Ok(c)) =
+                            CodePoints::from(self.env.input_reader().bytes()).next()
+                        {
                             ip.push((c as i32).into());
                         } else {
                             // reflect
@@ -262,7 +266,10 @@ where
             }
             Some('&') => {
                 let mut s = String::new();
-                if BufReader::new(self.env.input_reader()).read_line(&mut s).is_ok() {
+                if BufReader::new(self.env.input_reader())
+                    .read_line(&mut s)
+                    .is_ok()
+                {
                     let maybe_i: Result<i32, _> = s.trim().parse();
                     if let Ok(i) = maybe_i {
                         ip.push(i.into());
@@ -326,12 +333,12 @@ where
                 InstructionResult::Continue
             }
             Some('p') => {
-                let loc = MotionCmds::pop_vector(ip);
+                let loc = MotionCmds::pop_vector(ip) + ip.storage_offset;
                 self.space[loc] = ip.pop();
                 InstructionResult::Continue
             }
             Some('g') => {
-                let loc = MotionCmds::pop_vector(ip);
+                let loc = MotionCmds::pop_vector(ip) + ip.storage_offset;
                 ip.push(self.space[loc]);
                 InstructionResult::Continue
             }
@@ -378,6 +385,92 @@ where
                 }
                 loop_result
             }
+            Some('{') => {
+                if let Some(n) = ip.pop().to_isize() {
+                    // take n items off the SOSS (old TOSS)
+                    let n_to_take = max(0, min(n, ip.stack().len() as isize));
+                    let zeros_for_toss = max(0, n - n_to_take);
+                    let zeros_for_soss = max(0, -n);
+
+                    let split_idx = ip.stack().len() - n_to_take as usize;
+                    let mut transfer_elems = ip.stack_mut().split_off(split_idx);
+
+                    for _ in 0..zeros_for_soss {
+                        ip.push(0.into());
+                    }
+
+                    MotionCmds::push_vector(ip, ip.storage_offset); // onto SOSS / old TOSS
+
+                    // create a new stack
+                    ip.stack_stack.push(Vec::new());
+
+                    for _ in 0..zeros_for_toss {
+                        ip.push(0.into());
+                    }
+
+                    ip.stack_mut().append(&mut transfer_elems);
+
+                    ip.storage_offset = ip.location + ip.delta;
+                } else {
+                    // reflect
+                    ip.delta = ip.delta * (-1).into();
+                }
+
+                InstructionResult::Continue
+            }
+            Some('}') => {
+                if ip.stack_stack.len() > 1 {
+                    if let Some(n) = ip.pop().to_isize() {
+                        let mut toss = ip.stack_stack.pop().unwrap();
+
+                        // restore the storage offset
+                        ip.storage_offset = MotionCmds::pop_vector(ip);
+
+                        let n_to_take = max(0, min(n, toss.len() as isize));
+                        let zeros_for_soss = max(0, n - n_to_take);
+                        let n_to_pop = max(0, -n);
+
+                        if n_to_pop > 0 {
+                            for _ in 0..n_to_pop {
+                                ip.pop();
+                            }
+                        } else {
+                            for _ in 0..zeros_for_soss {
+                                ip.push(0.into());
+                            }
+
+                            let split_idx = toss.len() - n_to_take as usize;
+                            ip.stack_mut().append(&mut toss.split_off(split_idx));
+                        }
+                    } else {
+                        // reflect
+                        ip.delta = ip.delta * (-1).into();
+                    }
+                } else {
+                    // reflect
+                    ip.delta = ip.delta * (-1).into();
+                }
+
+                InstructionResult::Continue
+            }
+            Some('u') => {
+                let nstacks = ip.stack_stack.len();
+                if nstacks > 1 {
+                    if let Some(n) = ip.pop().to_usize() {
+                        for _ in 0..n {
+                            let v = ip.stack_stack[nstacks - 2].pop().unwrap_or(0.into());
+                            ip.push(v);
+                        }
+                    } else {
+                        // reflect
+                        ip.delta = ip.delta * (-1).into();
+                    }
+                } else {
+                    // reflect
+                    ip.delta = ip.delta * (-1).into();
+                }
+                InstructionResult::Continue
+            }
             Some('r') => {
                 ip.delta = ip.delta * (-1).into();
                 InstructionResult::Continue
@@ -404,17 +497,17 @@ where
 
     fn read_string(&mut self, ip_idx: usize, raw_instruction: Space::Output) -> InstructionResult {
         let ip = &mut self.ips[ip_idx];
-        match raw_instruction.to_u32().and_then(char::from_u32) {
-            Some('"') => {
+        match raw_instruction.to_char() {
+            '"' => {
                 ip.instructions.mode = InstructionMode::Normal;
                 InstructionResult::Continue
             }
-            Some(' ') => {
+            ' ' => {
                 ip.push(raw_instruction);
                 // skip over the following spaces
                 InstructionResult::Continue
             }
-            Some(_) | None => {
+            _ => {
                 // Some other character
                 ip.push(raw_instruction);
                 // Do not skip over the following spaces
@@ -456,6 +549,10 @@ where
 
     fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self {
         ip.pop()
+    }
+
+    fn push_vector(ip: &mut InstructionPointer<Self, Space>, v: Self) {
+        ip.push(v);
     }
 }
 
@@ -529,5 +626,10 @@ where
         let y = ip.pop();
         let x = ip.pop();
         return bfvec(x, y);
+    }
+
+    fn push_vector(ip: &mut InstructionPointer<Self, Space>, v: Self) {
+        ip.push(v.x);
+        ip.push(v.y);
     }
 }

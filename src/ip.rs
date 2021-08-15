@@ -18,7 +18,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::any::Any;
 use std::collections::HashMap;
-use std::collections::LinkedList;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Index};
 use std::rc::Rc;
@@ -44,7 +43,7 @@ where
     /// Current storage offset (initial: the origin)
     pub storage_offset: Idx,
     /// The stack stack
-    pub stack_stack: LinkedList<Vec<Space::Output>>,
+    pub stack_stack: Vec<Vec<Space::Output>>,
     /// The currently available
     pub instructions: InstructionSet<Idx, Space>,
     /// If instructions or fingerprints need to store additional data with the
@@ -70,11 +69,11 @@ where
             location: 0.into(),
             delta: 1.into(),
             storage_offset: 0.into(),
-            stack_stack: LinkedList::new(),
+            stack_stack: Vec::new(),
             instructions: InstructionSet::new(),
             private_data: HashMap::new(),
         };
-        instance.stack_stack.push_back(Vec::new());
+        instance.stack_stack.push(Vec::new());
         return instance;
     }
 }
@@ -89,11 +88,11 @@ where
             location: bfvec(0, 0),
             delta: bfvec(1, 0),
             storage_offset: bfvec(0, 0),
-            stack_stack: LinkedList::new(),
+            stack_stack: Vec::new(),
             instructions: InstructionSet::new(),
             private_data: HashMap::new(),
         };
-        instance.stack_stack.push_back(Vec::new());
+        instance.stack_stack.push(Vec::new());
         return instance;
     }
 }
@@ -117,20 +116,18 @@ where
 {
     /// Get the top of the stack stack
     pub fn stack(&self) -> &Vec<Space::Output> {
-        self.stack_stack.back().unwrap()
+        &self.stack_stack[self.stack_stack.len() - 1]
     }
 
     /// Get the top of the stack stack (mutable version)
     pub fn stack_mut(&mut self) -> &mut Vec<Space::Output> {
-        self.stack_stack.back_mut().unwrap()
+        let end = self.stack_stack.len() - 1;
+        &mut self.stack_stack[end]
     }
 
     /// Pop one number from the stack and return it
     pub fn pop(&mut self) -> Space::Output {
-        match self.stack_mut().pop() {
-            Some(v) => v,
-            None => Space::Output::from(0 as i32),
-        }
+        self.stack_mut().pop().unwrap_or(0.into())
     }
 
     /// Push a number onto the stack
@@ -236,10 +233,10 @@ mod tests {
         ip.push(4);
         ip.push(5);
 
-        ip.stack_stack.push_back(Vec::new());
+        ip.stack_stack.push(Vec::new());
         assert_eq!(ip.pop(), 0);
 
-        ip.stack_stack.pop_back();
+        ip.stack_stack.pop();
         assert_eq!(ip.pop(), 5);
         assert_eq!(ip.stack().len(), 1);
     }

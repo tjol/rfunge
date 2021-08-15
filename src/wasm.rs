@@ -19,8 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #![cfg(target_arch = "wasm32")]
 
 use crate::{
-    new_befunge_interpreter, read_befunge, BefungeVec, IOMode, Interpreter,
-    InterpreterEnv, PagedFungeSpace,
+    new_befunge_interpreter, read_befunge, BefungeVec, IOMode, Interpreter, InterpreterEnv,
+    PagedFungeSpace,
 };
 
 // --------------------------------------------------------
