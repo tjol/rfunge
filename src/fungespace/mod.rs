@@ -161,91 +161,132 @@ impl<T> FungeValue for T where
 {
 }
 
-/// Read a string into a befunge space
-pub fn read_unefunge<T, FungeSpaceT>(space: &mut FungeSpaceT, src: &str)
+pub trait SrcIO<Space>: FungeIndex
+where
+    Space: FungeSpace<Self>,
+{
+    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]);
+    fn read_str_at(space: &mut Space, start: &Self, src: &str);
+    fn origin() -> Self;
+}
+
+/// SrcIO implementation for unefunge
+impl<Space, T> SrcIO<Space> for T
 where
     T: FungeValue + FungeIndex,
-    FungeSpaceT: FungeSpace<T> + Index<T, Output = T>,
+    Space: FungeSpace<T> + Index<T, Output = T>,
 {
-    let mut i = 0;
-    for line in src.lines() {
-        for c in line.chars() {
-            if c != ' ' {
-                space[i.into()] = (c as i32).into();
-            }
-            i += 1;
-        }
-    }
-}
+    /// Read a binary / latin1 file into a unefunge space starting at position `start`
+    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) {
+        let mut idx = *start;
 
-/// Read a string into a befunge space
-pub fn read_befunge<T, FungeSpaceT>(space: &mut FungeSpaceT, src: &str)
-where
-    T: FungeValue,
-    FungeSpaceT: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
-{
-    for (y, line) in src.lines().enumerate() {
-        for (x, c) in line.chars().enumerate() {
-            if c != ' ' {
-                space[bfvec(T::from_usize(x).unwrap(), T::from_usize(y).unwrap())] =
-                    (c as i32).into();
-            }
-        }
-    }
-}
-
-/// Read a binary / latin1 file into a unefunge space
-pub fn read_unefunge_bin<T, S>(space: &mut S, src: &[u8])
-where
-    T: FungeValue,
-    S: FungeSpace<T> + Index<T, Output = T>,
-{
-    let mut idx: T = 0.into();
-
-    for byte in src {
-        match byte {
-            10 | 13 => {} // skip CR & LF
-            byte => {
-                space[idx] = (*byte as i32).into();
-                idx += 1.into();
-            }
-        }
-    }
-}
-
-/// Read a binary / latin1 file into a befunge space
-pub fn read_befunge_bin<T, S>(space: &mut S, src: &[u8])
-where
-    T: FungeValue,
-    S: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
-{
-    let mut x: T = 0.into();
-    let mut y: T = 0.into();
-
-    let mut recent_cr = false;
-    for byte in src {
-        match byte {
-            10 => {
-                // line feed
-                if !recent_cr {
-                    x = 0.into();
-                    y += 1.into();
+        for byte in src {
+            match byte {
+                10 | 13 => {} // skip CR & LF
+                byte => {
+                    let value = *byte as i32;
+                    if value != (' ' as i32) {
+                        space[idx] = value.into();
+                    }
+                    idx += 1.into();
                 }
-                recent_cr = false;
-            }
-            13 => {
-                // carriage return
-                x = 0.into();
-                y += 1.into();
-                recent_cr = true;
-            }
-            byte => {
-                space[bfvec(x, y)] = (*byte as i32).into();
-                x += 1.into();
-                recent_cr = false;
             }
         }
     }
+
+    /// Read a string into unifunge space starting at position `start`
+    fn read_str_at(space: &mut Space, start: &Self, src: &str) {
+        let mut i = *start;
+
+        for line in src.lines() {
+            for c in line.chars() {
+                if c != ' ' {
+                    space[i] = (c as i32).into();
+                }
+                i += 1.into();
+            }
+        }
+    }
+
+    fn origin() -> Self {
+        0.into()
+    }
+}
+
+/// SrcIO implementation for befunge
+impl<Space, T> SrcIO<Space> for BefungeVec<T>
+where
+    T: FungeValue,
+    Space: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
+{
+    /// Read a binary / latin1 file into a unefunge space starting at position `start`
+    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) {
+        let mut x: T = start.x;
+        let mut y: T = start.y;
+        let mut recent_cr = false;
+        for byte in src {
+            match byte {
+                10 => {
+                    // line feed
+                    if !recent_cr {
+                        x = start.x;
+                        y += 1.into();
+                    }
+                    recent_cr = false;
+                }
+                13 => {
+                    // carriage return
+                    x = start.x;
+                    y += 1.into();
+                    recent_cr = true;
+                }
+                byte => {
+                    let value = *byte as i32;
+                    if value != (' ' as i32) {
+                        space[bfvec(x, y)] = value.into();
+                    }
+                    x += 1.into();
+                    recent_cr = false;
+                }
+            }
+        }
+    }
+
+    /// Read a string into unifunge space starting at position `start`
+    fn read_str_at(space: &mut Space, start: &Self, src: &str) {
+        for (y, line) in src.lines().enumerate() {
+            for (x, c) in line.chars().enumerate() {
+                if c != ' ' {
+                    space[*start + bfvec(T::from_usize(x).unwrap(), T::from_usize(y).unwrap())] =
+                        (c as i32).into();
+                }
+            }
+        }
+    }
+
+    fn origin() -> Self {
+        bfvec(0, 0)
+    }
+}
+
+/// Read a string into a funge space
+pub fn read_funge_src<Idx, Space>(space: &mut Space, src: &str)
+where
+    Space: FungeSpace<Idx>,
+    Idx: SrcIO<Space>,
+    Space::Output: FungeValue,
+{
+    Idx::read_str_at(space, &Idx::origin(), src)
+}
+
+/// Read a string into a funge space
+pub fn read_funge_src_bin<Idx, Space>(space: &mut Space, src: &[u8])
+where
+    Space: FungeSpace<Idx>,
+    Idx: SrcIO<Space>,
+    Space::Output: FungeValue,
+{
+    Idx::read_bin_at(space, &Idx::origin(), src)
 }
 
 #[cfg(test)]
@@ -258,7 +299,7 @@ mod tests {
         T: FungeValue + FungeIndex,
         FungeSpaceT: FungeSpace<T> + Index<T, Output = T>,
     {
-        read_unefunge(space, "   3      a  d  ");
+        read_funge_src(space, "   3      a  d  ");
         assert_eq!(space[3.into()], T::from('3' as i32));
         assert_eq!(
             space.move_by(3.into(), 1.into()),
@@ -279,7 +320,7 @@ mod tests {
         T: FungeValue,
         FungeSpaceT: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
     {
-        read_befunge(space, "1   5  8\n\n  a b    c\r\n A");
+        read_funge_src(space, "1   5  8\n\n  a b    c\r\n A");
 
         assert_eq!(space[bfvec(2, 2)], T::from('a' as i32));
         assert_eq!(

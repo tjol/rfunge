@@ -19,7 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #![cfg(target_arch = "wasm32")]
 
 use crate::{
-    new_befunge_interpreter, read_befunge, BefungeVec, IOMode, Interpreter, InterpreterEnv,
+    new_befunge_interpreter, read_funge_src, BefungeVec, IOMode, Interpreter, InterpreterEnv,
     PagedFungeSpace,
 };
 
@@ -84,6 +84,10 @@ impl InterpreterEnv for JSEnv {
     fn warn(&mut self, msg: &str) {
         write_rfunge_warning(msg);
     }
+
+    fn is_io_buffered(&self) -> bool {
+        false
+    }
 }
 
 type WebBefungeInterp = Interpreter<BefungeVec<i32>, PagedFungeSpace<BefungeVec<i32>, i32>, JSEnv>;
@@ -105,7 +109,7 @@ pub fn free_interpreter(interp: *mut WebBefungeInterp) {
 #[wasm_bindgen]
 pub fn load_src(interp: *mut WebBefungeInterp, src: &str) {
     let interp_ref = unsafe { &mut (*interp) };
-    read_befunge(&mut interp_ref.space, src);
+    read_funge_src(&mut interp_ref.space, src);
 }
 
 #[wasm_bindgen]

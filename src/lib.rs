@@ -30,11 +30,10 @@ use std::hash::Hash;
 use divrem::{DivEuclid, DivRemEuclid, RemEuclid};
 
 pub use crate::fungespace::{
-    bfvec, read_befunge, read_befunge_bin, read_unefunge, read_unefunge_bin, BefungeVec,
-    FungeSpace, FungeValue, PagedFungeSpace,
+    bfvec, read_funge_src, read_funge_src_bin, BefungeVec, FungeSpace, FungeValue, PagedFungeSpace,
 };
 pub use crate::interpreter::{
-    GenericEnv, IOMode, InstructionPointer, InstructionResult, Interpreter, InterpreterEnv,
+    ExecMode, IOMode, InstructionPointer, InstructionResult, Interpreter, InterpreterEnv,
     ProgramResult,
 };
 

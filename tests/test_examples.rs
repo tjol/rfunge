@@ -20,10 +20,46 @@ use colored::Colorize;
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
 use std::io;
-use std::io::{Read, Write};
+use std::io::{Empty, Read, Write};
 use std::path::{Path, PathBuf};
 
-use rfunge::{new_befunge_interpreter, read_befunge_bin, GenericEnv, IOMode, ProgramResult};
+use rfunge::{
+    new_befunge_interpreter, read_funge_src_bin, ExecMode, IOMode, InterpreterEnv, ProgramResult,
+};
+
+struct TestEnv {
+    output: Vec<u8>,
+    input: Empty,
+    working_dir: PathBuf,
+}
+
+impl InterpreterEnv for TestEnv {
+    fn get_iomode(&self) -> IOMode {
+        IOMode::Binary
+    }
+    fn is_io_buffered(&self) -> bool {
+        true
+    }
+    fn output_writer(&mut self) -> &mut dyn Write {
+        &mut self.output
+    }
+    fn input_reader(&mut self) -> &mut dyn Read {
+        &mut self.input
+    }
+    fn warn(&mut self, _msg: &str) {}
+    fn have_file_input(&self) -> bool {
+        true
+    }
+    fn have_execute(&self) -> ExecMode {
+        ExecMode::Disabled
+    }
+    fn read_file(&mut self, filename: &str) -> io::Result<Vec<u8>> {
+        let filepath = self.working_dir.join(filename);
+        let mut buf = Vec::new();
+        File::open(filepath).and_then(|mut f| f.read_to_end(&mut buf))?;
+        Ok(buf)
+    }
+}
 
 const TEST_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
 
@@ -59,18 +95,16 @@ fn get_b98_tests() -> io::Result<Vec<(PathBuf, PathBuf)>> {
 
 fn run_b98_test(program_path: &Path, output_path: &Path) {
     let program_name = program_path.file_name().unwrap().to_string_lossy();
+    let dir_name = program_path.parent().unwrap();
     eprint!("befunge test {} ... ", program_name);
     io::stderr().flush().unwrap();
 
-    let mut output = Vec::<u8>::new();
-    let mut warn_log = Vec::<String>::new();
-    {
+    let output = {
         // Set up the interpreter
-        let mut interpreter = new_befunge_interpreter::<i32, _>(GenericEnv {
-            io_mode: IOMode::Binary,
-            output: &mut output,
+        let mut interpreter = new_befunge_interpreter::<i32, _>(TestEnv {
+            output: Vec::new(),
             input: std::io::empty(),
-            warning_cb: |s: &str| warn_log.push(s.to_owned()),
+            working_dir: dir_name.to_owned(),
         });
 
         {
@@ -78,11 +112,13 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
             File::open(program_path)
                 .and_then(|mut f| f.read_to_end(&mut src))
                 .unwrap();
-            read_befunge_bin(&mut interpreter.space, &src);
+            read_funge_src_bin(&mut interpreter.space, &src);
         }
 
         assert_eq!(interpreter.run(), ProgramResult::Ok);
-    }
+
+        interpreter.env.output
+    };
     let mut ref_out = Vec::<u8>::new();
     File::open(output_path)
         .and_then(|mut f| f.read_to_end(&mut ref_out))

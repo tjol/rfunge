@@ -21,13 +21,14 @@ mod instructions;
 pub mod ip;
 pub mod motion;
 
+use std::io;
 use std::io::{Read, Write};
 
 use self::instruction_set::exec_instruction;
 pub use self::instruction_set::{InstructionMode, InstructionResult, InstructionSet};
 pub use self::ip::InstructionPointer;
 pub use self::motion::MotionCmds;
-use super::fungespace::{FungeSpace, FungeValue};
+use super::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramResult {
@@ -41,9 +42,17 @@ pub enum IOMode {
     Binary,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecMode {
+    Disabled,
+    System,
+    SpecificShell,
+    SameShell,
+}
+
 pub struct Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -55,46 +64,34 @@ where
 
 pub trait InterpreterEnv {
     fn get_iomode(&self) -> IOMode;
+    fn is_io_buffered(&self) -> bool;
     fn output_writer(&mut self) -> &mut dyn Write;
     fn input_reader(&mut self) -> &mut dyn Read;
     fn warn(&mut self, msg: &str);
-}
 
-pub struct GenericEnv<Rd, Wr, Wfn>
-where
-    Rd: Read,
-    Wr: Write,
-    Wfn: FnMut(&str),
-{
-    pub io_mode: IOMode,
-    pub input: Rd,
-    pub output: Wr,
-    pub warning_cb: Wfn,
-}
-
-impl<Rd, Wr, Wfn> InterpreterEnv for GenericEnv<Rd, Wr, Wfn>
-where
-    Rd: Read,
-    Wr: Write,
-    Wfn: FnMut(&str),
-{
-    fn get_iomode(&self) -> IOMode {
-        self.io_mode
+    fn have_file_input(&self) -> bool {
+        false
     }
-    fn output_writer(&mut self) -> &mut dyn Write {
-        &mut self.output
+    fn have_file_output(&self) -> bool {
+        false
     }
-    fn input_reader(&mut self) -> &mut dyn Read {
-        &mut self.input
+    fn have_execute(&self) -> ExecMode {
+        ExecMode::Disabled
     }
-    fn warn(&mut self, msg: &str) {
-        (self.warning_cb)(msg)
+    fn read_file(&mut self, _filename: &str) -> io::Result<Vec<u8>> {
+        Err(io::Error::from(io::ErrorKind::PermissionDenied))
+    }
+    fn write_file(&mut self, _filename: &str, _content: &[u8]) -> io::Result<()> {
+        Err(io::Error::from(io::ErrorKind::PermissionDenied))
+    }
+    fn execute_command(&mut self, _command: &str) -> i32 {
+        -1
     }
 }
 
 impl<Idx, Space, Env> Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -127,5 +124,37 @@ where
         }
 
         ProgramResult::Ok
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use super::*;
+
+    pub struct NoEnv {
+        input: io::Empty,
+        outout: io::Sink,
+    }
+
+    // impl NoEnv {
+    //     fn new() -> Self { Self { input: io::empty(), outout: io::sink() } }
+    // }
+
+    impl InterpreterEnv for NoEnv {
+        fn get_iomode(&self) -> IOMode {
+            IOMode::Text
+        }
+        fn is_io_buffered(&self) -> bool {
+            true
+        }
+        fn output_writer(&mut self) -> &mut dyn Write {
+            &mut self.outout
+        }
+        fn input_reader(&mut self) -> &mut dyn Read {
+            &mut self.input
+        }
+        fn warn(&mut self, _msg: &str) {}
     }
 }

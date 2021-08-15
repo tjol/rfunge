@@ -27,7 +27,7 @@ use super::instructions;
 use super::ip::InstructionPointer;
 use super::motion::MotionCmds;
 use super::{IOMode, InterpreterEnv};
-use crate::fungespace::{FungeSpace, FungeValue};
+use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstructionResult {
@@ -55,7 +55,7 @@ pub enum InstructionMode {
 #[derive(Clone)]
 pub struct InstructionSet<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -66,7 +66,7 @@ where
 
 impl<Idx, Space, Env> Debug for InstructionSet<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -79,7 +79,7 @@ where
 
 impl<Idx, Space, Env> InstructionSet<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -94,6 +94,7 @@ where
         instruction_vec['{' as usize] = Some(instructions::begin_block);
         instruction_vec['}' as usize] = Some(instructions::end_block);
         instruction_vec['u' as usize] = Some(instructions::stack_under_stack);
+        instruction_vec['i' as usize] = Some(instructions::input_file);
 
         let mut layers = Vec::new();
         layers.push(instruction_vec);
@@ -136,7 +137,7 @@ pub fn exec_instruction<Idx, Space, Env>(
     env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -154,7 +155,7 @@ fn exec_normal_instruction<Idx, Space, Env>(
     env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -250,16 +251,14 @@ where
                     if matches!(env.input_reader().read(&mut buf), Ok(1)) {
                         ip.push((buf[0] as i32).into());
                     } else {
-                        // reflect
-                        ip.delta = ip.delta * (-1).into();
+                        ip.reflect();
                     }
                 }
                 IOMode::Text => {
                     if let Some(Ok(c)) = CodePoints::from(env.input_reader().bytes()).next() {
                         ip.push((c as i32).into());
                     } else {
-                        // reflect
-                        ip.delta = ip.delta * (-1).into();
+                        ip.reflect();
                     }
                 }
             };
@@ -272,12 +271,10 @@ where
                 if let Ok(i) = maybe_i {
                     ip.push(i.into());
                 } else {
-                    // reflect
-                    ip.delta = ip.delta * (-1).into();
+                    ip.reflect();
                 }
             } else {
-                // reflect
-                ip.delta = ip.delta * (-1).into();
+                ip.reflect();
             }
             InstructionResult::Continue
         }
@@ -341,7 +338,7 @@ where
             InstructionResult::Continue
         }
         Some('r') => {
-            ip.delta = ip.delta * (-1).into();
+            ip.reflect();
             InstructionResult::Continue
         }
         Some('z') => InstructionResult::Continue,
@@ -351,15 +348,13 @@ where
             } else if let Some(instr_fn) = ip.instructions.get_instruction(raw_instruction) {
                 (instr_fn)(ip, space, env)
             } else {
-                // reflect
-                ip.delta = ip.delta * (-1).into();
+                ip.reflect();
                 env.warn(&format!("Unknown instruction: '{}'", c));
                 InstructionResult::Continue
             }
         }
         None => {
-            // reflect
-            ip.delta = ip.delta * (-1).into();
+            ip.reflect();
             env.warn("Unknown non-Unicode instruction!");
             InstructionResult::Continue
         }
@@ -373,7 +368,7 @@ fn exec_string_instruction<Idx, Space, Env>(
     _env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -400,24 +395,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
-
-    use super::super::GenericEnv;
+    use super::super::tests::NoEnv;
     use super::*;
     use crate::fungespace::index::BefungeVec;
     use crate::fungespace::paged::PagedFungeSpace;
 
-    type SomeEnvType = GenericEnv<Box<dyn Read>, Box<dyn Write>, fn(&str)>;
-
     #[test]
     fn test_instruction_layers() {
-        type Instr =
-            Instruction<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>, SomeEnvType>;
-        let mut is = InstructionSet::<
-            BefungeVec<i64>,
-            PagedFungeSpace<BefungeVec<i64>, i64>,
-            SomeEnvType,
-        >::new();
+        type Instr = Instruction<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>, NoEnv>;
+        let mut is =
+            InstructionSet::<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>, NoEnv>::new();
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), None));
         assert!(matches!(is.get_instruction('3' as i64), None));
@@ -435,13 +422,9 @@ mod tests {
     }
 
     fn nop_for_test(
-        _ip: &mut InstructionPointer<
-            BefungeVec<i64>,
-            PagedFungeSpace<BefungeVec<i64>, i64>,
-            SomeEnvType,
-        >,
+        _ip: &mut InstructionPointer<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>, NoEnv>,
         _sp: &mut PagedFungeSpace<BefungeVec<i64>, i64>,
-        _env: &mut SomeEnvType,
+        _env: &mut NoEnv,
     ) -> InstructionResult {
         InstructionResult::Continue
     }

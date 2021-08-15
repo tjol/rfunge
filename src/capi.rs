@@ -19,7 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #![cfg(not(target_arch = "wasm32"))]
 
 use crate::{
-    new_befunge_interpreter, read_befunge, read_befunge_bin, BefungeVec, IOMode, Interpreter,
+    new_befunge_interpreter, read_funge_src, read_funge_src_bin, BefungeVec, IOMode, Interpreter,
     InterpreterEnv, PagedFungeSpace,
 };
 
@@ -104,6 +104,10 @@ impl InterpreterEnv for CAPIEnv {
             }
         }
     }
+
+    fn is_io_buffered(&self) -> bool {
+        true
+    }
 }
 
 type RFungeBefungeInterp =
@@ -146,13 +150,13 @@ pub extern "C" fn rfunge_load_src(
 
     if interp_ref.env.is_unicode {
         if let Ok(src) = std::str::from_utf8(src_bin) {
-            read_befunge(&mut interp_ref.space, src);
+            read_funge_src(&mut interp_ref.space, src);
             return true;
         } else {
             return false;
         }
     } else {
-        read_befunge_bin(&mut interp_ref.space, src_bin);
+        read_funge_src_bin(&mut interp_ref.space, src_bin);
         return true;
     }
 }

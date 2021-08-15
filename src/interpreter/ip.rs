@@ -25,13 +25,13 @@ use super::instruction_set::InstructionSet;
 use super::motion::MotionCmds;
 use super::InterpreterEnv;
 use crate::fungespace::index::{bfvec, BefungeVec};
-use crate::fungespace::{FungeSpace, FungeValue};
+use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 /// Struct encapsulating the state of the/an IP
 #[derive(Debug, Clone)]
 pub struct InstructionPointer<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -51,7 +51,7 @@ where
     pub private_data: HashMap<String, Rc<dyn Any>>,
 }
 
-pub trait CreateInstructionPointer<Space, Env>: MotionCmds<Space, Env>
+pub trait CreateInstructionPointer<Space, Env>: MotionCmds<Space, Env> + SrcIO<Space>
 where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
@@ -114,7 +114,7 @@ where
 
 impl<Idx, Space, Env> InstructionPointer<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -139,22 +139,34 @@ where
     pub fn push(&mut self, v: Space::Output) {
         self.stack_mut().push(v)
     }
+
+    pub fn pop_0gnirts(&mut self) -> String {
+        let mut c = self.pop();
+        let mut s = String::new();
+        while c != 0.into() {
+            s.push(c.to_char());
+            c = self.pop();
+        }
+        return s;
+    }
+
+    pub fn reflect(&mut self) {
+        self.delta = self.delta * (-1).into();
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::GenericEnv;
+    use super::super::tests::NoEnv;
     use super::*;
     use crate::fungespace::paged::PagedFungeSpace;
-    use std::io::{Read, Write};
 
     #[test]
     fn test_stack() {
-        type SomeEnvType = GenericEnv<Box<dyn Read>, Box<dyn Write>, fn(&str)>;
         let mut ip = InstructionPointer::<
             BefungeVec<i64>,
             PagedFungeSpace<BefungeVec<i64>, i64>,
-            SomeEnvType,
+            NoEnv,
         >::new();
 
         assert_eq!(ip.pop(), 0);

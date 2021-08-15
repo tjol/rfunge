@@ -26,8 +26,9 @@ use num::ToPrimitive;
 use super::instruction_set::exec_instruction;
 use super::ip::InstructionPointer;
 use super::motion::MotionCmds;
+use super::IOMode;
 use super::{InstructionResult, InterpreterEnv};
-use crate::fungespace::{FungeSpace, FungeValue};
+use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 pub fn iterate<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
@@ -35,7 +36,7 @@ pub fn iterate<Idx, Space, Env>(
     env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -76,7 +77,7 @@ where
         }
     } else {
         // Reflect on overflow
-        ip.delta = ip.delta * (-1).into();
+        ip.reflect();
     }
     loop_result
 }
@@ -87,7 +88,7 @@ pub fn begin_block<Idx, Space, Env>(
     _env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -118,8 +119,7 @@ where
 
         ip.storage_offset = ip.location + ip.delta;
     } else {
-        // reflect
-        ip.delta = ip.delta * (-1).into();
+        ip.reflect();
     }
 
     InstructionResult::Continue
@@ -131,7 +131,7 @@ pub fn end_block<Idx, Space, Env>(
     _env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -160,12 +160,10 @@ where
                 ip.stack_mut().append(&mut toss.split_off(split_idx));
             }
         } else {
-            // reflect
-            ip.delta = ip.delta * (-1).into();
+            ip.reflect();
         }
     } else {
-        // reflect
-        ip.delta = ip.delta * (-1).into();
+        ip.reflect();
     }
 
     InstructionResult::Continue
@@ -177,7 +175,7 @@ pub fn stack_under_stack<Idx, Space, Env>(
     _env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space, Env>,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -197,12 +195,69 @@ where
                 }
             }
         } else {
-            // reflect
-            ip.delta = ip.delta * (-1).into();
+            ip.reflect();
         }
     } else {
-        // reflect
-        ip.delta = ip.delta * (-1).into();
+        ip.reflect();
     }
+    InstructionResult::Continue
+}
+
+pub fn input_file<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    space: &mut Space,
+    env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let filename = ip.pop_0gnirts();
+    let flags = ip.pop();
+    let dest = MotionCmds::pop_vector(ip);
+
+    match env.get_iomode() {
+        IOMode::Binary => {
+            if let Ok(src) = env.read_file(&filename) {
+                if flags & 1.into() == 1.into() {
+                    // "binary mode" = linear mode
+                    let mut dest = dest;
+                    for b in src {
+                        space[dest] = (b as i32).into();
+                        dest = dest.one_further();
+                    }
+                } else {
+                    // "text mode"
+                    Idx::read_bin_at(space, &dest, &src);
+                }
+            } else {
+                ip.reflect();
+            }
+        }
+        IOMode::Text => {
+            if let Some(src) = env
+                .read_file(&filename)
+                .ok()
+                .and_then(|v| String::from_utf8(v).ok())
+            {
+                if flags & 1.into() == 1.into() {
+                    // "binary mode" = linear mode
+                    let mut dest = dest;
+                    for c in src.chars() {
+                        space[dest] = (c as i32).into();
+                        dest = dest.one_further();
+                    }
+                } else {
+                    // "text mode"
+                    Idx::read_str_at(space, &dest, &src);
+                }
+            } else {
+                ip.reflect();
+            }
+        }
+    }
+
     InstructionResult::Continue
 }

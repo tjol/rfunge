@@ -16,16 +16,103 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use regex::Regex;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io;
+use std::io::{stderr, stdin, stdout, Read, Stdin, Stdout, Write};
+use std::process::Command;
 
 use clap::{App, Arg};
+use regex::Regex;
 
 use rfunge::{
-    new_befunge_interpreter, new_unefunge_interpreter, read_befunge, read_befunge_bin,
-    read_unefunge, read_unefunge_bin, GenericEnv, IOMode,
+    new_befunge_interpreter, new_unefunge_interpreter, read_funge_src, read_funge_src_bin,
+    ExecMode, IOMode, InterpreterEnv,
 };
+
+struct CmdLineEnv {
+    io_mode: IOMode,
+    warnings: bool,
+    sandbox: bool,
+    stdout: Stdout,
+    stdin: Stdin,
+}
+
+impl InterpreterEnv for CmdLineEnv {
+    fn get_iomode(&self) -> IOMode {
+        self.io_mode
+    }
+    fn is_io_buffered(&self) -> bool {
+        true
+    }
+    fn output_writer(&mut self) -> &mut dyn Write {
+        &mut self.stdout
+    }
+    fn input_reader(&mut self) -> &mut dyn Read {
+        &mut self.stdin
+    }
+    fn warn(&mut self, msg: &str) {
+        if self.warnings {
+            writeln!(stderr(), "{}", msg).ok();
+        }
+    }
+    fn have_file_input(&self) -> bool {
+        !self.sandbox
+    }
+    fn have_file_output(&self) -> bool {
+        !self.sandbox
+    }
+    fn have_execute(&self) -> ExecMode {
+        if self.sandbox {
+            ExecMode::Disabled
+        } else {
+            ExecMode::System
+        }
+    }
+    fn read_file(&mut self, filename: &str) -> io::Result<Vec<u8>> {
+        if self.sandbox {
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        } else {
+            let mut buf = Vec::new();
+            File::open(filename).and_then(|mut f| f.read_to_end(&mut buf))?;
+            Ok(buf)
+        }
+    }
+    fn write_file(&mut self, filename: &str, content: &[u8]) -> io::Result<()> {
+        if self.sandbox {
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        } else {
+            File::create(filename).and_then(|mut f| f.write_all(content))
+        }
+    }
+    fn execute_command(&mut self, command: &str) -> i32 {
+        if self.sandbox {
+            -1
+        } else {
+            if cfg!(unix) {
+                Command::new("sh")
+                    .arg("-c")
+                    .arg(command)
+                    .status()
+                    .ok()
+                    .and_then(|s| s.code())
+                    .unwrap_or(-1)
+            } else if cfg!(windows) {
+                Command::new("CMD")
+                    .arg("/C")
+                    .arg(command)
+                    .status()
+                    .ok()
+                    .and_then(|s| s.code())
+                    .unwrap_or(-1)
+            } else {
+                eprintln!(
+                    "WARNING: Attempted to execute command, but I don't know how on this system!"
+                );
+                -1
+            }
+        }
+    }
+}
 
 fn main() {
     let arg_matches = App::new(env!("CARGO_BIN_NAME"))
@@ -52,6 +139,12 @@ fn main() {
                 .help("Unicode mode")
                 .conflicts_with("binary")
                 .display_order(3),
+        )
+        .arg(
+            Arg::with_name("sandbox")
+                .short("s")
+                .long("sandbox")
+                .help("Run in sandbox / secure mode"),
         )
         .arg(
             Arg::with_name("unefunge")
@@ -116,20 +209,16 @@ fn main() {
     let is_unicode = arg_matches.is_present("unicode");
 
     // Set up the interpreter
-    let mut warning_stream: Box<dyn Write> = if arg_matches.is_present("warn") {
-        Box::new(std::io::stderr())
-    } else {
-        Box::new(std::io::sink())
-    };
-    let env = GenericEnv {
+    let env = CmdLineEnv {
         io_mode: if is_unicode {
             IOMode::Text
         } else {
             IOMode::Binary
         },
-        output: std::io::stdout(),
-        input: std::io::stdin(),
-        warning_cb: |s: &str| writeln!(warning_stream, "{}", s.to_owned()).unwrap(),
+        warnings: arg_matches.is_present("warn"),
+        sandbox: arg_matches.is_present("sandbox"),
+        stdout: stdout(),
+        stdin: stdin(),
     };
 
     if dim == 1 {
@@ -137,9 +226,9 @@ fn main() {
         let mut interpreter = new_unefunge_interpreter::<i64, _>(env);
         if is_unicode {
             let src_str = String::from_utf8(src_bin).unwrap();
-            read_unefunge(&mut interpreter.space, &src_str)
+            read_funge_src(&mut interpreter.space, &src_str)
         } else {
-            read_unefunge_bin(&mut interpreter.space, &src_bin);
+            read_funge_src_bin(&mut interpreter.space, &src_bin);
         }
         interpreter.run();
     } else if dim == 2 {
@@ -147,9 +236,9 @@ fn main() {
         let mut interpreter = new_befunge_interpreter::<i64, _>(env);
         if is_unicode {
             let src_str = String::from_utf8(src_bin).unwrap();
-            read_befunge(&mut interpreter.space, &src_str)
+            read_funge_src(&mut interpreter.space, &src_str)
         } else {
-            read_befunge_bin(&mut interpreter.space, &src_bin);
+            read_funge_src_bin(&mut interpreter.space, &src_bin);
         }
         interpreter.run();
     }

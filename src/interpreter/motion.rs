@@ -21,10 +21,10 @@ use std::ops::{Add, Mul};
 use super::ip::InstructionPointer;
 use super::InterpreterEnv;
 use crate::fungespace::index::{bfvec, BefungeVec};
-use crate::fungespace::{FungeIndex, FungeSpace, FungeValue};
+use crate::fungespace::{FungeIndex, FungeSpace, FungeValue, SrcIO};
 
 pub trait MotionCmds<Space, Env>:
-    FungeIndex + Add<Output = Self> + Mul<Space::Output, Output = Self>
+    FungeIndex + Add<Output = Self> + Mul<Space::Output, Output = Self> + SrcIO<Space>
 where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
@@ -33,6 +33,7 @@ where
     fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool;
     fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self;
     fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self);
+    fn one_further(&self) -> Self;
 }
 
 // Unefunge implementation of MotionCmds
@@ -71,6 +72,10 @@ where
 
     fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
         ip.push(v);
+    }
+
+    fn one_further(&self) -> Self {
+        *self + 1.into()
     }
 }
 
@@ -150,5 +155,9 @@ where
     fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
         ip.push(v.x);
         ip.push(v.y);
+    }
+
+    fn one_further(&self) -> Self {
+        bfvec(self.x + 1.into(), self.y)
     }
 }
