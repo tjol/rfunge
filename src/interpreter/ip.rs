@@ -22,17 +22,18 @@ use std::ops::Index;
 use std::rc::Rc;
 
 use super::instruction_set::InstructionSet;
-use super::MotionCmds;
+use super::{InterpreterEnv, MotionCmds};
 use crate::fungespace::index::{bfvec, BefungeVec};
 use crate::fungespace::{FungeSpace, FungeValue};
 
 /// Struct encapsulating the state of the/an IP
 #[derive(Debug, Clone)]
-pub struct InstructionPointer<Idx, Space>
+pub struct InstructionPointer<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     /// Location of the IP (initial: the origin)
     pub location: Idx,
@@ -43,27 +44,29 @@ where
     /// The stack stack
     pub stack_stack: Vec<Vec<Space::Output>>,
     /// The currently available
-    pub instructions: InstructionSet<Idx, Space>,
+    pub instructions: InstructionSet<Idx, Space, Env>,
     /// If instructions or fingerprints need to store additional data with the
     /// IP, put them here.
     pub private_data: HashMap<String, Rc<dyn Any>>,
 }
 
-pub trait CreateInstructionPointer<Space>: MotionCmds<Space>
+pub trait CreateInstructionPointer<Space, Env>: MotionCmds<Space, Env>
 where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
-    fn new_ip() -> InstructionPointer<Self, Space>;
+    fn new_ip() -> InstructionPointer<Self, Space, Env>;
 }
 
-impl<T, Space> CreateInstructionPointer<Space> for T
+impl<T, Space, Env> CreateInstructionPointer<Space, Env> for T
 where
     T: FungeValue,
     Space: FungeSpace<T> + Index<T, Output = T>,
+    Env: InterpreterEnv,
 {
-    fn new_ip() -> InstructionPointer<T, Space> {
-        let mut instance = InstructionPointer::<T, Space> {
+    fn new_ip() -> InstructionPointer<T, Space, Env> {
+        let mut instance = InstructionPointer {
             location: 0.into(),
             delta: 1.into(),
             storage_offset: 0.into(),
@@ -76,13 +79,14 @@ where
     }
 }
 
-impl<T, Space> CreateInstructionPointer<Space> for BefungeVec<T>
+impl<T, Space, Env> CreateInstructionPointer<Space, Env> for BefungeVec<T>
 where
     T: FungeValue,
     Space: FungeSpace<BefungeVec<T>, Output = T>,
+    Env: InterpreterEnv,
 {
-    fn new_ip() -> InstructionPointer<BefungeVec<T>, Space> {
-        let mut instance = InstructionPointer::<BefungeVec<T>, Space> {
+    fn new_ip() -> InstructionPointer<BefungeVec<T>, Space, Env> {
+        let mut instance = InstructionPointer {
             location: bfvec(0, 0),
             delta: bfvec(1, 0),
             storage_offset: bfvec(0, 0),
@@ -95,22 +99,24 @@ where
     }
 }
 
-impl<Idx, Space> InstructionPointer<Idx, Space>
+impl<Idx, Space, Env> InstructionPointer<Idx, Space, Env>
 where
-    Idx: CreateInstructionPointer<Space>,
+    Idx: CreateInstructionPointer<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     pub fn new() -> Self {
         Idx::new_ip()
     }
 }
 
-impl<Idx, Space> InstructionPointer<Idx, Space>
+impl<Idx, Space, Env> InstructionPointer<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     /// Get the top of the stack stack
     pub fn stack(&self) -> &Vec<Space::Output> {
@@ -136,13 +142,19 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::super::GenericEnv;
     use super::*;
     use crate::fungespace::paged::PagedFungeSpace;
+    use std::io::{Read, Write};
 
     #[test]
     fn test_stack() {
-        let mut ip =
-            InstructionPointer::<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>::new();
+        type SomeEnvType = GenericEnv<Box<dyn Read>, Box<dyn Write>, fn(&str)>;
+        let mut ip = InstructionPointer::<
+            BefungeVec<i64>,
+            PagedFungeSpace<BefungeVec<i64>, i64>,
+            SomeEnvType,
+        >::new();
 
         assert_eq!(ip.pop(), 0);
         ip.push(1);

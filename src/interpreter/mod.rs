@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 pub mod instruction_set;
+mod instructions;
 pub mod ip;
 
 use std::io::{Read, Write};
@@ -40,25 +41,26 @@ pub enum IOMode {
     Binary,
 }
 
-pub trait MotionCmds<Space>:
+pub trait MotionCmds<Space, Env>:
     FungeIndex + Add<Output = Self> + Mul<Space::Output, Output = Self>
 where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
-    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool;
-    fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self;
-    fn push_vector(ip: &mut InstructionPointer<Self, Space>, v: Self);
+    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool;
+    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self;
+    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self);
 }
 
 pub struct Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    pub ips: Vec<InstructionPointer<Idx, Space>>,
+    pub ips: Vec<InstructionPointer<Idx, Space, Env>>,
     pub space: Space,
     pub env: Env,
 }
@@ -104,7 +106,7 @@ where
 
 impl<Idx, Space, Env> Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -141,12 +143,13 @@ where
 }
 
 // Unefunge implementation of MotionCmds
-impl<T, Space> MotionCmds<Space> for T
+impl<T, Space, Env> MotionCmds<Space, Env> for T
 where
     T: FungeValue,
     Space: FungeSpace<Self, Output = T>,
+    Env: InterpreterEnv,
 {
-    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool {
+    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool {
         match instruction {
             '>' => {
                 ip.delta = T::from(1);
@@ -169,22 +172,23 @@ where
         }
     }
 
-    fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self {
+    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self {
         ip.pop()
     }
 
-    fn push_vector(ip: &mut InstructionPointer<Self, Space>, v: Self) {
+    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
         ip.push(v);
     }
 }
 
 // Befunge implementation of MotionCmds
-impl<T, Space> MotionCmds<Space> for BefungeVec<T>
+impl<T, Space, Env> MotionCmds<Space, Env> for BefungeVec<T>
 where
     Space: FungeSpace<Self, Output = T>,
     T: FungeValue,
+    Env: InterpreterEnv,
 {
-    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space>) -> bool {
+    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool {
         match instruction {
             '>' => {
                 ip.delta = bfvec(1, 0);
@@ -244,13 +248,13 @@ where
         }
     }
 
-    fn pop_vector(ip: &mut InstructionPointer<Self, Space>) -> Self {
+    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self {
         let y = ip.pop();
         let x = ip.pop();
         return bfvec(x, y);
     }
 
-    fn push_vector(ip: &mut InstructionPointer<Self, Space>, v: Self) {
+    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
         ip.push(v.x);
         ip.push(v.y);
     }

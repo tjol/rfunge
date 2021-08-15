@@ -16,7 +16,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufRead, BufReader, Read};
@@ -24,6 +23,7 @@ use std::io::{BufRead, BufReader, Read};
 use num::ToPrimitive;
 use unicode_reader::CodePoints;
 
+use super::instructions;
 use super::ip::InstructionPointer;
 use super::{IOMode, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue};
@@ -37,10 +37,10 @@ pub enum InstructionResult {
     Panic,
 }
 
-// could use Rc<FnMut> instead of fn for more flexibility
-type Instruction<Idx, Space> =
-    fn(&mut InstructionPointer<Idx, Space>, &mut Space) -> InstructionResult;
-type InstructionLayer<Idx, Space> = Vec<Option<Instruction<Idx, Space>>>;
+type Instruction<Idx, Space, Env> =
+    fn(&mut InstructionPointer<Idx, Space, Env>, &mut Space, &mut Env) -> InstructionResult;
+
+type InstructionLayer<Idx, Space, Env> = Vec<Option<Instruction<Idx, Space, Env>>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum InstructionMode {
@@ -52,21 +52,23 @@ pub enum InstructionMode {
 /// It has multiple layers, and fingerprints are able to add a new
 /// layer to the instruction set (which can later be popped)
 #[derive(Clone)]
-pub struct InstructionSet<Idx, Space>
+pub struct InstructionSet<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     pub mode: InstructionMode,
-    layers: Vec<InstructionLayer<Idx, Space>>,
+    layers: Vec<InstructionLayer<Idx, Space, Env>>,
 }
 
-impl<Idx, Space> Debug for InstructionSet<Idx, Space>
+impl<Idx, Space, Env> Debug for InstructionSet<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // Function pointers don't implement Debug, so we need a work around
@@ -74,15 +76,24 @@ where
     }
 }
 
-impl<Idx, Space> InstructionSet<Idx, Space>
+impl<Idx, Space, Env> InstructionSet<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
+    Env: InterpreterEnv,
 {
     pub fn new() -> Self {
-        let mut instruction_vec = Vec::new();
+        let mut instruction_vec: InstructionLayer<Idx, Space, Env> = Vec::new();
         instruction_vec.resize(128, None);
+
+        // Add standard instructions (other than those implemented directly
+        // in the main match statement in exec_normal_instructions)
+        instruction_vec['k' as usize] = Some(instructions::iterate);
+        instruction_vec['{' as usize] = Some(instructions::begin_block);
+        instruction_vec['}' as usize] = Some(instructions::end_block);
+        instruction_vec['u' as usize] = Some(instructions::stack_under_stack);
+
         let mut layers = Vec::new();
         layers.push(instruction_vec);
 
@@ -93,12 +104,15 @@ where
     }
 
     /// Get the function associated with a given character, if any
-    pub fn get_instruction(&self, instruction: Space::Output) -> Option<Instruction<Idx, Space>> {
+    pub fn get_instruction(
+        &self,
+        instruction: Space::Output,
+    ) -> Option<Instruction<Idx, Space, Env>> {
         *(self.layers[self.layers.len() - 1].get(instruction.to_usize()?)?)
     }
 
     /// Add a set of instructions as a new layer
-    pub fn add_layer(&mut self, instructions: HashMap<u16, Instruction<Idx, Space>>) {
+    pub fn add_layer(&mut self, instructions: HashMap<u16, Instruction<Idx, Space, Env>>) {
         let mut new_layer = self.layers[self.layers.len() - 1].clone();
         for (&i, &f) in instructions.iter() {
             if i as usize >= new_layer.len() {
@@ -116,12 +130,12 @@ where
 
 pub fn exec_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
-    ip: &mut InstructionPointer<Idx, Space>,
+    ip: &mut InstructionPointer<Idx, Space, Env>,
     space: &mut Space,
     env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -134,12 +148,12 @@ where
 
 fn exec_normal_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
-    ip: &mut InstructionPointer<Idx, Space>,
+    ip: &mut InstructionPointer<Idx, Space, Env>,
     space: &mut Space,
     env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -325,140 +339,6 @@ where
             ip.push(space[loc]);
             InstructionResult::Continue
         }
-        Some('k') => {
-            let n = ip.pop();
-            let (mut new_loc, new_val_ref) = space.move_by(ip.location, ip.delta);
-            let mut new_val = *new_val_ref;
-            let mut loop_result = InstructionResult::Continue;
-            if let Some(n) = n.to_isize() {
-                if n <= 0 {
-                    // surprising behaviour! 1k leads to the next instruction
-                    // being executed twice, 0k to it being skipped
-                    ip.location = new_loc;
-                    loop_result = InstructionResult::Continue;
-                } else {
-                    let mut new_val_c = new_val.to_char();
-                    while new_val_c == ';' {
-                        // skip what must be skipped
-                        // fake-execute!
-                        let old_loc = ip.location;
-                        ip.location = new_loc;
-                        exec_normal_instruction(new_val, ip, space, env);
-                        let (new_loc2, new_val_ref) = space.move_by(ip.location, ip.delta);
-                        new_loc = new_loc2;
-                        new_val = *new_val_ref;
-                        ip.location = old_loc;
-                        new_val_c = new_val.to_char();
-                    }
-                    for _ in 0..n {
-                        match exec_normal_instruction(new_val, ip, space, env) {
-                            InstructionResult::Continue => {}
-                            res => {
-                                loop_result = res;
-                                break;
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Reflect on overflow
-                ip.delta = ip.delta * (-1).into();
-            }
-            loop_result
-        }
-        Some('{') => {
-            if let Some(n) = ip.pop().to_isize() {
-                // take n items off the SOSS (old TOSS)
-                let n_to_take = max(0, min(n, ip.stack().len() as isize));
-                let zeros_for_toss = max(0, n - n_to_take);
-                let zeros_for_soss = max(0, -n);
-
-                let split_idx = ip.stack().len() - n_to_take as usize;
-                let mut transfer_elems = ip.stack_mut().split_off(split_idx);
-
-                for _ in 0..zeros_for_soss {
-                    ip.push(0.into());
-                }
-
-                MotionCmds::push_vector(ip, ip.storage_offset); // onto SOSS / old TOSS
-
-                // create a new stack
-                ip.stack_stack.push(Vec::new());
-
-                for _ in 0..zeros_for_toss {
-                    ip.push(0.into());
-                }
-
-                ip.stack_mut().append(&mut transfer_elems);
-
-                ip.storage_offset = ip.location + ip.delta;
-            } else {
-                // reflect
-                ip.delta = ip.delta * (-1).into();
-            }
-
-            InstructionResult::Continue
-        }
-        Some('}') => {
-            if ip.stack_stack.len() > 1 {
-                if let Some(n) = ip.pop().to_isize() {
-                    let mut toss = ip.stack_stack.pop().unwrap();
-
-                    // restore the storage offset
-                    ip.storage_offset = MotionCmds::pop_vector(ip);
-
-                    let n_to_take = max(0, min(n, toss.len() as isize));
-                    let zeros_for_soss = max(0, n - n_to_take);
-                    let n_to_pop = max(0, -n);
-
-                    if n_to_pop > 0 {
-                        for _ in 0..n_to_pop {
-                            ip.pop();
-                        }
-                    } else {
-                        for _ in 0..zeros_for_soss {
-                            ip.push(0.into());
-                        }
-
-                        let split_idx = toss.len() - n_to_take as usize;
-                        ip.stack_mut().append(&mut toss.split_off(split_idx));
-                    }
-                } else {
-                    // reflect
-                    ip.delta = ip.delta * (-1).into();
-                }
-            } else {
-                // reflect
-                ip.delta = ip.delta * (-1).into();
-            }
-
-            InstructionResult::Continue
-        }
-        Some('u') => {
-            let nstacks = ip.stack_stack.len();
-            if nstacks > 1 {
-                if let Some(n) = ip.pop().to_isize() {
-                    if n > 0 {
-                        for _ in 0..n {
-                            let v = ip.stack_stack[nstacks - 2].pop().unwrap_or(0.into());
-                            ip.push(v);
-                        }
-                    } else if n < 0 {
-                        for _ in 0..(-n) {
-                            let v = ip.pop();
-                            ip.stack_stack[nstacks - 2].push(v);
-                        }
-                    }
-                } else {
-                    // reflect
-                    ip.delta = ip.delta * (-1).into();
-                }
-            } else {
-                // reflect
-                ip.delta = ip.delta * (-1).into();
-            }
-            InstructionResult::Continue
-        }
         Some('r') => {
             ip.delta = ip.delta * (-1).into();
             InstructionResult::Continue
@@ -467,6 +347,8 @@ where
         Some(c) => {
             if MotionCmds::apply_delta(c, ip) {
                 InstructionResult::Continue
+            } else if let Some(instr_fn) = ip.instructions.get_instruction(raw_instruction) {
+                (instr_fn)(ip, space, env)
             } else {
                 // reflect
                 ip.delta = ip.delta * (-1).into();
@@ -485,12 +367,12 @@ where
 
 fn exec_string_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
-    ip: &mut InstructionPointer<Idx, Space>,
+    ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,
 ) -> InstructionResult
 where
-    Idx: MotionCmds<Space>,
+    Idx: MotionCmds<Space, Env>,
     Space: FungeSpace<Idx>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
@@ -517,15 +399,24 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
+    use super::super::GenericEnv;
     use super::*;
     use crate::fungespace::index::BefungeVec;
     use crate::fungespace::paged::PagedFungeSpace;
 
+    type SomeEnvType = GenericEnv<Box<dyn Read>, Box<dyn Write>, fn(&str)>;
+
     #[test]
     fn test_instruction_layers() {
-        type Instr = Instruction<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>;
-        let mut is =
-            InstructionSet::<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>::new();
+        type Instr =
+            Instruction<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>, SomeEnvType>;
+        let mut is = InstructionSet::<
+            BefungeVec<i64>,
+            PagedFungeSpace<BefungeVec<i64>, i64>,
+            SomeEnvType,
+        >::new();
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), None));
         assert!(matches!(is.get_instruction('3' as i64), None));
@@ -543,8 +434,13 @@ mod tests {
     }
 
     fn nop_for_test(
-        _ip: &mut InstructionPointer<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>>,
+        _ip: &mut InstructionPointer<
+            BefungeVec<i64>,
+            PagedFungeSpace<BefungeVec<i64>, i64>,
+            SomeEnvType,
+        >,
         _sp: &mut PagedFungeSpace<BefungeVec<i64>, i64>,
+        _env: &mut SomeEnvType,
     ) -> InstructionResult {
         InstructionResult::Continue
     }
