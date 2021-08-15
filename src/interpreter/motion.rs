@@ -16,7 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 use super::ip::InstructionPointer;
 use super::InterpreterEnv;
@@ -24,15 +24,25 @@ use crate::fungespace::index::{bfvec, BefungeVec};
 use crate::fungespace::{FungeIndex, FungeSpace, FungeValue, SrcIO};
 
 pub trait MotionCmds<Space, Env>:
-    FungeIndex + Add<Output = Self> + Mul<Space::Output, Output = Self> + SrcIO<Space>
+    FungeIndex
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Mul<Space::Output, Output = Self>
+    + SrcIO<Space>
 where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
     fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool;
-    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self;
-    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self);
+    fn pop_vector_from(stack: &mut Vec<Space::Output>) -> Self;
+    fn push_vector_onto(stack: &mut Vec<Space::Output>, v: Self);
+    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self {
+        Self::pop_vector_from(ip.stack_mut())
+    }
+    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
+        Self::push_vector_onto(ip.stack_mut(), v)
+    }
     fn one_further(&self) -> Self;
 }
 
@@ -66,12 +76,12 @@ where
         }
     }
 
-    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self {
-        ip.pop()
+    fn pop_vector_from(stack: &mut Vec<Space::Output>) -> Self {
+        stack.pop().unwrap_or(0.into())
     }
 
-    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
-        ip.push(v);
+    fn push_vector_onto(stack: &mut Vec<Space::Output>, v: Self) {
+        stack.push(v);
     }
 
     fn one_further(&self) -> Self {
@@ -146,15 +156,15 @@ where
         }
     }
 
-    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self {
-        let y = ip.pop();
-        let x = ip.pop();
+    fn pop_vector_from(stack: &mut Vec<Space::Output>) -> Self {
+        let y = stack.pop().unwrap_or(0.into());
+        let x = stack.pop().unwrap_or(0.into());
         return bfvec(x, y);
     }
 
-    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
-        ip.push(v.x);
-        ip.push(v.y);
+    fn push_vector_onto(stack: &mut Vec<Space::Output>, v: Self) {
+        stack.push(v.x);
+        stack.push(v.y);
     }
 
     fn one_further(&self) -> Self {

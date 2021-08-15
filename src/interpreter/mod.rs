@@ -68,7 +68,9 @@ pub trait InterpreterEnv {
     fn output_writer(&mut self) -> &mut dyn Write;
     fn input_reader(&mut self) -> &mut dyn Read;
     fn warn(&mut self, msg: &str);
-
+    fn handprint(&self) -> i32 {
+        0x52464e47 // RFNG
+    }
     fn have_file_input(&self) -> bool {
         false
     }
@@ -86,6 +88,15 @@ pub trait InterpreterEnv {
     }
     fn execute_command(&mut self, _command: &str) -> i32 {
         -1
+    }
+    fn env_vars(&mut self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+    fn timestamp(&mut self) -> i64 {
+        0
+    }
+    fn argv(&mut self) -> Vec<String> {
+        Vec::new()
     }
 }
 

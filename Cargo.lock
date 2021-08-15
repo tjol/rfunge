@@ -60,6 +60,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chrono"
+version = "0.4.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "clap"
 version = "2.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -210,6 +220,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "pkg-version"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e848f61ee4b2010345e65757e427a077213af1cee5d3e6a02e4a151dabca377"
+dependencies = [
+ "pkg-version-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "pkg-version-impl"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1564bf5d476bf4a5eac420b88c500454c000dca79cef0a2e4304a1fe34361a3b"
+dependencies = [
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "proc-macro-hack"
+version = "0.5.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -248,10 +283,12 @@ checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 name = "rfunge"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clap",
  "colored",
  "divrem",
  "num",
+ "pkg-version",
  "regex",
  "unicode_reader",
  "wasm-bindgen",

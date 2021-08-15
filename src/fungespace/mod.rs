@@ -19,6 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 pub mod index;
 pub mod paged;
 
+use std::cmp::max;
 use std::fmt::{Debug, Display};
 use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 use std::ops::{BitAnd, BitOr, BitXor, Neg, Not};
@@ -47,6 +48,9 @@ pub trait FungeIndex: Eq + Copy {
     ///
     /// This is used, e.g., to determine the maximum extent of funge-space.
     fn joint_max(&self, other: &Self) -> Self;
+
+    /// The number of scalars per vector
+    fn rank() -> i32;
 }
 
 /// Trait representing funge-space. Accessing specific
@@ -166,8 +170,8 @@ where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
 {
-    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]);
-    fn read_str_at(space: &mut Space, start: &Self, src: &str);
+    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) -> Self;
+    fn read_str_at(space: &mut Space, start: &Self, src: &str) -> Self;
     fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output>;
     fn get_src_str(space: &Space, start: &Self, size: &Self, strip: bool) -> String {
         Self::get_src_region(space, start, size, strip)
@@ -191,7 +195,7 @@ where
     Space: FungeSpace<T> + Index<T, Output = T>,
 {
     /// Read a binary / latin1 file into a unefunge space starting at position `start`
-    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) {
+    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) -> Self {
         let mut idx = *start;
 
         for byte in src {
@@ -206,10 +210,11 @@ where
                 }
             }
         }
+        return idx - *start;
     }
 
     /// Read a string into unifunge space starting at position `start`
-    fn read_str_at(space: &mut Space, start: &Self, src: &str) {
+    fn read_str_at(space: &mut Space, start: &Self, src: &str) -> Self {
         let mut i = *start;
 
         for line in src.lines() {
@@ -220,6 +225,8 @@ where
                 i += 1.into();
             }
         }
+
+        return i - *start;
     }
 
     fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output> {
@@ -251,15 +258,17 @@ where
     Space: FungeSpace<BefungeVec<T>> + Index<BefungeVec<T>, Output = T>,
 {
     /// Read a binary / latin1 file into a unefunge space starting at position `start`
-    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) {
+    fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) -> Self {
         let mut x: T = start.x;
         let mut y: T = start.y;
+        let mut max_x: T = start.x;
         let mut recent_cr = false;
         for byte in src {
             match byte {
                 10 => {
                     // line feed
                     if !recent_cr {
+                        max_x = max(x, max_x);
                         x = start.x;
                         y += 1.into();
                     }
@@ -267,6 +276,7 @@ where
                 }
                 13 => {
                     // carriage return
+                    max_x = max(x, max_x);
                     x = start.x;
                     y += 1.into();
                     recent_cr = true;
@@ -281,18 +291,31 @@ where
                 }
             }
         }
+        max_x = max(x, max_x);
+        if x != start.x {
+            y += 1.into();
+        }
+        return Self { x: max_x, y: y } - *start;
     }
 
     /// Read a string into unifunge space starting at position `start`
-    fn read_str_at(space: &mut Space, start: &Self, src: &str) {
+    fn read_str_at(space: &mut Space, start: &Self, src: &str) -> Self {
+        let mut max_x: T = 0.into();
+        let mut max_y: T = 0.into();
         for (y, line) in src.lines().enumerate() {
             for (x, c) in line.chars().enumerate() {
                 if c != ' ' {
                     space[*start + bfvec(T::from_usize(x).unwrap(), T::from_usize(y).unwrap())] =
                         (c as i32).into();
                 }
+                max_x = max(((x + 1) as i32).into(), max_x);
             }
+            max_y = max(((y + 1) as i32).into(), max_y);
         }
+        return Self {
+            x: max_x,
+            y: max_y,
+        };
     }
 
     fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output> {
@@ -347,7 +370,7 @@ where
 }
 
 /// Read a string into a funge space
-pub fn read_funge_src<Idx, Space>(space: &mut Space, src: &str)
+pub fn read_funge_src<Idx, Space>(space: &mut Space, src: &str) -> Idx
 where
     Space: FungeSpace<Idx>,
     Idx: SrcIO<Space>,
@@ -357,7 +380,7 @@ where
 }
 
 /// Read a string into a funge space
-pub fn read_funge_src_bin<Idx, Space>(space: &mut Space, src: &[u8])
+pub fn read_funge_src_bin<Idx, Space>(space: &mut Space, src: &[u8]) -> Idx
 where
     Space: FungeSpace<Idx>,
     Idx: SrcIO<Space>,

@@ -20,6 +20,7 @@ use std::fs::File;
 use std::io;
 use std::io::{stderr, stdin, stdout, Read, Stdin, Stdout, Write};
 use std::process::Command;
+use std::time::SystemTime;
 
 use clap::{App, Arg};
 use regex::Regex;
@@ -35,6 +36,7 @@ struct CmdLineEnv {
     sandbox: bool,
     stdout: Stdout,
     stdin: Stdin,
+    argv: Vec<String>,
 }
 
 impl InterpreterEnv for CmdLineEnv {
@@ -109,6 +111,32 @@ impl InterpreterEnv for CmdLineEnv {
                     "WARNING: Attempted to execute command, but I don't know how on this system!"
                 );
                 -1
+            }
+        }
+    }
+    fn env_vars(&mut self) -> Vec<(String, String)> {
+        let mut env_list = Vec::new();
+        if !self.sandbox {
+            for (oskey, osval) in std::env::vars_os() {
+                if let Ok(key) = oskey.into_string() {
+                    if let Ok(val) = osval.into_string() {
+                        env_list.push((key, val));
+                    }
+                }
+            }
+        }
+        return env_list;
+    }
+    fn argv(&mut self) -> Vec<String> {
+        self.argv.clone()
+    }
+    fn timestamp(&mut self) -> i64 {
+        let now = SystemTime::now();
+        match now.duration_since(SystemTime::UNIX_EPOCH) {
+            Ok(n) => n.as_secs() as i64,
+            Err(_) => match SystemTime::UNIX_EPOCH.duration_since(now) {
+                Ok(n) => -(n.as_secs() as i64),
+                Err(_) => 0
             }
         }
     }
@@ -209,6 +237,9 @@ fn main() {
     let is_unicode = arg_matches.is_present("unicode");
 
     // Set up the interpreter
+    let mut argv = Vec::new();
+    argv.push(filename.to_owned());
+    argv.append(&mut arg_matches.values_of_lossy("ARGS").unwrap_or(Vec::new()));
     let env = CmdLineEnv {
         io_mode: if is_unicode {
             IOMode::Text
@@ -219,6 +250,7 @@ fn main() {
         sandbox: arg_matches.is_present("sandbox"),
         stdout: stdout(),
         stdin: stdin(),
+        argv: argv
     };
 
     if dim == 1 {
@@ -226,7 +258,7 @@ fn main() {
         let mut interpreter = new_unefunge_interpreter::<i64, _>(env);
         if is_unicode {
             let src_str = String::from_utf8(src_bin).unwrap();
-            read_funge_src(&mut interpreter.space, &src_str)
+            read_funge_src(&mut interpreter.space, &src_str);
         } else {
             read_funge_src_bin(&mut interpreter.space, &src_bin);
         }
@@ -236,7 +268,7 @@ fn main() {
         let mut interpreter = new_befunge_interpreter::<i64, _>(env);
         if is_unicode {
             let src_str = String::from_utf8(src_bin).unwrap();
-            read_funge_src(&mut interpreter.space, &src_str)
+            read_funge_src(&mut interpreter.space, &src_str);
         } else {
             read_funge_src_bin(&mut interpreter.space, &src_bin);
         }

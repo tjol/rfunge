@@ -20,8 +20,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! built into the interpreter
 
 use std::cmp::{max, min};
+use std::mem::size_of;
 
+use chrono::{Datelike, NaiveDateTime, Timelike};
 use num::ToPrimitive;
+use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
 
 use super::instruction_set::exec_instruction;
 use super::ip::InstructionPointer;
@@ -230,7 +233,9 @@ where
                     }
                 } else {
                     // "text mode"
-                    Idx::read_bin_at(space, &dest, &src);
+                    let size = Idx::read_bin_at(space, &dest, &src);
+                    MotionCmds::push_vector(ip, size);
+                    MotionCmds::push_vector(ip, dest);
                 }
             } else {
                 ip.reflect();
@@ -251,7 +256,9 @@ where
                     }
                 } else {
                     // "text mode"
-                    Idx::read_str_at(space, &dest, &src);
+                    let size = Idx::read_str_at(space, &dest, &src);
+                    MotionCmds::push_vector(ip, size);
+                    MotionCmds::push_vector(ip, dest);
                 }
             } else {
                 ip.reflect();
@@ -311,6 +318,168 @@ where
     } else {
         let cmd = ip.pop_0gnirts();
         ip.push(env.execute_command(&cmd).into());
+    }
+
+    InstructionResult::Continue
+}
+
+pub fn sysinfo<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    space: &mut Space,
+    env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let mut sysinfo_cells = Vec::<Space::Output>::new();
+    let exec_flag = env.have_execute();
+    // 1. flags
+    let mut impl_flags = 0;
+    if env.have_file_input() {
+        impl_flags |= 0x2
+    }
+    if env.have_file_output() {
+        impl_flags |= 0x4
+    }
+    if exec_flag != ExecMode::Disabled {
+        impl_flags |= 0x8
+    }
+    if ! env.is_io_buffered() {
+        impl_flags |= 0x10
+    }
+    sysinfo_cells.push(impl_flags.into());
+
+    // 2. size of cell
+    sysinfo_cells.push((size_of::<Space::Output>() as i32).into());
+
+    // 3. handprint
+    sysinfo_cells.push(env.handprint().into());
+
+    // 4. version number
+    sysinfo_cells.push(
+        (pkg_version_major!() * 1000000 + pkg_version_minor!() * 1000 + pkg_version_patch!())
+            .into(),
+    );
+
+    // 5. "operating paradigm"
+    sysinfo_cells.push(
+        match exec_flag {
+            ExecMode::Disabled => 0,
+            ExecMode::System => 1,
+            ExecMode::SpecificShell => 2,
+            ExecMode::SameShell => 3,
+        }
+        .into(),
+    );
+
+    // 6. path separator character
+    sysinfo_cells.push((std::path::MAIN_SEPARATOR as i32).into());
+
+    // 7. numer of scalars per vector
+    sysinfo_cells.push(Idx::rank().into());
+
+    // 8. IP ID
+    sysinfo_cells.push(0.into());
+
+    // 9. IP team number
+    sysinfo_cells.push(0.into());
+
+    // 10. Position
+    let mut tmp_vec = Vec::new();
+    Idx::push_vector_onto(&mut tmp_vec, ip.location);
+    sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+
+    // 11. Delta
+    let mut tmp_vec = Vec::new();
+    Idx::push_vector_onto(&mut tmp_vec, ip.delta);
+    sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+
+    // 12. Storage offset
+    let mut tmp_vec = Vec::new();
+    Idx::push_vector_onto(&mut tmp_vec, ip.storage_offset);
+    sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+
+    // 13. Least point
+    let mut tmp_vec = Vec::new();
+    let least_idx = space.min_idx().unwrap_or(Idx::origin());
+    Idx::push_vector_onto(&mut tmp_vec, least_idx);
+    sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+
+    // 14. Greatest point
+    let mut tmp_vec = Vec::new();
+    Idx::push_vector_onto(&mut tmp_vec, space.max_idx().unwrap_or(Idx::origin()) - least_idx);
+    sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+
+    // 15 & 16: Time
+    let timestamp = env.timestamp();
+    let datetime = NaiveDateTime::from_timestamp(timestamp, 0);
+
+    // 15. ((year - 1900) * 256 * 256) + (month * 256) + (day of month)
+    sysinfo_cells.push(
+        (((datetime.year() - 1900) * 256 * 256)
+            + (datetime.month() as i32 * 256)
+            + datetime.day() as i32)
+            .into(),
+    );
+
+    // 16. (hour * 256 * 256) + (minute * 256) + (second)
+    sysinfo_cells.push(
+        ((datetime.hour() as i32 * 256 * 256)
+            + (datetime.minute() as i32 * 256)
+            + datetime.second() as i32)
+            .into(),
+    );
+
+    // 17. size of stack stack
+    sysinfo_cells.push((ip.stack_stack.len() as i32).into());
+
+    // 18. sizes of stacks
+    for stack in ip.stack_stack.iter().rev() {
+        sysinfo_cells.push((stack.len() as i32).into());
+    }
+
+    // 19. command line args
+    for arg in env.argv().into_iter() {
+        for c in arg.chars() {
+            sysinfo_cells.push((c as i32).into());
+        }
+        sysinfo_cells.push(0.into());
+    }
+    sysinfo_cells.push(0.into());
+    sysinfo_cells.push(0.into());
+
+    // 20. environment
+    for (key, value) in env.env_vars().into_iter() {
+        let s = format!("{}={}", key, value);
+        for c in s.chars() {
+            sysinfo_cells.push((c as i32).into());
+        }
+        sysinfo_cells.push(0.into());
+    }
+    sysinfo_cells.push(0.into());
+    sysinfo_cells.push(0.into());
+
+    // what should we push?
+    let n = ip.pop();
+
+    if n > (sysinfo_cells.len() as i32).into() {
+        // pick one pre-sysinfo cell
+        let pick_n = n - (sysinfo_cells.len() as i32).into();
+        let idx = ip.stack().len() as isize - pick_n.to_isize().unwrap();
+        if idx >= 0 {
+            ip.push(ip.stack()[idx as usize]);
+        }
+    } else if n > 0.into() {
+        // pick one cell from sysinfo
+        ip.push(sysinfo_cells[n.to_usize().unwrap() - 1]);
+    } else {
+        // push it all
+        for cell in sysinfo_cells.into_iter().rev() {
+            ip.push(cell);
+        }
     }
 
     InstructionResult::Continue

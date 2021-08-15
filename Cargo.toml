@@ -16,6 +16,8 @@ num = "0.4"
 clap = "2.33"
 regex = "1.5"
 unicode_reader = "1.0.1"
+pkg-version = "1.0.0"
+chrono = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 colored = "2.0"

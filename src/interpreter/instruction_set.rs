@@ -97,6 +97,7 @@ where
         instruction_vec['i' as usize] = Some(instructions::input_file);
         instruction_vec['o' as usize] = Some(instructions::output_file);
         instruction_vec['=' as usize] = Some(instructions::execute);
+        instruction_vec['y' as usize] = Some(instructions::sysinfo);
 
         let mut layers = Vec::new();
         layers.push(instruction_vec);

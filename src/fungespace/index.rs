@@ -39,6 +39,10 @@ where
     fn joint_max(&self, other: &Self) -> Self {
         max(*self, *other)
     }
+
+    fn rank() -> i32 {
+        1
+    }
 }
 
 impl<T> FungeArrayIdx for T
@@ -234,6 +238,10 @@ where
             x: max(self.x, other.x),
             y: max(self.y, other.y),
         }
+    }
+
+    fn rank() -> i32 {
+        2
     }
 }
 
