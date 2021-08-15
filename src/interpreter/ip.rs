@@ -22,7 +22,8 @@ use std::ops::Index;
 use std::rc::Rc;
 
 use super::instruction_set::InstructionSet;
-use super::{InterpreterEnv, MotionCmds};
+use super::motion::MotionCmds;
+use super::InterpreterEnv;
 use crate::fungespace::index::{bfvec, BefungeVec};
 use crate::fungespace::{FungeSpace, FungeValue};
 

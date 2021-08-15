@@ -25,7 +25,8 @@ use unicode_reader::CodePoints;
 
 use super::instructions;
 use super::ip::InstructionPointer;
-use super::{IOMode, InterpreterEnv, MotionCmds};
+use super::motion::MotionCmds;
+use super::{IOMode, InterpreterEnv};
 use crate::fungespace::{FungeSpace, FungeValue};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

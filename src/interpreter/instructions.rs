@@ -25,7 +25,8 @@ use num::ToPrimitive;
 
 use super::instruction_set::exec_instruction;
 use super::ip::InstructionPointer;
-use super::{InstructionResult, InterpreterEnv, MotionCmds};
+use super::motion::MotionCmds;
+use super::{InstructionResult, InterpreterEnv};
 use crate::fungespace::{FungeSpace, FungeValue};
 
 pub fn iterate<Idx, Space, Env>(
