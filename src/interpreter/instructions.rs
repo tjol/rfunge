@@ -261,3 +261,36 @@ where
 
     InstructionResult::Continue
 }
+
+pub fn output_file<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    space: &mut Space,
+    env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let filename = ip.pop_0gnirts();
+    let flags = ip.pop();
+    let start = MotionCmds::pop_vector(ip);
+    let size = MotionCmds::pop_vector(ip);
+
+    let strip = (flags & 1.into()) == 1.into();
+
+    if match env.get_iomode() {
+        IOMode::Binary => env.write_file(&filename, &Idx::get_src_bin(space, &start, &size, strip)),
+        IOMode::Text => env.write_file(
+            &filename,
+            Idx::get_src_str(space, &start, &size, strip).as_bytes(),
+        ),
+    }
+    .is_err()
+    {
+        ip.reflect();
+    }
+
+    InstructionResult::Continue
+}

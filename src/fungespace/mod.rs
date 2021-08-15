@@ -164,9 +164,23 @@ impl<T> FungeValue for T where
 pub trait SrcIO<Space>: FungeIndex
 where
     Space: FungeSpace<Self>,
+    Space::Output: FungeValue,
 {
     fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]);
     fn read_str_at(space: &mut Space, start: &Self, src: &str);
+    fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output>;
+    fn get_src_str(space: &Space, start: &Self, size: &Self, strip: bool) -> String {
+        Self::get_src_region(space, start, size, strip)
+            .into_iter()
+            .map(|v| v.to_char())
+            .collect()
+    }
+    fn get_src_bin(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<u8> {
+        Self::get_src_region(space, start, size, strip)
+            .into_iter()
+            .map(|v| v.to_u8().unwrap_or(0xff))
+            .collect()
+    }
     fn origin() -> Self;
 }
 
@@ -206,6 +220,23 @@ where
                 i += 1.into();
             }
         }
+    }
+
+    fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output> {
+        let mut src = Vec::new();
+        if *size < 0.into() {
+            return src;
+        }
+        src.reserve_exact(size.to_usize().unwrap());
+        for i in 0..size.to_i32().unwrap() {
+            src[i as usize] = space[Self::from(i) + *start];
+        }
+        if strip {
+            while src[src.len() - 1] == T::from(' ' as i32) {
+                src.pop();
+            }
+        }
+        return src;
     }
 
     fn origin() -> Self {
@@ -262,6 +293,52 @@ where
                 }
             }
         }
+    }
+
+    fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output> {
+        if size.x < 0.into() || size.y < 0.into() {
+            return Vec::new();
+        }
+
+        let mut src = Vec::new();
+        let size_x = size.x.to_usize().unwrap();
+        let size_y = size.y.to_usize().unwrap();
+
+        for y_out in 0..size_y {
+            if y_out != 0 {
+                src.push(('\n' as i32).into());
+            }
+            let y_in = T::from_usize(y_out).unwrap() + start.y;
+            let mut n_spaces = 0;
+            for x_out in 0..size_x {
+                let x_in = T::from_usize(x_out).unwrap() + start.x;
+                let val = space[Self { x: x_in, y: y_in }];
+                if val == (' ' as i32).into() {
+                    // Skip spaces at the end
+                    n_spaces += 1;
+                } else {
+                    // Put spaces back
+                    for _ in 0..n_spaces {
+                        src.push((' ' as i32).into());
+                    }
+                    n_spaces = 0;
+                    src.push(val);
+                }
+            }
+            if !strip {
+                for _ in 0..n_spaces {
+                    src.push((' ' as i32).into());
+                }
+            }
+        }
+
+        if strip {
+            while src[src.len() - 1] == ('\n' as i32).into() {
+                src.pop();
+            }
+        }
+
+        return src;
     }
 
     fn origin() -> Self {
