@@ -26,8 +26,9 @@ use clap::{App, Arg};
 use regex::Regex;
 
 use rfunge::{
-    new_befunge_interpreter, new_unefunge_interpreter, read_funge_src, read_funge_src_bin,
-    ExecMode, IOMode, InterpreterEnv, ProgramResult, RunMode,
+    all_fingerprints, new_befunge_interpreter, new_unefunge_interpreter, read_funge_src,
+    read_funge_src_bin, safe_fingerprints, ExecMode, IOMode, InterpreterEnv, ProgramResult,
+    RunMode,
 };
 
 struct CmdLineEnv {
@@ -37,6 +38,7 @@ struct CmdLineEnv {
     stdout: Stdout,
     stdin: Stdin,
     argv: Vec<String>,
+    allowed_fingerprints: Vec<i32>,
 }
 
 impl InterpreterEnv for CmdLineEnv {
@@ -140,6 +142,9 @@ impl InterpreterEnv for CmdLineEnv {
             },
         }
     }
+    fn is_fingerprint_enabled(&self, fpr: i32) -> bool {
+        self.allowed_fingerprints.iter().any(|f| *f == fpr)
+    }
 }
 
 fn main() {
@@ -240,6 +245,7 @@ fn main() {
     let mut argv = Vec::new();
     argv.push(filename.to_owned());
     argv.append(&mut arg_matches.values_of_lossy("ARGS").unwrap_or(Vec::new()));
+    let sandbox = arg_matches.is_present("sandbox");
     let env = CmdLineEnv {
         io_mode: if is_unicode {
             IOMode::Text
@@ -247,10 +253,15 @@ fn main() {
             IOMode::Binary
         },
         warnings: arg_matches.is_present("warn"),
-        sandbox: arg_matches.is_present("sandbox"),
+        sandbox: sandbox,
         stdout: stdout(),
         stdin: stdin(),
         argv: argv,
+        allowed_fingerprints: if sandbox {
+            safe_fingerprints()
+        } else {
+            all_fingerprints()
+        },
     };
     let mut result = ProgramResult::Panic;
 

@@ -16,6 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+mod fingerprints;
 pub mod instruction_set;
 mod instructions;
 pub mod ip;
@@ -25,10 +26,12 @@ use std::io;
 use std::io::{Read, Write};
 
 use self::instruction_set::exec_instruction;
+use super::fungespace::{FungeSpace, FungeValue, SrcIO};
+
 pub use self::instruction_set::{InstructionMode, InstructionResult, InstructionSet};
 pub use self::ip::InstructionPointer;
 pub use self::motion::MotionCmds;
-use super::fungespace::{FungeSpace, FungeValue, SrcIO};
+pub use fingerprints::{all_fingerprints, safe_fingerprints};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramResult {
@@ -104,6 +107,9 @@ pub trait InterpreterEnv {
     }
     fn argv(&mut self) -> Vec<String> {
         Vec::new()
+    }
+    fn is_fingerprint_enabled(&self, _fpr: i32) -> bool {
+        false
     }
 }
 

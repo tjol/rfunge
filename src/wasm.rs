@@ -20,7 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
     new_befunge_interpreter, read_funge_src, BefungeVec, IOMode, Interpreter, InterpreterEnv,
-    PagedFungeSpace, RunMode, ProgramResult
+    PagedFungeSpace, ProgramResult, RunMode,
 };
 
 // --------------------------------------------------------

@@ -23,6 +23,7 @@ use std::io::{BufRead, BufReader, Read};
 use num::ToPrimitive;
 use unicode_reader::CodePoints;
 
+use super::fingerprints;
 use super::instructions;
 use super::ip::InstructionPointer;
 use super::motion::MotionCmds;
@@ -40,7 +41,7 @@ pub enum InstructionResult {
     Panic,
 }
 
-type Instruction<Idx, Space, Env> =
+pub type Instruction<Idx, Space, Env> =
     fn(&mut InstructionPointer<Idx, Space, Env>, &mut Space, &mut Env) -> InstructionResult;
 
 type InstructionLayer<Idx, Space, Env> = Vec<Option<Instruction<Idx, Space, Env>>>;
@@ -62,7 +63,7 @@ where
     Env: InterpreterEnv,
 {
     pub mode: InstructionMode,
-    layers: Vec<InstructionLayer<Idx, Space, Env>>,
+    layers: Vec<(i32, InstructionLayer<Idx, Space, Env>)>,
 }
 
 // Can't derive Clone by macro because it requires the type parameters to be
@@ -119,7 +120,7 @@ where
         instruction_vec['y' as usize] = Some(instructions::sysinfo);
 
         let mut layers = Vec::new();
-        layers.push(instruction_vec);
+        layers.push((0, instruction_vec));
 
         Self {
             mode: InstructionMode::Normal,
@@ -132,21 +133,33 @@ where
         &self,
         instruction: Space::Output,
     ) -> Option<Instruction<Idx, Space, Env>> {
-        *(self.layers[self.layers.len() - 1].get(instruction.to_usize()?)?)
+        *(self.layers[self.layers.len() - 1]
+            .1
+            .get(instruction.to_usize()?)?)
     }
 
     /// Add a set of instructions as a new layer
-    pub fn add_layer(&mut self, instructions: HashMap<u16, Instruction<Idx, Space, Env>>) {
-        let mut new_layer = self.layers[self.layers.len() - 1].clone();
+    pub fn add_layer(
+        &mut self,
+        fingerprint: i32,
+        instructions: HashMap<char, Instruction<Idx, Space, Env>>,
+    ) {
+        let mut new_layer = self.layers[self.layers.len() - 1].1.clone();
         for (&i, &f) in instructions.iter() {
             if i as usize >= new_layer.len() {
-                new_layer.resize((i + 1) as usize, None);
+                new_layer.resize((i as usize) + 1, None);
             }
             new_layer[i as usize] = Some(f);
         }
-        self.layers.push(new_layer);
+        self.layers.push((fingerprint, new_layer));
     }
 
+    /// Get the fingerprint stored with the top layer
+    pub fn top_fingerprint(&self) -> i32 {
+        self.layers[self.layers.len() - 1].0
+    }
+
+    /// Remove the top layer
     pub fn pop_layer(&mut self) {
         self.layers.pop();
     }
@@ -361,6 +374,44 @@ where
             ip.push(space[loc]);
             InstructionResult::Continue
         }
+        Some('(') => {
+            let count = ip.pop().to_usize().unwrap_or(0);
+            let mut fpr = 0;
+            for _ in 0..count {
+                fpr *= 256;
+                fpr += ip.pop().to_i32().unwrap_or(0);
+            }
+            if fpr != 0 && env.is_fingerprint_enabled(fpr) {
+                if fingerprints::load(&mut ip.instructions, fpr) {
+                    ip.push(fpr.into());
+                    ip.push(1.into());
+                } else {
+                    ip.reflect();
+                }
+            } else {
+                ip.reflect();
+            }
+            InstructionResult::Continue
+        }
+        Some(')') => {
+            let count = ip.pop().to_usize().unwrap_or(0);
+            let mut fpr = 0;
+            for _ in 0..count {
+                fpr *= 256;
+                fpr += ip.pop().to_i32().unwrap_or(0);
+            }
+            if fpr != 0 {
+                if fingerprints::unload(&mut ip.instructions, fpr) {
+                    ip.push(fpr.into());
+                    ip.push(1.into());
+                } else {
+                    ip.reflect();
+                }
+            } else {
+                ip.reflect();
+            }
+            InstructionResult::Continue
+        }
         Some('r') => {
             ip.reflect();
             InstructionResult::Continue
@@ -433,9 +484,9 @@ mod tests {
         assert!(matches!(is.get_instruction('2' as i64), None));
         assert!(matches!(is.get_instruction('3' as i64), None));
         let mut new_layer = HashMap::new();
-        new_layer.insert('2' as u16, nop_for_test as Instr);
-        new_layer.insert('5' as u16, nop_for_test as Instr);
-        is.add_layer(new_layer);
+        new_layer.insert('2', nop_for_test as Instr);
+        new_layer.insert('5', nop_for_test as Instr);
+        is.add_layer(1, new_layer);
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), Some(_)));
         assert!(matches!(is.get_instruction('3' as i64), None));

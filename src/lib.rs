@@ -33,8 +33,8 @@ pub use crate::fungespace::{
     bfvec, read_funge_src, read_funge_src_bin, BefungeVec, FungeSpace, FungeValue, PagedFungeSpace,
 };
 pub use crate::interpreter::{
-    ExecMode, IOMode, InstructionPointer, InstructionResult, Interpreter, InterpreterEnv,
-    ProgramResult, RunMode,
+    all_fingerprints, safe_fingerprints, ExecMode, IOMode, InstructionPointer, InstructionResult,
+    Interpreter, InterpreterEnv, ProgramResult, RunMode,
 };
 
 /// Create a new Unefunge interpreter using the default implementation and

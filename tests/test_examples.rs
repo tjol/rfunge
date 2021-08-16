@@ -60,6 +60,9 @@ impl InterpreterEnv for TestEnv {
         File::open(filepath).and_then(|mut f| f.read_to_end(&mut buf))?;
         Ok(buf)
     }
+    fn is_fingerprint_enabled(&self, _fpr: i32) -> bool {
+        true
+    }
 }
 
 const TEST_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
