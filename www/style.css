@@ -54,3 +54,10 @@ input[type="button"]:disabled, input[type="submit"]:disabled, button:disabled {
     color: white;
 }
 
+#agpl-info {
+    margin: auto;
+    margin-top: 5em;
+    font-size: 0.9rem;
+    max-width: 50em;
+}
+

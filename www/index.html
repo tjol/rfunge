@@ -27,5 +27,21 @@
         <pre id="output"></pre>
 
         <p id="returncode-info"></p>
+
+        <div id="agpl-info">
+        <p>
+            RFunge is free software, published under the terms
+            of the GNU AGPL v3 or later. You can get the source
+            <a href="https://github.com/tjol/rfunge">on GitHub</a> (this is
+            revision <span id="git-sha"></span>) or
+            <a href="rfunge.src.tar.xz">download the source directly here</a>.
+        </p>
+        </div>
+        <script>
+            (async () => {
+                let response = await fetch(new Request("wasm_pkg/rev.hash.txt"))
+                document.getElementById("git-sha").innerText = (await response.text()).trim()
+            })()
+        </script>
     </body>
 </html>
