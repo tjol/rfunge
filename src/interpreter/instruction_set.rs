@@ -165,6 +165,7 @@ where
     }
 }
 
+#[inline]
 pub fn exec_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
     ip: &mut InstructionPointer<Idx, Space, Env>,
@@ -183,6 +184,7 @@ where
     }
 }
 
+#[inline]
 fn exec_normal_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
     ip: &mut InstructionPointer<Idx, Space, Env>,
@@ -437,6 +439,7 @@ where
     }
 }
 
+#[inline]
 fn exec_string_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
     ip: &mut InstructionPointer<Idx, Space, Env>,

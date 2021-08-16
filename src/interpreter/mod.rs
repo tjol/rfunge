@@ -143,8 +143,7 @@ where
                             ip.must_advance = true;
                         }
                         InstructionResult::Skip => {
-                            let (new_loc, _) = self.space.move_by(ip.location, ip.delta);
-                            ip.location = new_loc;
+                            ip.must_advance = true;
                             go_again = true;
                         }
                         InstructionResult::StayPut => (),

@@ -29,9 +29,6 @@ wee_alloc = "0.4.5"
 getrandom = { version = "0.2", features = ["js"] }
 #console_error_panic_hook = "0.1.6"
 
-[profile.release]
-lto = true
-
 [[test]]
 name = "test_examples"
 harness = false
