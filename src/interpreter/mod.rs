@@ -127,10 +127,17 @@ where
         loop {
             for ip_idx in 0..self.ips.len() {
                 let mut go_again = true;
+                let mut location_log = Vec::new();
                 while go_again {
                     let ip = &mut self.ips[ip_idx];
                     let instruction = if ip.must_advance {
                         let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
+                        // Check that this loop is not infinite
+                        if location_log.iter().any(|l| *l == new_loc) {
+                            return ProgramResult::Panic;
+                        } else {
+                            location_log.push(new_loc);
+                        }
                         ip.location = new_loc;
                         ip.must_advance = false;
                         *new_val

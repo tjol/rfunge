@@ -5,7 +5,7 @@ export class FungeSpaceEdit {
         this._srcdiv.setAttribute("contentEditable", true)
         this._div.appendChild(this._srcdiv)
 
-        this.setSrc(">2:*1..@")
+        this.setSrc("")
     }
 
     setSrc(src, ips) {
@@ -48,24 +48,23 @@ export class FungeSpaceEdit {
     }
 
     getSrc() {
-        let src = "";
-        this._srcdiv.childNodes.forEach((node, idx) => {
-            if (node.nodeValue !== null) {
-                src += node.nodeValue;
-            } else if (node.nodeType === Node.ELEMENT_NODE) {
-                if (node.tagName === "DIV") {
-                    // This is a new line
-                    if (idx != 0) {
-                        src += "\n"
-                    }
-                    src += node.textContent
-                } else if (node.tagName === "BR") {
-                    src += "\n"
-                }
-            }
-        })
+        let src = elemToString(this._srcdiv)
         // Get rid of NBSP
         return src.replace("\u00a0", " ")
     }
 }
 
+function elemToString(elem) {
+    let src = ""
+    elem.childNodes.forEach(node => {
+        if (node.nodeValue !== null) {
+            src += node.nodeValue;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            src += elemToString(node)
+        }
+    })
+    if (window.getComputedStyle(elem).display === "block") {
+        src += "\n"
+    }
+    return src
+}
