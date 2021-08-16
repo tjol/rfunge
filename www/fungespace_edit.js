@@ -82,7 +82,7 @@ function elemToString(elem) {
             src += elemToString(node)
         }
     })
-    if (window.getComputedStyle(elem).display === "block") {
+    if (window.getComputedStyle(elem).display === "block" || elem.tagName === "BR") {
         src += "\n"
     }
     return src
