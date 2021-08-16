@@ -63,7 +63,7 @@ async function initialize() {
             }
             // Return control to the main event loop after every step
             // so we don't hang the browser
-            let result = interpreter.step()
+            let result = interpreter.run_limited(500)
             if (result != null) {
                 finished = true
                 document.getElementById("returncode-info").innerText = `Exited with status ${result}`

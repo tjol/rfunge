@@ -156,6 +156,22 @@ impl BefungeInterpreter {
         }
     }
 
+    pub fn run_limited(&mut self, loop_limit: u32) -> Option<i32> {
+        match &mut self.interpreter {
+            None => Some(-1),
+            Some(interpreter) => {
+                for _ in 0..loop_limit {
+                    match interpreter.run(RunMode::Step) {
+                        ProgramResult::Done(returncode) => {return Some(returncode);}
+                        ProgramResult::Panic => { return Some(-1) }
+                        ProgramResult::Paused => {},
+                    }
+                }
+                None
+            },
+        }
+    }
+
     pub fn step(&mut self) -> Option<i32> {
         match &mut self.interpreter {
             None => Some(-1),
