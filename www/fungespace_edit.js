@@ -13,8 +13,8 @@ export class FungeSpaceEdit {
             ips = []
         }
         // turn it into HTML!
-        let lines = src.replace(" ", "\xa0").split("\n")
-        const escape = ((s) => s.replace(">", "&gt;").replace("<", "&lt;"))
+        let lines = src.replaceAll(" ", "\xa0").split("\n")
+        const escape = ((s) => s.replaceAll(">", "&gt;").replaceAll("<", "&lt;"))
         let ipGrid = []
         for (let ipLoc of ips) {
             let [x, y] = ipLoc
@@ -24,7 +24,7 @@ export class FungeSpaceEdit {
         const maxY = Math.max(ipGrid.length, lines.length)
         for (let y = 0; y < maxY; ++y) {
             let ipIndices = [... new Set(ipGrid[y])]
-            ipIndices.sort()
+            ipIndices.sort((a, b) => a - b) // numeric sort needs custom cmp
             let subStrings = []
             let rest = lines[y]
             if (rest === undefined) rest = ""
@@ -50,7 +50,7 @@ export class FungeSpaceEdit {
     getSrc() {
         let src = elemToString(this._srcdiv)
         // Get rid of NBSP
-        return src.replace("\u00a0", " ")
+        return src.replaceAll("\u00a0", " ")
     }
 }
 
