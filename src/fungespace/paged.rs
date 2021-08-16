@@ -16,9 +16,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{Add, Div, Index, IndexMut, Mul};
+
+use hashbrown::HashMap;
 
 use divrem::{DivEuclid, DivRem, DivRemEuclid, RemEuclid};
 
