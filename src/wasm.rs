@@ -19,8 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #![cfg(target_arch = "wasm32")]
 
 use crate::{
-    new_befunge_interpreter, read_funge_src, BefungeVec, IOMode, Interpreter, InterpreterEnv,
-    PagedFungeSpace, ProgramResult, RunMode,
+    new_befunge_interpreter, read_funge_src, safe_fingerprints, BefungeVec, IOMode, Interpreter,
+    InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode,
 };
 
 // --------------------------------------------------------
@@ -87,6 +87,10 @@ impl InterpreterEnv for JSEnv {
 
     fn is_io_buffered(&self) -> bool {
         false
+    }
+
+    fn is_fingerprint_enabled(&self, fpr: i32) -> bool {
+        safe_fingerprints().into_iter().any(|f| f == fpr)
     }
 }
 
