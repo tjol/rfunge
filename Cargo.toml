@@ -28,7 +28,7 @@ colored = "2.0"
 wasm-bindgen = "0.2.63"
 wee_alloc = "0.4.5"
 getrandom = { version = "0.2", features = ["js"] }
-#console_error_panic_hook = "0.1.6"
+# console_error_panic_hook = "0.1.6"
 
 [[test]]
 name = "test_examples"

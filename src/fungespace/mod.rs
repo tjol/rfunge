@@ -363,7 +363,7 @@ where
         }
 
         if strip {
-            while src[src.len() - 1] == ('\n' as i32).into() {
+            while src.len() > 0 && src[src.len() - 1] == ('\n' as i32).into() {
                 src.pop();
             }
         }

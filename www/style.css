@@ -1,0 +1,16 @@
+body {
+    background: white;
+}
+
+#fungespace > div { 
+    min-width: 60em;
+    min-height: 30em;
+    font-family: monospace;
+    font-size: 1.2em;
+}
+
+#fungespace .ip {
+    background-color: black;
+    color: white;
+}
+

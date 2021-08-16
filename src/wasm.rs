@@ -20,8 +20,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
     new_befunge_interpreter, read_funge_src, safe_fingerprints, BefungeVec, IOMode, Interpreter,
-    InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode,
+    InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode, bfvec, FungeSpace
 };
+use crate::fungespace::SrcIO;
 
 // --------------------------------------------------------
 // WASM API
@@ -96,6 +97,7 @@ impl InterpreterEnv for JSEnv {
 
 type WebBefungeInterp = Interpreter<BefungeVec<i32>, PagedFungeSpace<BefungeVec<i32>, i32>, JSEnv>;
 
+
 #[wasm_bindgen]
 pub struct BefungeInterpreter {
     interpreter: Option<WebBefungeInterp>,
@@ -105,6 +107,7 @@ pub struct BefungeInterpreter {
 impl BefungeInterpreter {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
+        // console_error_panic_hook::set_once();
         Self { interpreter: None }
     }
 
@@ -116,7 +119,7 @@ impl BefungeInterpreter {
         self.interpreter = None;
     }
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name="loadSrc")]
     pub fn load_src(&mut self, src: &str) {
         match &mut self.interpreter {
             None => {
@@ -129,7 +132,20 @@ impl BefungeInterpreter {
         }
     }
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name="replaceSrc")]
+    pub fn replace_src(&mut self, src: &str) {
+        match &mut self.interpreter {
+            None => {
+                self.init();
+                self.load_src(src);
+            }
+            Some(interpreter) => {
+                interpreter.space = PagedFungeSpace::new_with_page_size(bfvec(80, 25));
+                read_funge_src(&mut interpreter.space, src);
+            }
+        }
+    }
+
     pub fn run(&mut self) -> i32 {
         match &mut self.interpreter {
             None => -1,
@@ -138,5 +154,47 @@ impl BefungeInterpreter {
                 _ => -1,
             },
         }
+    }
+
+    pub fn step(&mut self) -> Option<i32> {
+        match &mut self.interpreter {
+            None => Some(-1),
+            Some(interpreter) => match interpreter.run(RunMode::Step) {
+                ProgramResult::Done(returncode) => Some(returncode),
+                ProgramResult::Panic => Some(-1),
+                ProgramResult::Paused => None,
+            },
+        }
+    }
+
+    #[wasm_bindgen(js_name="ipCount")]
+    pub fn ip_count(&self) -> usize {
+        self.interpreter.as_ref().map(|i| i.ips.len()).unwrap_or(0)
+    }
+
+    #[wasm_bindgen(js_name="ipLocation")]
+    pub fn ip_location(&self, ip_idx: usize) -> Option<Vec<i32>> {
+        self.interpreter.as_ref().and_then(|i| Some(i.ips.get(ip_idx)?.location))
+            .and_then(|loc| Some(vec![loc.x, loc.y]))
+    }
+
+    #[wasm_bindgen(js_name="stackCount")]
+    pub fn stack_count(&self, ip_idx: usize) -> usize {
+        self.interpreter.as_ref().and_then(|i| Some(i.ips.get(ip_idx)?.stack_stack.len())).unwrap_or(0)
+    }
+
+    #[wasm_bindgen(js_name="getStack")]
+    pub fn get_stack(&self, ip_idx: usize, stack_idx: usize) -> Option<Vec<i32>> {
+        self.interpreter.as_ref().and_then(|i| i.ips.get(ip_idx)?.stack_stack.get(stack_idx)).map(|v| v.clone())
+    }
+
+    #[wasm_bindgen(js_name="getSrc")]
+    pub fn get_src(&self) -> String {
+        self.interpreter.as_ref().map(|i| {
+            let start = i.space.min_idx().unwrap_or(bfvec(0, 0));
+            let end_incl = i.space.max_idx().unwrap_or(bfvec(0, 0));
+            let size = bfvec(end_incl.x - start.x + 1, end_incl.y - start.y + 1);
+            SrcIO::get_src_str(&i.space, &start, &size, true)
+        }).unwrap_or(String::new())
     }
 }
