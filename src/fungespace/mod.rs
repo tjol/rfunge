@@ -200,7 +200,7 @@ where
 
         for byte in src {
             match byte {
-                10 | 13 => {} // skip CR & LF
+                10 | 12 | 13 => {} // skip CR & FF & LF
                 byte => {
                     let value = *byte as i32;
                     if value != (' ' as i32) {
@@ -219,10 +219,12 @@ where
 
         for line in src.lines() {
             for c in line.chars() {
-                if c != ' ' {
-                    space[i] = (c as i32).into();
+                if c != '\x0c' {
+                    if c != ' ' {
+                        space[i] = (c as i32).into();
+                    }
+                    i += 1.into();
                 }
-                i += 1.into();
             }
         }
 
@@ -281,6 +283,10 @@ where
                     y += 1.into();
                     recent_cr = true;
                 }
+                12 => {
+                    // form feed
+                    // do nothing
+                }
                 byte => {
                     let value = *byte as i32;
                     if value != (' ' as i32) {
@@ -304,11 +310,14 @@ where
         let mut max_y: T = 0.into();
         for (y, line) in src.lines().enumerate() {
             for (x, c) in line.chars().enumerate() {
-                if c != ' ' {
-                    space[*start + bfvec(T::from_usize(x).unwrap(), T::from_usize(y).unwrap())] =
-                        (c as i32).into();
+                if c != '\x0c' {
+                    if c != ' ' {
+                        space[*start
+                            + bfvec(T::from_usize(x).unwrap(), T::from_usize(y).unwrap())] =
+                            (c as i32).into();
+                    }
+                    max_x = max(((x + 1) as i32).into(), max_x);
                 }
-                max_x = max(((x + 1) as i32).into(), max_x);
             }
             max_y = max(((y + 1) as i32).into(), max_y);
         }
