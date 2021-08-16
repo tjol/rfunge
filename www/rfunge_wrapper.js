@@ -6,12 +6,13 @@ function run_wasm_program() {
     document.getElementById("output").innerHTML = ""
 
     // create interpreter
-    let interpreter = rfunge.new_interpreter()
+    let interpreter = new rfunge.BefungeInterpreter()
     let src = document.getElementById("src-input").value
 
-    rfunge.load_src(interpreter, src)
-    rfunge.run(interpreter)
-    rfunge.free_interpreter(interpreter)
+    interpreter.init()
+    interpreter.load_src(src)
+    interpreter.run()
+    interpreter.close()
 }
 
 window.addEventListener("load", async (e) => {

@@ -97,29 +97,46 @@ impl InterpreterEnv for JSEnv {
 type WebBefungeInterp = Interpreter<BefungeVec<i32>, PagedFungeSpace<BefungeVec<i32>, i32>, JSEnv>;
 
 #[wasm_bindgen]
-pub fn new_interpreter() -> *mut WebBefungeInterp {
-    let interp = Box::new(new_befunge_interpreter::<i32, _>(JSEnv {}));
-    // console_error_panic_hook::set_once();
-    return Box::into_raw(interp);
+pub struct BefungeInterpreter {
+    interpreter: Option<WebBefungeInterp>,
 }
 
 #[wasm_bindgen]
-pub fn free_interpreter(interp: *mut WebBefungeInterp) {
-    unsafe {
-        Box::from_raw(interp);
+impl BefungeInterpreter {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self { interpreter: None }
     }
-}
 
-#[wasm_bindgen]
-pub fn load_src(interp: *mut WebBefungeInterp, src: &str) {
-    let interp_ref = unsafe { &mut (*interp) };
-    read_funge_src(&mut interp_ref.space, src);
-}
+    pub fn init(&mut self) {
+        self.interpreter = Some(new_befunge_interpreter::<i32, _>(JSEnv {}));
+    }
 
-#[wasm_bindgen]
-pub fn run(interp: *mut WebBefungeInterp) -> i32 {
-    match unsafe { &mut (*interp) }.run(RunMode::Run) {
-        ProgramResult::Done(returncode) => returncode,
-        _ => -1,
+    pub fn close(&mut self) {
+        self.interpreter = None;
+    }
+
+    #[wasm_bindgen]
+    pub fn load_src(&mut self, src: &str) {
+        match &mut self.interpreter {
+            None => {
+                self.init();
+                self.load_src(src);
+            }
+            Some(interpreter) => {
+                read_funge_src(&mut interpreter.space, src);
+            }
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn run(&mut self) -> i32 {
+        match &mut self.interpreter {
+            None => -1,
+            Some(interpreter) => match interpreter.run(RunMode::Run) {
+                ProgramResult::Done(returncode) => returncode,
+                _ => -1,
+            },
+        }
     }
 }
