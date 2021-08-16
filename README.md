@@ -17,8 +17,7 @@ rudimentary C and WASM APIs
 
 ## WebAssembly
 
-RFunge can run in the browser, and there's an (extremely basic) web interface
-(more and better to come)
+RFunge can run in the browser. [Try it out here!](https://tjol.eu/rfunge/)
 
 ## Unicode Funge-98
 
@@ -35,7 +34,26 @@ that require it (such as [Mycology]).
 
 ## How to install
 
-(coming soon)
+To build and install rfunge, you will need an up-to-date installation of rust
+and cargo (stable), which you can get with [rustup](https://rustup.rs/).
+
+To build a local checkout, run
+
+    cargo build
+
+or
+
+    cargo build --release
+
+The binary will be placed under `target`.
+
+To install rfunge, you can run
+
+    cargo install --path .
+
+from a local checkout, or, aternatively
+
+    cargo install --git https://github.com/tjol/rfunge
 
 
 [Funge-98]: https://esolangs.org/wiki/Funge-98
