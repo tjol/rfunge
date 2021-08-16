@@ -179,13 +179,12 @@ where
     fn min_idx(&self) -> Option<Idx> {
         self.pages
             .iter()
-            .map(|(k, p)| {
-                *k * self.page_size
-                    + (0..p.len())
-                        .filter(|i| self.pages.get(k).unwrap()[*i] != self._blank)
-                        .map(|i| Idx::from_lin_index(i, &self.page_size))
-                        .reduce(|i1, i2| i1.joint_min(&i2))
-                        .unwrap()
+            .filter_map(|(k, p)| {
+                (0..p.len())
+                    .filter(|i| self.pages.get(k).unwrap()[*i] != self._blank)
+                    .map(|i| Idx::from_lin_index(i, &self.page_size))
+                    .reduce(|i1, i2| i1.joint_min(&i2))
+                    .map(|min_idx| min_idx + (*k * self.page_size))
             })
             .reduce(|i1, i2| i1.joint_min(&i2))
     }
@@ -193,13 +192,12 @@ where
     fn max_idx(&self) -> Option<Idx> {
         self.pages
             .iter()
-            .map(|(k, p)| {
-                *k * self.page_size
-                    + (0..p.len())
-                        .filter(|i| self.pages.get(k).unwrap()[*i] != self._blank)
-                        .map(|i| Idx::from_lin_index(i, &self.page_size))
-                        .reduce(|i1, i2| i1.joint_max(&i2))
-                        .unwrap()
+            .filter_map(|(k, p)| {
+                (0..p.len())
+                    .filter(|i| self.pages.get(k).unwrap()[*i] != self._blank)
+                    .map(|i| Idx::from_lin_index(i, &self.page_size))
+                    .reduce(|i1, i2| i1.joint_max(&i2))
+                    .map(|min_idx| min_idx + (*k * self.page_size))
             })
             .reduce(|i1, i2| i1.joint_max(&i2))
     }
