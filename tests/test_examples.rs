@@ -25,6 +25,7 @@ use std::path::{Path, PathBuf};
 
 use rfunge::{
     new_befunge_interpreter, read_funge_src_bin, ExecMode, IOMode, InterpreterEnv, ProgramResult,
+    RunMode,
 };
 
 struct TestEnv {
@@ -115,7 +116,7 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
             read_funge_src_bin(&mut interpreter.space, &src);
         }
 
-        assert_eq!(interpreter.run(), ProgramResult::Ok);
+        assert_eq!(interpreter.run(RunMode::Run), ProgramResult::Done(0));
 
         interpreter.env.output
     };

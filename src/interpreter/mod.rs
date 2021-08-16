@@ -32,8 +32,9 @@ use super::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramResult {
-    Ok,
+    Done(i32),
     Panic,
+    Paused,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +49,12 @@ pub enum ExecMode {
     System,
     SpecificShell,
     SameShell,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunMode {
+    Run,
+    Step,
 }
 
 pub struct Interpreter<Idx, Space, Env>
@@ -107,34 +114,85 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    pub fn run(&mut self) -> ProgramResult {
-        let ip_idx = self.ips.len() - 1;
-        let mut next_instruction = self.space[self.ips[ip_idx].location];
+    pub fn run(&mut self, mode: RunMode) -> ProgramResult {
+        let mut stopped_ips = Vec::new();
+        let mut new_ips = Vec::new();
 
         loop {
-            let ip = &mut self.ips[ip_idx];
-            let result = exec_instruction(next_instruction, ip, &mut self.space, &mut self.env);
+            for ip_idx in 0..self.ips.len() {
+                let mut go_again = true;
+                while go_again {
+                    let ip = &mut self.ips[ip_idx];
+                    let instruction = if ip.must_advance {
+                        let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
+                        ip.location = new_loc;
+                        ip.must_advance = false;
+                        *new_val
+                    } else {
+                        self.space[ip.location]
+                    };
+                    go_again = false;
+                    match exec_instruction(instruction, ip, &mut self.space, &mut self.env) {
+                        InstructionResult::Continue => {
+                            ip.must_advance = true;
+                        }
+                        InstructionResult::Skip => {
+                            let (new_loc, _) = self.space.move_by(ip.location, ip.delta);
+                            ip.location = new_loc;
+                            go_again = true;
+                        }
+                        InstructionResult::StayPut => (),
+                        InstructionResult::Stop => {
+                            stopped_ips.push(ip_idx);
+                        }
+                        InstructionResult::Exit(returncode) => {
+                            return ProgramResult::Done(returncode);
+                        }
+                        InstructionResult::Panic => {
+                            return ProgramResult::Panic;
+                        }
+                        InstructionResult::Fork => {
+                            // Find an ID for the new IP
+                            let new_id = self.ips.iter().map(|ip| ip.id).max().unwrap() + 1.into();
+                            let ip = &mut self.ips[ip_idx]; // re-borrow
+                                                            // Create the IP
+                            let mut new_ip = ip.clone();
+                            new_ip.id = new_id;
+                            new_ip.delta = ip.delta * (-1).into();
+                            let (new_loc, _) = self.space.move_by(ip.location, new_ip.delta);
+                            new_ip.location = new_loc;
+                            new_ips.push((ip_idx, new_ip));
+                            // Move the parent along
+                            ip.must_advance = true;
+                        }
+                    }
+                }
+            }
 
-            match result {
-                InstructionResult::Continue | InstructionResult::Skip => {
-                    // Skip will need special treatment in concurrent funge
-                    let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
-                    ip.location = new_loc;
-                    next_instruction = *new_val;
+            // handle forks
+            for (ip_idx, new_ip) in new_ips.drain(0..) {
+                self.ips.insert(ip_idx, new_ip);
+                // Fix ip indices in stopped_ips
+                for idx in stopped_ips.iter_mut() {
+                    if *idx >= ip_idx {
+                        *idx += 1;
+                    }
                 }
-                InstructionResult::StayPut => {
-                    next_instruction = self.space[ip.location];
-                }
-                InstructionResult::Exit => {
-                    break;
-                }
-                InstructionResult::Panic => {
-                    return ProgramResult::Panic;
-                }
-            };
+            }
+
+            // handle stops
+            for idx in stopped_ips.drain(0..).rev() {
+                self.ips.remove(idx);
+            }
+
+            if self.ips.len() == 0 {
+                return ProgramResult::Done(0);
+            }
+
+            if mode == RunMode::Step {
+                return ProgramResult::Paused;
+            }
         }
-
-        ProgramResult::Ok
     }
 }
 

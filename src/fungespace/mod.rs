@@ -312,10 +312,7 @@ where
             }
             max_y = max(((y + 1) as i32).into(), max_y);
         }
-        return Self {
-            x: max_x,
-            y: max_y,
-        };
+        return Self { x: max_x, y: max_y };
     }
 
     fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output> {

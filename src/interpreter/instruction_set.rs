@@ -34,7 +34,9 @@ pub enum InstructionResult {
     Continue,
     StayPut,
     Skip,
-    Exit,
+    Fork,
+    Stop,
+    Exit(i32),
     Panic,
 }
 
@@ -52,7 +54,6 @@ pub enum InstructionMode {
 /// Struct encapulating the dynamic instructions loaded for an IP
 /// It has multiple layers, and fingerprints are able to add a new
 /// layer to the instruction set (which can later be popped)
-#[derive(Clone)]
 pub struct InstructionSet<Idx, Space, Env>
 where
     Idx: MotionCmds<Space, Env> + SrcIO<Space>,
@@ -64,6 +65,24 @@ where
     layers: Vec<InstructionLayer<Idx, Space, Env>>,
 }
 
+// Can't derive Clone by macro because it requires the type parameters to be
+// Clone...
+impl<Idx, Space, Env> Clone for InstructionSet<Idx, Space, Env>
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    fn clone(&self) -> Self {
+        Self {
+            mode: self.mode,
+            layers: self.layers.clone(),
+        }
+    }
+}
+
+// Can't derive Debug by macro because of the function pointers
 impl<Idx, Space, Env> Debug for InstructionSet<Idx, Space, Env>
 where
     Idx: MotionCmds<Space, Env> + SrcIO<Space>,
@@ -164,7 +183,9 @@ where
     Env: InterpreterEnv,
 {
     match raw_instruction.try_to_char() {
-        Some('@') => InstructionResult::Exit,
+        Some(' ') => InstructionResult::Skip,
+        Some('@') => InstructionResult::Stop,
+        Some('t') => InstructionResult::Fork,
         Some('#') => {
             // Trampoline
             ip.location = ip.location + ip.delta;

@@ -27,7 +27,7 @@ use regex::Regex;
 
 use rfunge::{
     new_befunge_interpreter, new_unefunge_interpreter, read_funge_src, read_funge_src_bin,
-    ExecMode, IOMode, InterpreterEnv,
+    ExecMode, IOMode, InterpreterEnv, ProgramResult, RunMode,
 };
 
 struct CmdLineEnv {
@@ -136,8 +136,8 @@ impl InterpreterEnv for CmdLineEnv {
             Ok(n) => n.as_secs() as i64,
             Err(_) => match SystemTime::UNIX_EPOCH.duration_since(now) {
                 Ok(n) => -(n.as_secs() as i64),
-                Err(_) => 0
-            }
+                Err(_) => 0,
+            },
         }
     }
 }
@@ -250,8 +250,9 @@ fn main() {
         sandbox: arg_matches.is_present("sandbox"),
         stdout: stdout(),
         stdin: stdin(),
-        argv: argv
+        argv: argv,
     };
+    let mut result = ProgramResult::Panic;
 
     if dim == 1 {
         // unefunge
@@ -262,7 +263,7 @@ fn main() {
         } else {
             read_funge_src_bin(&mut interpreter.space, &src_bin);
         }
-        interpreter.run();
+        result = interpreter.run(RunMode::Run);
     } else if dim == 2 {
         // befunge
         let mut interpreter = new_befunge_interpreter::<i64, _>(env);
@@ -272,6 +273,11 @@ fn main() {
         } else {
             read_funge_src_bin(&mut interpreter.space, &src_bin);
         }
-        interpreter.run();
+        result = interpreter.run(RunMode::Run);
     }
+
+    std::process::exit(match result {
+        ProgramResult::Done(returncode) => returncode,
+        _ => 1,
+    });
 }

@@ -341,7 +341,7 @@ where
     // Set everything up first
 
     // 1. flags
-    let mut impl_flags = 0;
+    let mut impl_flags = 0x1; // concurrent funge-98
     if env.have_file_input() {
         impl_flags |= 0x2
     }
@@ -351,7 +351,7 @@ where
     if exec_flag != ExecMode::Disabled {
         impl_flags |= 0x8
     }
-    if ! env.is_io_buffered() {
+    if !env.is_io_buffered() {
         impl_flags |= 0x10
     }
     sysinfo_cells.push(impl_flags.into());
@@ -386,7 +386,7 @@ where
     sysinfo_cells.push(Idx::rank().into());
 
     // 8. IP ID
-    sysinfo_cells.push(0.into());
+    sysinfo_cells.push(ip.id);
 
     // 9. IP team number
     sysinfo_cells.push(0.into());
@@ -414,7 +414,10 @@ where
 
     // 14. Greatest point
     let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(&mut tmp_vec, space.max_idx().unwrap_or(Idx::origin()) - least_idx);
+    Idx::push_vector_onto(
+        &mut tmp_vec,
+        space.max_idx().unwrap_or(Idx::origin()) - least_idx,
+    );
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
     // 15 & 16: Time

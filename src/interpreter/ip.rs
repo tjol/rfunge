@@ -28,7 +28,7 @@ use crate::fungespace::index::{bfvec, BefungeVec};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 /// Struct encapsulating the state of the/an IP
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct InstructionPointer<Idx, Space, Env>
 where
     Idx: MotionCmds<Space, Env> + SrcIO<Space>,
@@ -36,6 +36,8 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
+    /// Identifier of the IP
+    pub id: Space::Output,
     /// Location of the IP (initial: the origin)
     pub location: Idx,
     /// Current delta (initial: East)
@@ -46,9 +48,34 @@ where
     pub stack_stack: Vec<Vec<Space::Output>>,
     /// The currently available
     pub instructions: InstructionSet<Idx, Space, Env>,
+    /// Does the IP have to move before its next turn?
+    pub must_advance: bool,
     /// If instructions or fingerprints need to store additional data with the
     /// IP, put them here.
     pub private_data: HashMap<String, Rc<dyn Any>>,
+}
+
+// Can't derive Clone by macro because it requires the type parameters to be
+// Clone...
+impl<Idx, Space, Env> Clone for InstructionPointer<Idx, Space, Env>
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            location: self.location,
+            delta: self.delta,
+            storage_offset: self.storage_offset,
+            stack_stack: self.stack_stack.clone(),
+            instructions: self.instructions.clone(),
+            must_advance: self.must_advance,
+            private_data: self.private_data.clone(),
+        }
+    }
 }
 
 pub trait CreateInstructionPointer<Space, Env>: MotionCmds<Space, Env> + SrcIO<Space>
@@ -68,11 +95,13 @@ where
 {
     fn new_ip() -> InstructionPointer<T, Space, Env> {
         let mut instance = InstructionPointer {
+            id: 0.into(),
             location: 0.into(),
             delta: 1.into(),
             storage_offset: 0.into(),
             stack_stack: Vec::new(),
             instructions: InstructionSet::new(),
+            must_advance: false,
             private_data: HashMap::new(),
         };
         instance.stack_stack.push(Vec::new());
@@ -88,11 +117,13 @@ where
 {
     fn new_ip() -> InstructionPointer<BefungeVec<T>, Space, Env> {
         let mut instance = InstructionPointer {
+            id: 0.into(),
             location: bfvec(0, 0),
             delta: bfvec(1, 0),
             storage_offset: bfvec(0, 0),
             stack_stack: Vec::new(),
             instructions: InstructionSet::new(),
+            must_advance: false,
             private_data: HashMap::new(),
         };
         instance.stack_stack.push(Vec::new());

@@ -34,7 +34,7 @@ pub use crate::fungespace::{
 };
 pub use crate::interpreter::{
     ExecMode, IOMode, InstructionPointer, InstructionResult, Interpreter, InterpreterEnv,
-    ProgramResult,
+    ProgramResult, RunMode,
 };
 
 /// Create a new Unefunge interpreter using the default implementation and

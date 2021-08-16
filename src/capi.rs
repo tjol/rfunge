@@ -20,7 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
     new_befunge_interpreter, read_funge_src, read_funge_src_bin, BefungeVec, IOMode, Interpreter,
-    InterpreterEnv, PagedFungeSpace,
+    InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode,
 };
 
 // --------------------------------------------------------
@@ -162,8 +162,9 @@ pub extern "C" fn rfunge_load_src(
 }
 
 #[no_mangle]
-pub extern "C" fn rfunge_run(interp: *mut RFungeBefungeInterp) {
-    unsafe {
-        (*interp).run();
+pub extern "C" fn rfunge_run(interp: *mut RFungeBefungeInterp) -> i32 {
+    match unsafe { &mut (*interp) }.run(RunMode::Run) {
+        ProgramResult::Done(returncode) => returncode,
+        _ => -1,
     }
 }

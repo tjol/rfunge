@@ -20,7 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
     new_befunge_interpreter, read_funge_src, BefungeVec, IOMode, Interpreter, InterpreterEnv,
-    PagedFungeSpace,
+    PagedFungeSpace, RunMode, ProgramResult
 };
 
 // --------------------------------------------------------
@@ -113,7 +113,9 @@ pub fn load_src(interp: *mut WebBefungeInterp, src: &str) {
 }
 
 #[wasm_bindgen]
-pub fn run(interp: *mut WebBefungeInterp) {
-    let interp_ref = unsafe { &mut (*interp) };
-    interp_ref.run();
+pub fn run(interp: *mut WebBefungeInterp) -> i32 {
+    match unsafe { &mut (*interp) }.run(RunMode::Run) {
+        ProgramResult::Done(returncode) => returncode,
+        _ => -1,
+    }
 }
