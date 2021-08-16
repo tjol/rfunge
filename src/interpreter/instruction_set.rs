@@ -199,6 +199,7 @@ where
         Some(' ') => InstructionResult::Skip,
         Some('@') => InstructionResult::Stop,
         Some('t') => InstructionResult::Fork,
+        Some('q') => InstructionResult::Exit(ip.pop().to_i32().unwrap_or(-1)),
         Some('#') => {
             // Trampoline
             ip.location = ip.location + ip.delta;
