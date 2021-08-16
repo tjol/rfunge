@@ -123,7 +123,7 @@ where
         while self.pages.contains_key(&page_idx) {
             let lin_idx = idx_in_page.to_lin_index(&self.page_size);
             let v = self.pages.get(&page_idx).unwrap().index(lin_idx);
-            if *v != self._blank {
+            if *v != (' ' as i32).into() {
                 return (idx, v);
             }
             idx = idx + delta;
@@ -133,6 +133,11 @@ where
         }
 
         // We've hit the edge, time for some maths
+        let cur_page = idx.div_euclid(self.page_size);
+        let cur_dist = idx
+            .dist_of_region(&delta, &(cur_page * self.page_size), &self.page_size)
+            .unwrap();
+
         let mut page_dists: Vec<(Idx, Elem)> = self
             .pages
             .keys()
@@ -142,28 +147,17 @@ where
                     start.dist_of_region(&delta, &(*k * self.page_size), &self.page_size)?,
                 ))
             })
+            .filter(|(_, d)| *d > cur_dist || *d <= 0.into())
             .collect();
-        page_dists.sort_by_key(|(_, d)| *d);
+        page_dists.sort_by_key(|(_, d)| (*d <= 0.into(), *d));
 
-        // let cur_page = start.div_euclid(self.page_size);
-        // let cur_dist = start
-        //     .dist_of_region(&delta, &(cur_page * self.page_size), &self.page_size)
-        //     .unwrap();
-        let cur_dist: Elem = 0.into();
-
-        // Are there any pages further than the one we last checked?
-        let pages_ahead = page_dists.iter().filter(|(_, d)| *d > cur_dist);
-        // Are there any further back? -- there must be
-        let pages_astern = page_dists.iter().filter(|(_, d)| *d <= 0.into());
-        let distant_pages = pages_ahead.chain(pages_astern);
-
-        for (target_page_idx, dist) in distant_pages {
-            let mut new_idx = start + delta * (*dist);
+        for (target_page_idx, dist) in page_dists.into_iter() {
+            let mut new_idx = start + delta * dist;
             let (mut cur_page_idx, mut idx_in_page) = new_idx.div_rem_euclid(self.page_size);
-            while cur_page_idx == *target_page_idx {
+            while cur_page_idx == target_page_idx {
                 let lin_idx = idx_in_page.to_lin_index(&self.page_size);
-                let v = self.pages.get(target_page_idx).unwrap().index(lin_idx);
-                if *v != self._blank {
+                let v = self.pages.get(&target_page_idx).unwrap().index(lin_idx);
+                if *v != (' ' as i32).into() {
                     return (new_idx, v);
                 }
                 new_idx = new_idx + delta;
@@ -182,7 +176,7 @@ where
             .iter()
             .filter_map(|(k, p)| {
                 (0..p.len())
-                    .filter(|i| self.pages.get(k).unwrap()[*i] != self._blank)
+                    .filter(|i| self.pages.get(k).unwrap()[*i] != (' ' as i32).into())
                     .map(|i| Idx::from_lin_index(i, &self.page_size))
                     .reduce(|i1, i2| i1.joint_min(&i2))
                     .map(|min_idx| min_idx + (*k * self.page_size))
@@ -195,7 +189,7 @@ where
             .iter()
             .filter_map(|(k, p)| {
                 (0..p.len())
-                    .filter(|i| self.pages.get(k).unwrap()[*i] != self._blank)
+                    .filter(|i| self.pages.get(k).unwrap()[*i] != (' ' as i32).into())
                     .map(|i| Idx::from_lin_index(i, &self.page_size))
                     .reduce(|i1, i2| i1.joint_max(&i2))
                     .map(|min_idx| min_idx + (*k * self.page_size))

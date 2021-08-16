@@ -85,6 +85,7 @@ pub trait FungeArrayIdx: FungeIndex {
     /// Get the size of `Vec` needed if `self` is interpreted as the size of
     /// the n-d array. (i.e. the generalized volume, x*y in 2D)
     fn lin_size(&self) -> usize;
+
     /// Map the index to a linear index into a `Vec` of size `array_size.lin_size()`
     ///
     /// The caller must ensure that the array is big enough.
