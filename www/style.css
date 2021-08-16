@@ -47,6 +47,7 @@ input[type="button"]:disabled, input[type="submit"]:disabled, button:disabled {
 #output {
     font-family: "Roboto Mono", monospace;
     font-size: 1.2em;
+    white-space: pre-wrap;
 }
 
 #fungespace .ip {
