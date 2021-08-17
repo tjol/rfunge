@@ -40,6 +40,7 @@ export class FungeSpaceEdit {
         }
         const escape = ((s) => Array.from(s).map(c => {
             switch (c) {
+                case "&": return "&amp;"
                 case ">": return "&gt;"
                 case "<": return  "&lt;"
                 case "\xa0": return "␣"

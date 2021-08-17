@@ -123,7 +123,8 @@ async function initialize() {
         document.getElementById("reset-btn").disabled = true
         editor.enableEditing()
         document.getElementById("returncode-info").innerText = ""
-        document.getElementById("output").innerText = ""
+        document.getElementById("output").innerHTML = ""
+        document.getElementById("warnings").innerHTML = ""
     }
 
     document.getElementById("stop-btn").onclick = () => {

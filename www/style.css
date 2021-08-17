@@ -50,6 +50,10 @@ input[type="button"]:disabled, input[type="submit"]:disabled, button:disabled {
     white-space: pre-wrap;
 }
 
+#warnings {
+    color: red;
+}
+
 #fungespace .ip {
     background-color: black;
     color: white;
