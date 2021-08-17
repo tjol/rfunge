@@ -10,7 +10,7 @@ RFunge follows the [spec] and passes the [Mycology] test suite, but it does not
 currently suport many fingerprints.
 
 Much like [cfunge], the rfunge's command-line interface supports a sandbox mode
-in which instructions like `i`, `o` and `y` are disabled.
+in which instructions like `i`, `o` and `=` are disabled.
 
 RFunge is (in principle) embeddable, and beside the main Rust API, there are
 rudimentary C and WASM APIs
