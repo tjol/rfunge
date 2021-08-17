@@ -177,7 +177,7 @@ where
             .iter()
             .filter_map(|(k, p)| {
                 (0..p.len())
-                    .filter(|i| self.pages.get(k).unwrap()[*i] != (' ' as i32).into())
+                    .filter(|i| p[*i] != (' ' as i32).into())
                     .map(|i| Idx::from_lin_index(i, &self.page_size))
                     .reduce(|i1, i2| i1.joint_min(&i2))
                     .map(|min_idx| min_idx + (*k * self.page_size))
@@ -190,10 +190,10 @@ where
             .iter()
             .filter_map(|(k, p)| {
                 (0..p.len())
-                    .filter(|i| self.pages.get(k).unwrap()[*i] != (' ' as i32).into())
+                    .filter(|i| p[*i] != (' ' as i32).into())
                     .map(|i| Idx::from_lin_index(i, &self.page_size))
                     .reduce(|i1, i2| i1.joint_max(&i2))
-                    .map(|min_idx| min_idx + (*k * self.page_size))
+                    .map(|max_idx| max_idx + (*k * self.page_size))
             })
             .reduce(|i1, i2| i1.joint_max(&i2))
     }

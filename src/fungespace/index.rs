@@ -251,15 +251,13 @@ where
 {
     fn to_lin_index(&self, array_size: &Self) -> usize {
         let trunc = self.rem_euclid(*array_size);
-        (trunc.x + trunc.y * array_size.x).to_usize().expect("linear index must fit in usize")
+        (trunc.x + trunc.y * array_size.x).to_usize().unwrap()
     }
 
     fn from_lin_index(lin_idx: usize, array_size: &Self) -> Self {
-        let (y, x) = lin_idx.div_rem(array_size.x.to_usize().expect("array size must be +ve"));
-        Self {
-            x: T::from_usize(x).expect("x must fit in usize"),
-            y: T::from_usize(y).expect("y must fit in usize"),
-        }
+        let width: T = array_size.x.to_i32().unwrap().into();
+        let (y, x) = T::from(lin_idx as i32).div_rem(width);
+        Self { x, y }
     }
 
     fn lin_size(&self) -> usize {
