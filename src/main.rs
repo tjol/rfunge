@@ -91,43 +91,40 @@ impl InterpreterEnv for CmdLineEnv {
     fn execute_command(&mut self, command: &str) -> i32 {
         if self.sandbox {
             -1
+        } else if cfg!(unix) {
+            Command::new("sh")
+                .arg("-c")
+                .arg(command)
+                .status()
+                .ok()
+                .and_then(|s| s.code())
+                .unwrap_or(-1)
+        } else if cfg!(windows) {
+            Command::new("CMD")
+                .arg("/C")
+                .arg(command)
+                .status()
+                .ok()
+                .and_then(|s| s.code())
+                .unwrap_or(-1)
         } else {
-            if cfg!(unix) {
-                Command::new("sh")
-                    .arg("-c")
-                    .arg(command)
-                    .status()
-                    .ok()
-                    .and_then(|s| s.code())
-                    .unwrap_or(-1)
-            } else if cfg!(windows) {
-                Command::new("CMD")
-                    .arg("/C")
-                    .arg(command)
-                    .status()
-                    .ok()
-                    .and_then(|s| s.code())
-                    .unwrap_or(-1)
-            } else {
-                eprintln!(
-                    "WARNING: Attempted to execute command, but I don't know how on this system!"
-                );
-                -1
-            }
+            eprintln!(
+                "WARNING: Attempted to execute command, but I don't know how on this system!"
+            );
+            -1
         }
     }
     fn env_vars(&mut self) -> Vec<(String, String)> {
-        let mut env_list = Vec::new();
-        if !self.sandbox {
-            for (oskey, osval) in std::env::vars_os() {
-                if let Ok(key) = oskey.into_string() {
-                    if let Ok(val) = osval.into_string() {
-                        env_list.push((key, val));
-                    }
-                }
-            }
+        if self.sandbox {
+            Vec::new()
+        } else {
+            std::env::vars_os()
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    Some((k.into_string().ok()?, v.into_string().ok()?))
+                })
+                .collect()
         }
-        return env_list;
     }
     fn argv(&mut self) -> Vec<String> {
         self.argv.clone()
@@ -242,9 +239,8 @@ fn main() {
     let is_unicode = arg_matches.is_present("unicode");
 
     // Set up the interpreter
-    let mut argv = Vec::new();
-    argv.push(filename.to_owned());
-    argv.append(&mut arg_matches.values_of_lossy("ARGS").unwrap_or(Vec::new()));
+    let mut argv = vec![filename.to_owned()];
+    argv.append(&mut arg_matches.values_of_lossy("ARGS").unwrap_or_default());
     let sandbox = arg_matches.is_present("sandbox");
     let env = CmdLineEnv {
         io_mode: if is_unicode {
@@ -253,10 +249,10 @@ fn main() {
             IOMode::Binary
         },
         warnings: arg_matches.is_present("warn"),
-        sandbox: sandbox,
         stdout: stdout(),
         stdin: stdin(),
-        argv: argv,
+        sandbox,
+        argv,
         allowed_fingerprints: if sandbox {
             safe_fingerprints()
         } else {

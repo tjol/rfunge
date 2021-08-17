@@ -55,7 +55,7 @@ where
     Interpreter {
         ips: vec![InstructionPointer::new()],
         space: PagedFungeSpace::new_with_page_size(1000.into()),
-        env: env,
+        env,
     }
 }
 
@@ -79,6 +79,6 @@ where
     Interpreter {
         ips: vec![InstructionPointer::new()],
         space: PagedFungeSpace::new_with_page_size(bfvec(80, 25)),
-        env: env,
+        env,
     }
 }

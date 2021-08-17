@@ -18,6 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::hash::Hash;
 use std::ops::{Add, Div, Index, IndexMut, Mul};
+use std::cmp::Ordering;
 
 use hashbrown::HashMap;
 
@@ -69,7 +70,7 @@ where
 {
     pub fn new_with_page_size(page_size: Idx) -> Self {
         Self {
-            page_size: page_size,
+            page_size,
             pages: HashMap::new(),
             _blank: Elem::from(' ' as i32),
         }
@@ -106,7 +107,7 @@ where
         }
         let page = self.pages.get_mut(&page_idx).unwrap();
         let lin_idx = idx_in_page.to_lin_index(&self.page_size);
-        return page.index_mut(lin_idx);
+        page.index_mut(lin_idx)
     }
 }
 
@@ -168,7 +169,7 @@ where
         }
 
         // NOTHING found? This is a problem, but probably the IP's
-        return (start, &self[start]);
+        (start, &self[start])
     }
 
     fn min_idx(&self) -> Option<Idx> {
@@ -203,26 +204,28 @@ where
     T: FungeValue + Hash + DivEuclid + RemEuclid + DivRemEuclid,
 {
     fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<T> {
-        if *delta > 0.into() {
-            let (dist, rem) = (*start - *self).div_rem_euclid(*delta);
+        match (*delta).cmp(&0.into()) {
+            Ordering::Greater => { // going forward
+                let (dist, rem) = (*start - *self).div_rem_euclid(*delta);
 
-            if rem == 0.into() {
-                Some(dist)
-            } else if (*self) + (dist + 1.into()) * (*delta) < ((*start) + (*size)) {
-                Some(dist + 1.into())
-            } else {
-                None
+                if rem == 0.into() {
+                    Some(dist)
+                } else if (*self) + (dist + 1.into()) * (*delta) < ((*start) + (*size)) {
+                    Some(dist + 1.into())
+                } else {
+                    None
+                }
             }
-        } else if *delta < 0.into() {
-            let dist = ((*start) + (*size) - 1.into() - (*self)).div_euclid(*delta);
+            Ordering::Equal => None,
+            Ordering::Less => { // going backward
+                let dist = ((*start) + (*size) - 1.into() - (*self)).div_euclid(*delta);
 
-            if (*self) + dist * (*delta) >= (*start) {
-                Some(dist)
-            } else {
-                None
+                if (*self) + dist * (*delta) >= (*start) {
+                    Some(dist)
+                } else {
+                    None
+                }
             }
-        } else {
-            None
         }
     }
 }
@@ -245,7 +248,7 @@ where
         if cross_tl.signum() != cross_br.signum() || cross_tr.signum() != cross_bl.signum() {
             // The line crosses our region. Is there a "stop"?
             if delta.x == 0.into() {
-                return self.y.dist_of_region(&delta.y, &start.y, &size.y);
+                self.y.dist_of_region(&delta.y, &start.y, &size.y)
             } else {
                 let mut dist = self.x.dist_of_region(&delta.x, &start.x, &size.x)?;
                 let mut first_pos = *self + *delta * dist;
@@ -260,10 +263,10 @@ where
                     }
                 }
 
-                return Some(dist);
+                Some(dist)
             }
         } else {
-            return None;
+            None
         }
     }
 }

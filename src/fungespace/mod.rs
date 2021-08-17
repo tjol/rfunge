@@ -131,10 +131,7 @@ pub trait FungeValue:
     }
     /// Return the value as a character, or U+FFFD �
     fn to_char(&self) -> char {
-        match self.try_to_char() {
-            Some(c) => c,
-            None => '�',
-        }
+        self.try_to_char().unwrap_or('�')
     }
 }
 
@@ -211,7 +208,8 @@ where
                 }
             }
         }
-        return idx - *start;
+
+        idx - *start
     }
 
     /// Read a string into unifunge space starting at position `start`
@@ -229,7 +227,7 @@ where
             }
         }
 
-        return i - *start;
+        i - *start
     }
 
     fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output> {
@@ -246,7 +244,7 @@ where
                 src.pop();
             }
         }
-        return src;
+        src
     }
 
     fn origin() -> Self {
@@ -302,7 +300,7 @@ where
         if x != start.x {
             y += 1.into();
         }
-        return Self { x: max_x, y: y } - *start;
+        Self { x: max_x, y } - *start
     }
 
     /// Read a string into unifunge space starting at position `start`
@@ -322,7 +320,7 @@ where
             }
             max_y = max(((y + 1) as i32).into(), max_y);
         }
-        return Self { x: max_x, y: max_y };
+        Self { x: max_x, y: max_y }
     }
 
     fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output> {
@@ -363,12 +361,12 @@ where
         }
 
         if strip {
-            while src.len() > 0 && src[src.len() - 1] == ('\n' as i32).into() {
+            while !src.is_empty() && src[src.len() - 1] == ('\n' as i32).into() {
                 src.pop();
             }
         }
 
-        return src;
+        src
     }
 
     fn origin() -> Self {

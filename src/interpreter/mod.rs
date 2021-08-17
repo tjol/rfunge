@@ -197,7 +197,7 @@ where
                 self.ips.remove(idx);
             }
 
-            if self.ips.len() == 0 {
+            if self.ips.is_empty() {
                 return ProgramResult::Done(0);
             }
 

@@ -97,6 +97,18 @@ where
     }
 }
 
+impl<Idx, Space, Env> Default for InstructionSet<Idx, Space, Env>
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Idx, Space, Env> InstructionSet<Idx, Space, Env>
 where
     Idx: MotionCmds<Space, Env> + SrcIO<Space>,
@@ -119,12 +131,9 @@ where
         instruction_vec['=' as usize] = Some(instructions::execute);
         instruction_vec['y' as usize] = Some(instructions::sysinfo);
 
-        let mut layers = Vec::new();
-        layers.push((0, instruction_vec));
-
         Self {
             mode: InstructionMode::Normal,
-            layers: layers,
+            layers: vec![(0, instruction_vec)],
         }
     }
 
@@ -238,11 +247,11 @@ where
             ip.push(n);
             InstructionResult::Continue
         }
-        Some(digit) if digit >= '0' && digit <= '9' => {
+        Some(digit) if ('0'..='9').contains(&digit) => {
             ip.push(((digit as i32) - ('0' as i32)).into());
             InstructionResult::Continue
         }
-        Some(digit) if digit >= 'a' && digit <= 'f' => {
+        Some(digit) if ('a'..='f').contains(&digit) => {
             ip.push((0xa + (digit as i32) - ('a' as i32)).into());
             InstructionResult::Continue
         }
@@ -276,7 +285,7 @@ where
                 IOMode::Binary => env
                     .output_writer()
                     .write(&[(c & 0xff.into()).to_u8().unwrap()])
-                    .and_then(|_| Ok(())),
+                    .map(|_| ()),
             }
             .is_err()
             {

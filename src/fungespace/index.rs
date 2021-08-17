@@ -263,7 +263,7 @@ where
     }
 
     fn lin_size(&self) -> usize {
-        return (self.x * self.y).to_usize().unwrap();
+        (self.x * self.y).to_usize().unwrap()
     }
 }
 

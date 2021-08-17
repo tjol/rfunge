@@ -16,6 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::cmp::Ordering;
 use std::ops::{Add, Mul, Sub};
 
 use getrandom::getrandom;
@@ -89,7 +90,7 @@ where
     }
 
     fn pop_vector_from(stack: &mut Vec<Space::Output>) -> Self {
-        stack.pop().unwrap_or(0.into())
+        stack.pop().unwrap_or_else(|| 0.into())
     }
 
     fn push_vector_onto(stack: &mut Vec<Space::Output>, v: Self) {
@@ -155,12 +156,10 @@ where
             'w' => {
                 let b = ip.pop();
                 let a = ip.pop();
-                if a > b {
-                    // ]
-                    ip.delta = bfvec(-ip.delta.y, ip.delta.x)
-                } else if a < b {
-                    // [
-                    ip.delta = bfvec(ip.delta.y, -ip.delta.x)
+                match a.cmp(&b) {
+                    Ordering::Greater => ip.delta = bfvec(-ip.delta.y, ip.delta.x),
+                    Ordering::Less => ip.delta = bfvec(ip.delta.y, -ip.delta.x),
+                    Ordering::Equal => {}
                 }
                 true
             }
@@ -180,9 +179,9 @@ where
     }
 
     fn pop_vector_from(stack: &mut Vec<Space::Output>) -> Self {
-        let y = stack.pop().unwrap_or(0.into());
-        let x = stack.pop().unwrap_or(0.into());
-        return bfvec(x, y);
+        let y = stack.pop().unwrap_or_else(|| 0.into());
+        let x = stack.pop().unwrap_or_else(|| 0.into());
+        bfvec(x, y)
     }
 
     fn push_vector_onto(stack: &mut Vec<Space::Output>, v: Self) {

@@ -33,9 +33,7 @@ pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
 }
 
 pub fn safe_fingerprints() -> Vec<i32> {
-    let mut v = vec![];
-    v.push(string_to_fingerprint("BOOL"));
-    return v;
+    vec![string_to_fingerprint("BOOL")]
 }
 
 pub fn all_fingerprints() -> Vec<i32> {

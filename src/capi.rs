@@ -82,9 +82,9 @@ impl Read for CAPIEnv {
 impl InterpreterEnv for CAPIEnv {
     fn get_iomode(&self) -> IOMode {
         if self.is_unicode {
-            return IOMode::Text;
+            IOMode::Text
         } else {
-            return IOMode::Binary;
+            IOMode::Binary
         }
     }
     fn output_writer(&mut self) -> &mut dyn Write {
@@ -121,15 +121,13 @@ pub extern "C" fn rfunge_new_befunge_interpreter(
     err_cb: Option<CWriteFn>,
     user_data: *mut c_void,
 ) -> *mut RFungeBefungeInterp {
-    let env = CAPIEnv {
+    Box::into_raw(Box::new(new_befunge_interpreter::<i32, _>(CAPIEnv {
         is_unicode: unicode_mode,
         write_cb: out_cb,
         read_cb: in_cb,
         warn_cb: err_cb,
-        user_data: user_data,
-    };
-    let interp = Box::new(new_befunge_interpreter::<i32, _>(env));
-    return Box::into_raw(interp);
+        user_data,
+    })))
 }
 
 #[no_mangle]
@@ -151,13 +149,13 @@ pub extern "C" fn rfunge_load_src(
     if interp_ref.env.is_unicode {
         if let Ok(src) = std::str::from_utf8(src_bin) {
             read_funge_src(&mut interp_ref.space, src);
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     } else {
         read_funge_src_bin(&mut interp_ref.space, src_bin);
-        return true;
+        true
     }
 }
 

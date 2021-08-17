@@ -94,18 +94,16 @@ where
     Env: InterpreterEnv,
 {
     fn new_ip() -> InstructionPointer<T, Space, Env> {
-        let mut instance = InstructionPointer {
+        InstructionPointer {
             id: 0.into(),
             location: 0.into(),
             delta: 1.into(),
             storage_offset: 0.into(),
-            stack_stack: Vec::new(),
+            stack_stack: vec![Vec::new()],
             instructions: InstructionSet::new(),
             must_advance: false,
             private_data: HashMap::new(),
-        };
-        instance.stack_stack.push(Vec::new());
-        return instance;
+        }
     }
 }
 
@@ -116,18 +114,28 @@ where
     Env: InterpreterEnv,
 {
     fn new_ip() -> InstructionPointer<BefungeVec<T>, Space, Env> {
-        let mut instance = InstructionPointer {
+        InstructionPointer {
             id: 0.into(),
             location: bfvec(0, 0),
             delta: bfvec(1, 0),
             storage_offset: bfvec(0, 0),
-            stack_stack: Vec::new(),
+            stack_stack: vec![Vec::new()],
             instructions: InstructionSet::new(),
             must_advance: false,
             private_data: HashMap::new(),
-        };
-        instance.stack_stack.push(Vec::new());
-        return instance;
+        }
+    }
+}
+
+impl<Idx, Space, Env> Default for InstructionPointer<Idx, Space, Env>
+where
+    Idx: CreateInstructionPointer<Space, Env>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -163,7 +171,7 @@ where
 
     /// Pop one number from the stack and return it
     pub fn pop(&mut self) -> Space::Output {
-        self.stack_mut().pop().unwrap_or(0.into())
+        self.stack_mut().pop().unwrap_or_else(|| 0.into())
     }
 
     /// Push a number onto the stack
@@ -178,7 +186,7 @@ where
             s.push(c.to_char());
             c = self.pop();
         }
-        return s;
+        s
     }
 
     pub fn reflect(&mut self) {

@@ -20,6 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! built into the interpreter
 
 use std::cmp::{max, min};
+use std::cmp::Ordering;
 use std::mem::size_of;
 
 use chrono::{Datelike, NaiveDateTime, Timelike};
@@ -186,16 +187,20 @@ where
     let nstacks = ip.stack_stack.len();
     if nstacks > 1 {
         if let Some(n) = ip.pop().to_isize() {
-            if n > 0 {
-                for _ in 0..n {
-                    let v = ip.stack_stack[nstacks - 2].pop().unwrap_or(0.into());
-                    ip.push(v);
+            match n.cmp(&0) {
+                Ordering::Greater => {
+                    for _ in 0..n {
+                        let v = ip.stack_stack[nstacks - 2].pop().unwrap_or_else(|| 0.into());
+                        ip.push(v);
+                    }
                 }
-            } else if n < 0 {
-                for _ in 0..(-n) {
-                    let v = ip.pop();
-                    ip.stack_stack[nstacks - 2].push(v);
+                Ordering::Less => {
+                    for _ in 0..(-n) {
+                        let v = ip.pop();
+                        ip.stack_stack[nstacks - 2].push(v);
+                    }
                 }
+                Ordering::Equal => {}
             }
         } else {
             ip.reflect();
@@ -408,7 +413,7 @@ where
 
     // 13. Least point
     let mut tmp_vec = Vec::new();
-    let least_idx = space.min_idx().unwrap_or(Idx::origin());
+    let least_idx = space.min_idx().unwrap_or_else(Idx::origin);
     Idx::push_vector_onto(&mut tmp_vec, least_idx);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
@@ -416,7 +421,7 @@ where
     let mut tmp_vec = Vec::new();
     Idx::push_vector_onto(
         &mut tmp_vec,
-        space.max_idx().unwrap_or(Idx::origin()) - least_idx,
+        space.max_idx().unwrap_or_else(Idx::origin) - least_idx,
     );
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
