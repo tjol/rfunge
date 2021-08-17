@@ -44,10 +44,12 @@ async function initialize() {
 
     document.getElementById("run-btn").onclick = () => {
         if (finished) return
-        const src = editor.getSrc()
-        origSrc = src
-        interpreter.replaceSrc(src)
-        editor.disableEditing()
+        if (origSrc == null) {
+            const src = editor.getSrc()
+            origSrc = src
+            interpreter.replaceSrc(src)
+            editor.disableEditing()
+        }
         document.getElementById("step-btn").disabled = true
         document.getElementById("run-btn").disabled = true
         document.getElementById("reset-btn").disabled = true
@@ -81,7 +83,6 @@ async function initialize() {
 
     document.getElementById("step-btn").onclick = () => {
         if (finished) return
-        document.getElementById("reset-btn").disabled = true
 
         if (origSrc == null) {
             const src = editor.getSrc()
