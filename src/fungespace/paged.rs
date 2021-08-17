@@ -16,9 +16,9 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::{Add, Div, Index, IndexMut, Mul};
-use std::cmp::Ordering;
 
 use hashbrown::HashMap;
 
@@ -176,11 +176,12 @@ where
         self.pages
             .iter()
             .filter_map(|(k, p)| {
-                (0..p.len())
-                    .filter(|i| p[*i] != (' ' as i32).into())
-                    .map(|i| Idx::from_lin_index(i, &self.page_size))
-                    .reduce(|i1, i2| i1.joint_min(&i2))
-                    .map(|min_idx| min_idx + (*k * self.page_size))
+                Idx::find_joint_min_where(
+                    &mut |idx: &Idx| p[idx.to_lin_index(&self.page_size)] != (' ' as i32).into(),
+                    &Idx::origin(),
+                    &self.page_size,
+                )
+                .map(|min_idx| min_idx + (*k * self.page_size))
             })
             .reduce(|i1, i2| i1.joint_min(&i2))
     }
@@ -189,11 +190,12 @@ where
         self.pages
             .iter()
             .filter_map(|(k, p)| {
-                (0..p.len())
-                    .filter(|i| p[*i] != (' ' as i32).into())
-                    .map(|i| Idx::from_lin_index(i, &self.page_size))
-                    .reduce(|i1, i2| i1.joint_max(&i2))
-                    .map(|max_idx| max_idx + (*k * self.page_size))
+                Idx::find_joint_max_where(
+                    &mut |idx: &Idx| p[idx.to_lin_index(&self.page_size)] != (' ' as i32).into(),
+                    &Idx::origin(),
+                    &self.page_size,
+                )
+                .map(|max_idx| max_idx + (*k * self.page_size))
             })
             .reduce(|i1, i2| i1.joint_max(&i2))
     }
@@ -205,7 +207,8 @@ where
 {
     fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<T> {
         match (*delta).cmp(&0.into()) {
-            Ordering::Greater => { // going forward
+            Ordering::Greater => {
+                // going forward
                 let (dist, rem) = (*start - *self).div_rem_euclid(*delta);
 
                 if rem == 0.into() {
@@ -217,7 +220,8 @@ where
                 }
             }
             Ordering::Equal => None,
-            Ordering::Less => { // going backward
+            Ordering::Less => {
+                // going backward
                 let dist = ((*start) + (*size) - 1.into() - (*self)).div_euclid(*delta);
 
                 if (*self) + dist * (*delta) >= (*start) {

@@ -43,6 +43,46 @@ where
     fn rank() -> i32 {
         1
     }
+
+    fn find_joint_min_where<Pred>(
+        pred: &mut Pred,
+        absolute_min: &Self,
+        absolute_max: &Self,
+    ) -> Option<Self>
+    where
+        Pred: FnMut(&Self) -> bool,
+    {
+        let mut i = *absolute_min;
+        while i < *absolute_max {
+            if pred(&i) {
+                return Some(i);
+            }
+            i += 1.into()
+        }
+        None
+    }
+
+    fn find_joint_max_where<Pred>(
+        pred: &mut Pred,
+        absolute_min: &Self,
+        absolute_max: &Self,
+    ) -> Option<Self>
+    where
+        Pred: FnMut(&Self) -> bool,
+    {
+        let mut i = *absolute_max - 1.into();
+        while i >= *absolute_min {
+            if pred(&i) {
+                return Some(i);
+            }
+            i -= 1.into()
+        }
+        None
+    }
+
+    fn origin() -> Self {
+        0.into()
+    }
 }
 
 impl<T> FungeArrayIdx for T
@@ -242,6 +282,83 @@ where
 
     fn rank() -> i32 {
         2
+    }
+
+    fn find_joint_min_where<Pred>(
+        pred: &mut Pred,
+        absolute_min: &Self,
+        absolute_max: &Self,
+    ) -> Option<Self>
+    where
+        Pred: FnMut(&Self) -> bool,
+    {
+        let mut hypothesis = *absolute_min;
+
+        'outer: while hypothesis.x < absolute_max.x && hypothesis.y < absolute_max.y {
+            let mut min_x = hypothesis.x;
+            while ! pred(&Self { x: min_x, y: hypothesis.y }) {
+                min_x += 1.into();
+                if min_x >= absolute_max.x {
+                    // move down one row
+                    hypothesis.y += 1.into();
+                    continue 'outer;
+                }
+            }
+            let mut min_y = hypothesis.y;
+            while ! pred(&Self { x: hypothesis.x, y: min_y }) {
+                min_y += 1.into();
+                if min_y >= absolute_max.y {
+                    // move across one column
+                    hypothesis.x += 1.into();
+                    continue 'outer;
+                }
+            }
+            // We only get this far if there is a valid value for our x and y
+            return Some(hypothesis);
+        }
+        // No valid values
+        None
+    }
+
+    fn find_joint_max_where<Pred>(
+        pred: &mut Pred,
+        absolute_min: &Self,
+        absolute_max: &Self,
+    ) -> Option<Self>
+    where
+        Pred: FnMut(&Self) -> bool,
+    {
+        let mut hypothesis = Self{x: absolute_max.x - 1.into(), y: absolute_max.y - 1.into()};
+
+        'outer: while hypothesis.x >= absolute_min.x && hypothesis.y >= absolute_min.y {
+            let mut max_x = hypothesis.x;
+            while ! pred(&Self { x: max_x, y: hypothesis.y }) {
+                max_x -= 1.into();
+                if max_x < absolute_min.x {
+                    // move up one row
+                    hypothesis.y -= 1.into();
+                    continue 'outer;
+                }
+            }
+            let mut max_y = hypothesis.y;
+            while ! pred(&Self { x: hypothesis.x, y: max_y }) {
+                max_y -= 1.into();
+                if max_y < absolute_min.y {
+                    // move across one column
+                    hypothesis.x -= 1.into();
+                    continue 'outer;
+                }
+            }
+            // We only get this far if there is a valid value for our x and y
+            return Some(hypothesis);
+        }
+        // No valid values
+        None
+    }
+
+
+    fn origin() -> Self {
+        bfvec(0, 0)
     }
 }
 

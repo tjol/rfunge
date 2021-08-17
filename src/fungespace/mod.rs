@@ -49,8 +49,37 @@ pub trait FungeIndex: Eq + Copy {
     /// This is used, e.g., to determine the maximum extent of funge-space.
     fn joint_max(&self, other: &Self) -> Self;
 
+    /// Get the minimum index (as defined for [joint_min]), no lower than
+    /// `absolute_min`, and lower than `absolute_max` (on all components) for
+    /// which the predicate `pred` returns true
+    ///
+    /// This is used, e.g., to determine the maximum extent of funge-space.
+    fn find_joint_min_where<Pred>(
+        pred: &mut Pred,
+        absolute_min: &Self,
+        absolute_max: &Self,
+    ) -> Option<Self>
+    where
+        Pred: FnMut(&Self) -> bool;
+
+    /// Get the maximum index (as defined for [joint_min]), no lower than
+    /// `absolute_min`, and lower than `absolute_max` (on all components) for
+    /// which the predicate `pred` returns true
+    ///
+    /// This is used, e.g., to determine the maximum extent of funge-space.
+    fn find_joint_max_where<Pred>(
+        pred: &mut Pred,
+        absolute_min: &Self,
+        absolute_max: &Self,
+    ) -> Option<Self>
+    where
+        Pred: FnMut(&Self) -> bool;
+
     /// The number of scalars per vector
     fn rank() -> i32;
+
+    /// Get the index corresponding to the origin
+    fn origin() -> Self;
 }
 
 /// Trait representing funge-space. Accessing specific
@@ -183,7 +212,6 @@ where
             .map(|v| v.to_u8().unwrap_or(0xff))
             .collect()
     }
-    fn origin() -> Self;
 }
 
 /// SrcIO implementation for unefunge
@@ -245,10 +273,6 @@ where
             }
         }
         src
-    }
-
-    fn origin() -> Self {
-        0.into()
     }
 }
 
@@ -367,10 +391,6 @@ where
         }
 
         src
-    }
-
-    fn origin() -> Self {
-        bfvec(0, 0)
     }
 }
 
