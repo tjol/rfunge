@@ -21,10 +21,10 @@ export class FungeSpaceEdit {
     constructor(domId) {
         this._div = document.getElementById(domId)
         this._srcdiv = document.createElement("div")
-        this._srcdiv.setAttribute("contentEditable", true)
         this._div.appendChild(this._srcdiv)
 
         this.setSrc("")
+        this.enableEditing()
     }
 
     setSrc(src, ips) {
@@ -32,8 +32,25 @@ export class FungeSpaceEdit {
             ips = []
         }
         // turn it into HTML!
-        let lines = src.replaceAll(" ", "\xa0").split("\n")
-        const escape = ((s) => s.replaceAll(">", "&gt;").replaceAll("<", "&lt;"))
+        let lines
+        if (Array.isArray(src)) {
+            lines = src
+        } else {
+            lines = src.split("\n")
+        }
+        const escape = ((s) => Array.from(s).map(c => {
+            switch (c) {
+                case ">": return "&gt;"
+                case "<": return  "&lt;"
+                case "\xa0": return "␣"
+                case " ": return "\xa0"
+                case "\x7f": return "␡"
+                default:
+                    if (c.codePointAt(0) < 0x20) // control characters
+                        return String.fromCodePoint(0x2400 + c.codePointAt(0))
+                    else return c
+            }
+        }).join(""))
         let ipGrid = []
         for (let ipLoc of ips) {
             let [x, y] = ipLoc
@@ -70,6 +87,14 @@ export class FungeSpaceEdit {
         let src = elemToString(this._srcdiv)
         // Get rid of NBSP
         return src.replaceAll("\u00a0", " ")
+    }
+
+    enableEditing() {
+        this._srcdiv.contentEditable = true
+    }
+
+    disableEditing() {
+        this._srcdiv.contentEditable = false
     }
 }
 

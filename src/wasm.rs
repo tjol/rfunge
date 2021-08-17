@@ -18,22 +18,23 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 #![cfg(target_arch = "wasm32")]
 
-use crate::{
-    new_befunge_interpreter, read_funge_src, safe_fingerprints, BefungeVec, IOMode, Interpreter,
-    InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode, bfvec, FungeSpace
-};
 use crate::fungespace::SrcIO;
+use crate::{
+    bfvec, new_befunge_interpreter, read_funge_src, safe_fingerprints, BefungeVec, FungeSpace,
+    IOMode, Interpreter, InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode,
+};
 
 // --------------------------------------------------------
 // WASM API
 // --------------------------------------------------------
 
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
 // Use `wee_alloc` as the global allocator.
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+use std::cmp::min;
 use std::io;
 use std::io::{Read, Write};
 
@@ -97,7 +98,6 @@ impl InterpreterEnv for JSEnv {
 
 type WebBefungeInterp = Interpreter<BefungeVec<i32>, PagedFungeSpace<BefungeVec<i32>, i32>, JSEnv>;
 
-
 #[wasm_bindgen]
 pub struct BefungeInterpreter {
     interpreter: Option<WebBefungeInterp>,
@@ -119,7 +119,7 @@ impl BefungeInterpreter {
         self.interpreter = None;
     }
 
-    #[wasm_bindgen(js_name="loadSrc")]
+    #[wasm_bindgen(js_name = "loadSrc")]
     pub fn load_src(&mut self, src: &str) {
         match &mut self.interpreter {
             None => {
@@ -132,7 +132,7 @@ impl BefungeInterpreter {
         }
     }
 
-    #[wasm_bindgen(js_name="replaceSrc")]
+    #[wasm_bindgen(js_name = "replaceSrc")]
     pub fn replace_src(&mut self, src: &str) {
         match &mut self.interpreter {
             None => {
@@ -162,13 +162,15 @@ impl BefungeInterpreter {
             Some(interpreter) => {
                 for _ in 0..loop_limit {
                     match interpreter.run(RunMode::Step) {
-                        ProgramResult::Done(returncode) => {return Some(returncode);}
-                        ProgramResult::Panic => { return Some(-1) }
-                        ProgramResult::Paused => {},
+                        ProgramResult::Done(returncode) => {
+                            return Some(returncode);
+                        }
+                        ProgramResult::Panic => return Some(-1),
+                        ProgramResult::Paused => {}
                     }
                 }
                 None
-            },
+            }
         }
     }
 
@@ -183,34 +185,66 @@ impl BefungeInterpreter {
         }
     }
 
-    #[wasm_bindgen(js_name="ipCount")]
+    #[wasm_bindgen(js_name = "ipCount")]
     pub fn ip_count(&self) -> usize {
         self.interpreter.as_ref().map(|i| i.ips.len()).unwrap_or(0)
     }
 
-    #[wasm_bindgen(js_name="ipLocation")]
+    #[wasm_bindgen(js_name = "ipLocation")]
     pub fn ip_location(&self, ip_idx: usize) -> Option<Vec<i32>> {
-        self.interpreter.as_ref().and_then(|i| Some(i.ips.get(ip_idx)?.location))
+        self.interpreter
+            .as_ref()
+            .and_then(|i| Some(i.ips.get(ip_idx)?.location))
             .and_then(|loc| Some(vec![loc.x, loc.y]))
     }
 
-    #[wasm_bindgen(js_name="stackCount")]
+    #[wasm_bindgen(js_name = "stackCount")]
     pub fn stack_count(&self, ip_idx: usize) -> usize {
-        self.interpreter.as_ref().and_then(|i| Some(i.ips.get(ip_idx)?.stack_stack.len())).unwrap_or(0)
+        self.interpreter
+            .as_ref()
+            .and_then(|i| Some(i.ips.get(ip_idx)?.stack_stack.len()))
+            .unwrap_or(0)
     }
 
-    #[wasm_bindgen(js_name="getStack")]
+    #[wasm_bindgen(js_name = "getStack")]
     pub fn get_stack(&self, ip_idx: usize, stack_idx: usize) -> Option<Vec<i32>> {
-        self.interpreter.as_ref().and_then(|i| i.ips.get(ip_idx)?.stack_stack.get(stack_idx)).map(|v| v.clone())
+        self.interpreter
+            .as_ref()
+            .and_then(|i| i.ips.get(ip_idx)?.stack_stack.get(stack_idx))
+            .map(|v| v.clone())
     }
 
-    #[wasm_bindgen(js_name="getSrc")]
+    #[wasm_bindgen(js_name = "getSrc")]
     pub fn get_src(&self) -> String {
-        self.interpreter.as_ref().map(|i| {
-            let start = i.space.min_idx().unwrap_or(bfvec(0, 0));
-            let end_incl = i.space.max_idx().unwrap_or(bfvec(0, 0));
-            let size = bfvec(end_incl.x - start.x + 1, end_incl.y - start.y + 1);
-            SrcIO::get_src_str(&i.space, &start, &size, true)
-        }).unwrap_or(String::new())
+        self.interpreter
+            .as_ref()
+            .map(|i| {
+                let mut start = i.space.min_idx().unwrap_or(bfvec(0, 0));
+                start = bfvec(min(0, start.x), min(0, start.y));
+                let end_incl = i.space.max_idx().unwrap_or(bfvec(0, 0));
+                let size = bfvec(end_incl.x - start.x + 1, end_incl.y - start.y + 1);
+                SrcIO::get_src_str(&i.space, &start, &size, true)
+            })
+            .unwrap_or(String::new())
+    }
+
+    #[wasm_bindgen(js_name = "getSrcLines")]
+    pub fn get_src_lines(&self) -> Vec<JsValue> {
+        self.interpreter
+            .as_ref()
+            .map(|i| {
+                let mut start = i.space.min_idx().unwrap_or(bfvec(0, 0));
+                start = bfvec(min(0, start.x), min(0, start.y));
+                let end_incl = i.space.max_idx().unwrap_or(bfvec(0, 0));
+                let line_len = end_incl.x - start.x + 1;
+
+                (start.y..(end_incl.y + 1))
+                    .map(|y| {
+                        SrcIO::get_src_str(&i.space, &bfvec(start.x, y), &bfvec(line_len, 1), true)
+                    })
+                    .map(|s| JsValue::from_str(&s))
+                    .collect()
+            })
+            .unwrap_or(Vec::new())
     }
 }

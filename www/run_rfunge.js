@@ -40,7 +40,6 @@ async function initialize() {
     interpreter.init()
     let finished = false
     let origSrc = null
-    let lastSrc = null
     let stop = false
 
     document.getElementById("run-btn").onclick = () => {
@@ -48,6 +47,7 @@ async function initialize() {
         const src = editor.getSrc()
         origSrc = src
         interpreter.replaceSrc(src)
+        editor.disableEditing()
         document.getElementById("step-btn").disabled = true
         document.getElementById("run-btn").disabled = true
         document.getElementById("reset-btn").disabled = true
@@ -56,6 +56,7 @@ async function initialize() {
         function continueRunning() {
             if (stop) {
                 finished = true
+                editor.setSrc(interpreter.getSrcLines())
                 document.getElementById("returncode-info").innerText = "Aborted by user"
                 document.getElementById("reset-btn").disabled = false
                 document.getElementById("stop-btn").disabled = true
@@ -66,6 +67,7 @@ async function initialize() {
             let result = interpreter.run_limited(500)
             if (result != null) {
                 finished = true
+                editor.setSrc(interpreter.getSrcLines())
                 document.getElementById("returncode-info").innerText = `Exited with status ${result}`
                 document.getElementById("reset-btn").disabled = false
                 document.getElementById("stop-btn").disabled = true
@@ -79,16 +81,14 @@ async function initialize() {
 
     document.getElementById("step-btn").onclick = () => {
         if (finished) return
+        document.getElementById("reset-btn").disabled = true
 
-        const src = editor.getSrc()
         if (origSrc == null) {
+            const src = editor.getSrc()
             origSrc = src
-            lastSrc = null
-        } else if (lastSrc != null && src.trim() !== lastSrc.trim()) {
-            // user has edited the source
-            origSrc = src
+            interpreter.replaceSrc(src)
+            editor.disableEditing()
         }
-        interpreter.replaceSrc(src)
         let result = interpreter.step()
         // Get IP location(s)
         const ipCount = interpreter.ipCount()
@@ -96,14 +96,13 @@ async function initialize() {
         for (let i = 0; i < ipCount; ++i) {
             ipLocations.push(interpreter.ipLocation(i))
         }
-        const newSrc = interpreter.getSrc()
-        editor.setSrc(newSrc, ipLocations)
-        lastSrc = newSrc
+        editor.setSrc(interpreter.getSrcLines(), ipLocations)
 
         if (result != undefined) {
             finished = true
             document.getElementById("step-btn").disabled = true
             document.getElementById("run-btn").disabled = true
+            document.getElementById("reset-btn").disabled = false
             document.getElementById("returncode-info").innerText = `Exited with status ${result}`
         }
     }
@@ -112,7 +111,6 @@ async function initialize() {
         if (origSrc != null) {
             editor.setSrc(origSrc)
             origSrc = null
-            lastSrc = null
         }
         interpreter.close()
         interpreter.init()
@@ -121,7 +119,8 @@ async function initialize() {
         document.getElementById("step-btn").disabled = false
         document.getElementById("run-btn").disabled = false
         document.getElementById("stop-btn").disabled = true
-        document.getElementById("reset-btn").disabled = false
+        document.getElementById("reset-btn").disabled = true
+        editor.enableEditing()
         document.getElementById("returncode-info").innerText = ""
         document.getElementById("output").innerText = ""
     }
