@@ -215,10 +215,11 @@ where
     let limit = ip.pop();
     let sgn = limit.signum();
     let abs_limit = (limit * sgn).to_i32().unwrap_or_else(i32::max_value);
-    let number: Space::Output = if abs_limit == 0 {
+    let number = if abs_limit == 0 {
         0.into()
     } else {
-        Space::Output::from(rand::random::<i32>() / abs_limit) * sgn
+        let rndnum = rand::random::<f64>() * (abs_limit as f64);
+        Space::Output::from(rndnum as i32) * sgn
     };
 
     ip.push(number);
