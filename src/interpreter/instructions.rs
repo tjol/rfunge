@@ -19,8 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! This module contains only complex instructions; most instructions are
 //! built into the interpreter
 
-use std::cmp::{max, min};
 use std::cmp::Ordering;
+use std::cmp::{max, min};
 use std::mem::size_of;
 
 use chrono::{Datelike, NaiveDateTime, Timelike};
@@ -190,7 +190,9 @@ where
             match n.cmp(&0) {
                 Ordering::Greater => {
                     for _ in 0..n {
-                        let v = ip.stack_stack[nstacks - 2].pop().unwrap_or_else(|| 0.into());
+                        let v = ip.stack_stack[nstacks - 2]
+                            .pop()
+                            .unwrap_or_else(|| 0.into());
                         ip.push(v);
                     }
                 }
@@ -411,19 +413,28 @@ where
     Idx::push_vector_onto(&mut tmp_vec, ip.storage_offset);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
-    // 13. Least point
-    let mut tmp_vec = Vec::new();
-    let least_idx = space.min_idx().unwrap_or_else(Idx::origin);
-    Idx::push_vector_onto(&mut tmp_vec, least_idx);
-    sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+    let idx: Space::Output = (sysinfo_cells.len() as i32).into();
+    // Only calculate the next bit if we need it as it's quite expensive
+    if n <= 0.into() || (n > idx && n <= idx + (2 * Idx::rank()).into()) {
+        // 13. Least point
 
-    // 14. Greatest point
-    let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(
-        &mut tmp_vec,
-        space.max_idx().unwrap_or_else(Idx::origin) - least_idx,
-    );
-    sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+        let mut tmp_vec = Vec::new();
+        let least_idx = space.min_idx().unwrap_or_else(Idx::origin);
+        Idx::push_vector_onto(&mut tmp_vec, least_idx);
+        sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+
+        // 14. Greatest point
+
+        let mut tmp_vec = Vec::new();
+        Idx::push_vector_onto(
+            &mut tmp_vec,
+            space.max_idx().unwrap_or_else(Idx::origin) - least_idx,
+        );
+        sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
+    } else {
+        Idx::push_vector_onto(&mut sysinfo_cells, Idx::origin());
+        Idx::push_vector_onto(&mut sysinfo_cells, Idx::origin());
+    }
 
     // 15 & 16: Time
     let timestamp = env.timestamp();
