@@ -22,6 +22,7 @@ mod BOOL;
 mod FIXP;
 mod HRTI;
 mod NULL;
+mod ROMA;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
@@ -41,6 +42,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("BOOL"),
         string_to_fingerprint("HRTI"),
         string_to_fingerprint("FIXP"),
+        string_to_fingerprint("ROMA"),
     ]
 }
 
@@ -63,6 +65,8 @@ where
         HRTI::load(instructionset)
     } else if fpr == string_to_fingerprint("FIXP") {
         FIXP::load(instructionset)
+    } else if fpr == string_to_fingerprint("ROMA") {
+        ROMA::load(instructionset)
     } else {
         false
     }
@@ -86,6 +90,8 @@ where
         HRTI::unload(instructionset)
     } else if fpr == string_to_fingerprint("FIXP") {
         FIXP::unload(instructionset)
+    } else if fpr == string_to_fingerprint("ROMA") {
+        ROMA::unload(instructionset)
     } else {
         false
     }
