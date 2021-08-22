@@ -21,6 +21,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 mod BOOL;
 mod FIXP;
 mod HRTI;
+mod NULL;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
@@ -36,6 +37,7 @@ pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
 
 pub fn safe_fingerprints() -> Vec<i32> {
     vec![
+        string_to_fingerprint("NULL"),
         string_to_fingerprint("BOOL"),
         string_to_fingerprint("HRTI"),
         string_to_fingerprint("FIXP"),
@@ -53,7 +55,9 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    if fpr == string_to_fingerprint("BOOL") {
+    if fpr == string_to_fingerprint("NULL") {
+        NULL::load(instructionset)
+    } else if fpr == string_to_fingerprint("BOOL") {
         BOOL::load(instructionset)
     } else if fpr == string_to_fingerprint("HRTI") {
         HRTI::load(instructionset)
@@ -74,7 +78,9 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    if fpr == string_to_fingerprint("BOOL") {
+    if fpr == string_to_fingerprint("NULL") {
+        NULL::unload(instructionset)
+    } else if fpr == string_to_fingerprint("BOOL") {
         BOOL::unload(instructionset)
     } else if fpr == string_to_fingerprint("HRTI") {
         HRTI::unload(instructionset)
