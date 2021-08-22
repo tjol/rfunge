@@ -68,7 +68,7 @@ export class FungeSpaceEdit {
             let x0 = 0
             for (let x of ipIndices) {
                 let relX = x - x0
-                while (relX >= rest.length) rest = rest + "\xa0"
+                while (relX >= rest.length) rest = rest + " "
                 subStrings.push(escape(rest.substring(0, relX)))
                 subStrings.push("<span class=\"ip\">"
                     + escape(`${rest[relX]}`)
@@ -79,7 +79,7 @@ export class FungeSpaceEdit {
             lines[y] = subStrings.join("") + escape(rest)
         }
 
-        const htmlSrc = lines.map(l => `<div>${l}</div>`).join("")
+        const htmlSrc = lines.map(l => `<div>${l}\xa0</div>`).join("")
 
         this._srcdiv.innerHTML = htmlSrc;
     }
