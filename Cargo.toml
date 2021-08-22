@@ -20,7 +20,7 @@ regex = "1.5"
 unicode_reader = "1.0.1"
 pkg-version = "1.0.0"
 chrono = "0.4"
-getrandom = "0.2"
+rand = "0.8"
 hashbrown = "0.11.2"
 
 [dev-dependencies]

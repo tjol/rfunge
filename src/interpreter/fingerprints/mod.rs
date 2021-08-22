@@ -19,6 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #![allow(non_snake_case)]
 
 mod BOOL;
+mod FIXP;
 mod HRTI;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
@@ -34,7 +35,11 @@ pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
 }
 
 pub fn safe_fingerprints() -> Vec<i32> {
-    vec![string_to_fingerprint("BOOL"), string_to_fingerprint("HRTI")]
+    vec![
+        string_to_fingerprint("BOOL"),
+        string_to_fingerprint("HRTI"),
+        string_to_fingerprint("FIXP"),
+    ]
 }
 
 pub fn all_fingerprints() -> Vec<i32> {
@@ -52,6 +57,8 @@ where
         BOOL::load(instructionset)
     } else if fpr == string_to_fingerprint("HRTI") {
         HRTI::load(instructionset)
+    } else if fpr == string_to_fingerprint("FIXP") {
+        FIXP::load(instructionset)
     } else {
         false
     }
@@ -71,6 +78,8 @@ where
         BOOL::unload(instructionset)
     } else if fpr == string_to_fingerprint("HRTI") {
         HRTI::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FIXP") {
+        FIXP::unload(instructionset)
     } else {
         false
     }

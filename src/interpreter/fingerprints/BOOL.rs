@@ -56,7 +56,7 @@ where
     }
 }
 
-fn and<Idx, Space, Env>(
+pub(super) fn and<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,
@@ -73,7 +73,7 @@ where
     InstructionResult::Continue
 }
 
-fn or<Idx, Space, Env>(
+pub(super) fn or<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,
@@ -106,7 +106,7 @@ where
     InstructionResult::Continue
 }
 
-fn xor<Idx, Space, Env>(
+pub(super) fn xor<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,

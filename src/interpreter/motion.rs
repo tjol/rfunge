@@ -19,8 +19,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use std::cmp::Ordering;
 use std::ops::{Add, Mul, Sub};
 
-use getrandom::getrandom;
-
 use super::ip::InstructionPointer;
 use super::InterpreterEnv;
 use crate::fungespace::index::{bfvec, BefungeVec};
@@ -76,9 +74,7 @@ where
                 true
             }
             '?' => {
-                let mut rnd = [0_u8; 1];
-                getrandom(&mut rnd).ok();
-                if rnd[0] & 1 == 1 {
+                if rand::random::<bool>() {
                     ip.delta = T::from(1);
                 } else {
                     ip.delta = T::from(-1);
@@ -164,9 +160,7 @@ where
                 true
             }
             '?' => {
-                let mut rnd = [0_u8; 1];
-                getrandom(&mut rnd).ok();
-                ip.delta = match rnd[0] & 3 {
+                ip.delta = match rand::random::<u8>() & 3 {
                     0 => bfvec(1, 0),
                     1 => bfvec(0, 1),
                     2 => bfvec(-1, 0),
