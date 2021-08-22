@@ -102,9 +102,6 @@ pub trait InterpreterEnv {
     fn env_vars(&mut self) -> Vec<(String, String)> {
         Vec::new()
     }
-    fn timestamp(&mut self) -> i64 {
-        0
-    }
     fn argv(&mut self) -> Vec<String> {
         Vec::new()
     }

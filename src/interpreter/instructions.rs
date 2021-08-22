@@ -23,7 +23,8 @@ use std::cmp::Ordering;
 use std::cmp::{max, min};
 use std::mem::size_of;
 
-use chrono::{Datelike, NaiveDateTime, Timelike};
+use chrono::prelude::Utc;
+use chrono::{Datelike, Timelike};
 use num::ToPrimitive;
 use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
 
@@ -437,8 +438,7 @@ where
     }
 
     // 15 & 16: Time
-    let timestamp = env.timestamp();
-    let datetime = NaiveDateTime::from_timestamp(timestamp, 0);
+    let datetime = Utc::now();
 
     // 15. ((year - 1900) * 256 * 256) + (month * 256) + (day of month)
     sysinfo_cells.push(

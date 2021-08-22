@@ -20,7 +20,6 @@ use std::fs::File;
 use std::io;
 use std::io::{stderr, stdin, stdout, Read, Stdin, Stdout, Write};
 use std::process::Command;
-use std::time::SystemTime;
 
 use clap::{App, Arg};
 use regex::Regex;
@@ -120,24 +119,12 @@ impl InterpreterEnv for CmdLineEnv {
         } else {
             std::env::vars_os()
                 .into_iter()
-                .filter_map(|(k, v)| {
-                    Some((k.into_string().ok()?, v.into_string().ok()?))
-                })
+                .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
                 .collect()
         }
     }
     fn argv(&mut self) -> Vec<String> {
         self.argv.clone()
-    }
-    fn timestamp(&mut self) -> i64 {
-        let now = SystemTime::now();
-        match now.duration_since(SystemTime::UNIX_EPOCH) {
-            Ok(n) => n.as_secs() as i64,
-            Err(_) => match SystemTime::UNIX_EPOCH.duration_since(now) {
-                Ok(n) => -(n.as_secs() as i64),
-                Err(_) => 0,
-            },
-        }
     }
     fn is_fingerprint_enabled(&self, fpr: i32) -> bool {
         self.allowed_fingerprints.iter().any(|f| *f == fpr)
