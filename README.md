@@ -7,7 +7,9 @@ should support Trefunge (and possibly higher dimensions) in future.
 Concurrent Funge-98 is supported.
 
 RFunge follows the [spec] and passes the [Mycology] test suite, but it does not
-currently suport many fingerprints.
+currently suport many fingerprints. The performance of rfunge is broadly similar
+to [cfunge] and [CCBI] in many cases, making it one of the faster Befunge-98
+interpreters available.
 
 Much like [cfunge], the rfunge's command-line interface supports a sandbox mode
 in which instructions like `i`, `o` and `=` are disabled.
@@ -60,3 +62,4 @@ from a local checkout, or, aternatively
 [spec]: https://github.com/catseye/Funge-98/blob/master/doc/funge98.markdown
 [Mycology]: https://github.com/Deewiant/Mycology
 [cfunge]: https://github.com/VorpalBlade/cfunge
+[CCBI]: https://github.com/Deewiant/CCBI
