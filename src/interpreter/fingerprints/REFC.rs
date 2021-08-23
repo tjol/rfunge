@@ -139,7 +139,7 @@ where
     if let Some(vec) = ip
         .pop()
         .to_usize()
-        .and_then(|idx| get_reflist(ip).get(idx).map(|v| *v))
+        .and_then(|idx| get_reflist(ip).get(idx).copied())
     {
         MotionCmds::push_vector(ip, vec);
     } else {
