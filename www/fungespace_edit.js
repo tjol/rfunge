@@ -79,6 +79,10 @@ export class FungeSpaceEdit {
             lines[y] = subStrings.join("") + escape(rest)
         }
 
+        if (lines.length === 1 && lines[0] === "") {
+            lines = [];
+        }
+
         const htmlSrc = lines.map(l => `<div>${l}\xa0</div>`).join("")
 
         this._srcdiv.innerHTML = htmlSrc;
@@ -113,3 +117,5 @@ function elemToString(elem) {
     }
     return src
 }
+
+export default FungeSpaceEdit

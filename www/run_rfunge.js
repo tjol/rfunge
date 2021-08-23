@@ -16,26 +16,12 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-import init_rfunge_wasm, * as rfunge from "./wasm_pkg/rfunge.js"
-import * as fse from "./fungespace_edit.js";
-
-function run_wasm_program() {
-    // empty output
-    document.getElementById("output").innerHTML = ""
-
-    // create interpreter
-    let interpreter = new rfunge.BefungeInterpreter()
-    let src = document.getElementById("src-input").value
-
-    interpreter.init()
-    interpreter.load_src(src)
-    interpreter.run()
-    interpreter.close()
-}
+import initWasm, * as rfunge from "./wasm_pkg/rfunge.js"
+import FungeSpaceEdit from "./fungespace_edit.js"
 
 async function initialize() {
-    await init_rfunge_wasm()
-    let editor = new fse.FungeSpaceEdit("fungespace")
+    await initWasm()
+    let editor = new FungeSpaceEdit("fungespace")
     let interpreter = new rfunge.BefungeInterpreter()
     interpreter.init()
     let finished = false
@@ -83,6 +69,7 @@ async function initialize() {
 
     document.getElementById("step-btn").onclick = () => {
         if (finished) return
+        document.getElementById("reset-btn").disabled = false
 
         if (origSrc == null) {
             const src = editor.getSrc()
@@ -103,7 +90,6 @@ async function initialize() {
             finished = true
             document.getElementById("step-btn").disabled = true
             document.getElementById("run-btn").disabled = true
-            document.getElementById("reset-btn").disabled = false
             document.getElementById("returncode-info").innerText = `Exited with status ${result}`
         }
     }
