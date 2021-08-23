@@ -24,10 +24,12 @@ use std::process::Command;
 use clap::{App, Arg};
 use regex::Regex;
 
+use rfunge::fungespace::SrcIO;
+use rfunge::interpreter::MotionCmds;
 use rfunge::{
     all_fingerprints, new_befunge_interpreter, new_unefunge_interpreter, read_funge_src,
-    read_funge_src_bin, safe_fingerprints, ExecMode, IOMode, InterpreterEnv, ProgramResult,
-    RunMode,
+    read_funge_src_bin, safe_fingerprints, ExecMode, FungeSpace, FungeValue, IOMode, Interpreter,
+    InterpreterEnv, ProgramResult, RunMode,
 };
 
 struct CmdLineEnv {
@@ -179,6 +181,21 @@ fn main() {
                 .display_order(2),
         )
         .arg(
+            Arg::with_name("32bit")
+                .short("I")
+                .long("32bit")
+                .help("32-bit mode")
+                .display_order(4),
+        )
+        .arg(
+            Arg::with_name("64bit")
+                .short("L")
+                .long("64bit")
+                .help("64-bit mode (default)")
+                .conflicts_with("32bit")
+                .display_order(4),
+        )
+        .arg(
             Arg::with_name("PROGRAM")
                 .help("Funge-98 source to execute")
                 .required(true),
@@ -246,32 +263,64 @@ fn main() {
             all_fingerprints()
         },
     };
-    let mut result = ProgramResult::Panic;
 
-    if dim == 1 {
+    let is_32bit = arg_matches.is_present("32bit");
+    let result = if dim == 1 {
         // unefunge
-        let mut interpreter = new_unefunge_interpreter::<i64, _>(env);
-        if is_unicode {
-            let src_str = String::from_utf8(src_bin).unwrap();
-            read_funge_src(&mut interpreter.space, &src_str);
+        if is_32bit {
+            read_and_run(
+                &mut new_unefunge_interpreter::<i32, _>(env),
+                src_bin,
+                is_unicode,
+            )
         } else {
-            read_funge_src_bin(&mut interpreter.space, &src_bin);
+            read_and_run(
+                &mut new_unefunge_interpreter::<i64, _>(env),
+                src_bin,
+                is_unicode,
+            )
         }
-        result = interpreter.run(RunMode::Run);
     } else if dim == 2 {
         // befunge
-        let mut interpreter = new_befunge_interpreter::<i64, _>(env);
-        if is_unicode {
-            let src_str = String::from_utf8(src_bin).unwrap();
-            read_funge_src(&mut interpreter.space, &src_str);
+        if is_32bit {
+            read_and_run(
+                &mut new_befunge_interpreter::<i32, _>(env),
+                src_bin,
+                is_unicode,
+            )
         } else {
-            read_funge_src_bin(&mut interpreter.space, &src_bin);
+            read_and_run(
+                &mut new_befunge_interpreter::<i64, _>(env),
+                src_bin,
+                is_unicode,
+            )
         }
-        result = interpreter.run(RunMode::Run);
-    }
+    } else {
+        ProgramResult::Panic
+    };
 
     std::process::exit(match result {
         ProgramResult::Done(returncode) => returncode,
         _ => 1,
     });
+}
+
+fn read_and_run<Idx, Space, Env>(
+    interpreter: &mut Interpreter<Idx, Space, Env>,
+    src_bin: Vec<u8>,
+    is_unicode: bool,
+) -> ProgramResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    if is_unicode {
+        let src_str = String::from_utf8(src_bin).unwrap();
+        read_funge_src(&mut interpreter.space, &src_str);
+    } else {
+        read_funge_src_bin(&mut interpreter.space, &src_bin);
+    }
+    interpreter.run(RunMode::Run)
 }

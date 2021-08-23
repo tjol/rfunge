@@ -16,9 +16,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use hashbrown::HashMap;
-
 use divrem::DivRem;
+use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};

@@ -16,12 +16,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::f64::consts::{FRAC_1_PI, PI};
+use std::mem::size_of;
 
 use hashbrown::HashMap;
-use num::{Signed, ToPrimitive};
 
-use super::BOOL;
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
 use crate::interpreter::MotionCmds;
@@ -29,29 +27,22 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 
 /// From the rcFunge docs:
 ///
-/// "FIXP" 0x4649585
-/// A    (a b -- a and b)    And
-/// B    (n -- arccos(b))    Find arccosin of tos
-/// C    (n -- cos(b))       Find cosin of tos
-/// D    (n -- rnd(n))       RanDom number
-/// I    (n -- sin(b))       Find sin of tos
-/// J    (n -- arcsin(b))    Find arcsin of tos
-/// N    (a -- 0-a)          Negate
-/// O    (a b -- a or b)     Or
-/// P    (a -- a*pi)         Multiply by pi
-/// Q    (a -- sqrt(a))      Square root
-/// R    (a b -- a**b)       Raise a to the power of b
-/// S    (n -- n)            Replace tos with sign of tos
-/// T    (n -- tan(b))       Find tangent of tos
-/// U    (n -- arctan(b)     Find arctangent of tos
-/// V    (n -- n)            Absolute value of tos
-/// X    (a b -- a xor b)    Xor
+/// "LONG" 0x4c4f4e47
+/// A   (ah al bh bl -- rh rl)  Addition
+/// B   (ah al -- rh rl)        Absolute value
+/// D   (ah al bh bl -- rh rl)  Division
+/// E   (n -- rh rl)            Sign extend single to long
+/// L   (ah al n -- rh rl)      Shift left n times
+/// M   (ah al bh bl -- rh rl)  Multiplication
+/// N   (ah al -- rh rl)        Negate
+/// O   (ah al bh bl -- rh rl)  Modulo
+/// P   (ah al -- )             Print
+/// R   (ah al n -- rh rl)      Shift right n times
+/// S   (ah al bh bl -- rh rl)  Subraction
+/// Z   (0gnirts -- rh rl)      Ascii to long
 ///
-/// The functions C,I,T,B,J,U expect their arguments times 10000, for example:
-/// 45 should be passed as 450000. The results will also be multiplied by 10000,
-/// thereby giving 4 digits of decimal precision.
-///
-/// Trigonometric functions work in degrees. not radians.
+///  * long integers are 2 cell integers, if the interpreter's cell size is 32, then long integers are 64-bits.
+///  * Division by zero results in zero, not error
 pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
 where
     Idx: MotionCmds<Space, Env> + SrcIO<Space>,
@@ -60,22 +51,18 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('A', BOOL::and);
-    layer.insert('B', arccos);
-    layer.insert('C', cos);
-    layer.insert('D', rnd);
-    layer.insert('I', sin);
-    layer.insert('J', arcsin);
+    layer.insert('A', add);
+    layer.insert('B', abs);
+    layer.insert('D', div);
+    layer.insert('E', extend);
+    layer.insert('L', shift_left);
+    layer.insert('M', mul);
     layer.insert('N', neg);
-    layer.insert('O', BOOL::or);
-    layer.insert('P', mulpi);
-    layer.insert('Q', sqrt);
-    layer.insert('R', pow);
-    layer.insert('S', sgn);
-    layer.insert('T', tan);
-    layer.insert('U', arctan);
-    layer.insert('V', abs);
-    layer.insert('X', BOOL::xor);
+    layer.insert('O', rem);
+    layer.insert('P', print_long);
+    layer.insert('R', shift_right);
+    layer.insert('S', sub);
+    layer.insert('Z', parse_long);
     instructionset.add_layer(layer);
     true
 }
@@ -87,139 +74,34 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    instructionset.pop_layer(&"ABCDIJNOPQRSTUVX".chars().collect::<Vec<char>>())
+    instructionset.pop_layer(&"ABDELMNOPRSZ".chars().collect::<Vec<char>>())
 }
 
-fn rad2deg(angle: f64) -> f64 {
-    angle * FRAC_1_PI * 180.
+pub fn val_to_i128<T: FungeValue>(v: T) -> i128 {
+    v.to_i128().unwrap_or_default()
 }
 
-fn deg2rad(angle: f64) -> f64 {
-    angle * PI / 180.
-}
-
-fn arccos<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let radians = (ip.pop().to_f64().unwrap_or(0.) / 10000.).acos();
-    ip.push(((rad2deg(radians) * 10000.).round() as i32).into());
-    InstructionResult::Continue
-}
-
-fn cos<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let radians = deg2rad(ip.pop().to_f64().unwrap_or(0.) / 10000.);
-    ip.push(((radians.cos() * 10000.).round() as i32).into());
-    InstructionResult::Continue
-}
-
-fn arcsin<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let radians = (ip.pop().to_f64().unwrap_or(0.) / 10000.).asin();
-    ip.push(((rad2deg(radians) * 10000.).round() as i32).into());
-    InstructionResult::Continue
-}
-
-fn sin<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let radians = deg2rad(ip.pop().to_f64().unwrap_or(0.) / 10000.);
-    ip.push(((radians.sin() * 10000.).round() as i32).into());
-    InstructionResult::Continue
-}
-
-fn arctan<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let radians = (ip.pop().to_f64().unwrap_or(0.) / 10000.).atan();
-    ip.push(((rad2deg(radians) * 10000.).round() as i32).into());
-    InstructionResult::Continue
-}
-
-fn tan<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let radians = deg2rad(ip.pop().to_f64().unwrap_or(0.) / 10000.);
-    ip.push(((radians.tan() * 10000.).round() as i32).into());
-    InstructionResult::Continue
-}
-
-fn rnd<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let limit = ip.pop();
-    let sgn = limit.signum();
-    let abs_limit = (limit * sgn).to_i32().unwrap_or_else(i32::max_value);
-    let number = if abs_limit == 0 {
-        0.into()
+pub fn vals_to_i128<T: FungeValue>(hi: T, lo: T) -> i128 {
+    if size_of::<T>() == 1 {
+        val_to_i128(hi) << 32 | val_to_i128(lo)
     } else {
-        let rndnum = rand::random::<f64>() * (abs_limit as f64);
-        Space::Output::from(rndnum as i32) * sgn
-    };
-
-    ip.push(number);
-    InstructionResult::Continue
+        val_to_i128(hi) << 64 | val_to_i128(lo)
+    }
 }
 
-fn neg<Idx, Space, Env>(
+pub fn i128_to_vals<T: FungeValue>(lng: i128) -> (T, T) {
+    if size_of::<T>() == 4 {
+        let hi = T::from((lng >> 32) as i32);
+        let lo = T::from((lng & 0xffffffff) as i32);
+        (hi, lo)
+    } else {
+        let hi = T::from_i64((lng >> 64) as i64).unwrap_or(0.into());
+        let lo = T::from_i64((lng & 0xffffffffffffffff) as i64).unwrap_or(0.into());
+        (hi, lo)
+    }
+}
+
+fn extend<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,
@@ -230,12 +112,34 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let n = ip.pop();
-    ip.push(-n);
+    let lng = val_to_i128(ip.pop());
+    let (hi, lo) = i128_to_vals(lng);
+    ip.push(hi);
+    ip.push(lo);
     InstructionResult::Continue
 }
 
-fn mulpi<Idx, Space, Env>(
+fn print_long<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let lo = ip.pop();
+    let hi = ip.pop();
+    let lng = vals_to_i128(hi, lo);
+    if write!(env.output_writer(), "{} ", lng).is_err() {
+        ip.reflect();
+    }
+    InstructionResult::Continue
+}
+
+fn parse_long<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,
@@ -246,57 +150,11 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let n = ip.pop().to_f64().unwrap_or_default() * PI;
-    ip.push((n as i32).into());
-    InstructionResult::Continue
-}
-
-fn sqrt<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let n = ip.pop().to_f64().unwrap_or_default().sqrt();
-    ip.push((n as i32).into());
-    InstructionResult::Continue
-}
-
-fn pow<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = ip.pop().to_i32().unwrap_or_default();
-    let a = ip.pop().to_f64().unwrap_or_default();
-    ip.push((a.powi(b).round() as i32).into());
-    InstructionResult::Continue
-}
-
-fn sgn<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let n = ip.pop();
-    ip.push(n.signum());
+    let s = ip.pop_0gnirts();
+    let lng: i128 = s.parse().unwrap_or_default();
+    let (hi, lo) = i128_to_vals(lng);
+    ip.push(hi);
+    ip.push(lo);
     InstructionResult::Continue
 }
 
@@ -311,7 +169,188 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let n = ip.pop();
-    ip.push(n * n.signum());
+    let lo = ip.pop();
+    let hi = ip.pop();
+    let lng = vals_to_i128(hi, lo);
+    let (hi, lo) = i128_to_vals(lng.abs());
+    ip.push(hi);
+    ip.push(lo);
+    InstructionResult::Continue
+}
+
+fn neg<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let lo = ip.pop();
+    let hi = ip.pop();
+    let lng = vals_to_i128(hi, lo);
+    let (hi, lo) = i128_to_vals(-lng);
+    ip.push(hi);
+    ip.push(lo);
+    InstructionResult::Continue
+}
+
+fn add<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let bl = ip.pop();
+    let bh = ip.pop();
+    let al = ip.pop();
+    let ah = ip.pop();
+    let b = vals_to_i128(bh, bl);
+    let a = vals_to_i128(ah, al);
+    let (rh, rl) = i128_to_vals(a + b);
+    ip.push(rh);
+    ip.push(rl);
+    InstructionResult::Continue
+}
+
+fn sub<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let bl = ip.pop();
+    let bh = ip.pop();
+    let al = ip.pop();
+    let ah = ip.pop();
+    let b = vals_to_i128(bh, bl);
+    let a = vals_to_i128(ah, al);
+    let (rh, rl) = i128_to_vals(a - b);
+    ip.push(rh);
+    ip.push(rl);
+    InstructionResult::Continue
+}
+
+fn mul<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let bl = ip.pop();
+    let bh = ip.pop();
+    let al = ip.pop();
+    let ah = ip.pop();
+    let b = vals_to_i128(bh, bl);
+    let a = vals_to_i128(ah, al);
+    let (rh, rl) = i128_to_vals(a * b);
+    ip.push(rh);
+    ip.push(rl);
+    InstructionResult::Continue
+}
+
+fn div<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let bl = ip.pop();
+    let bh = ip.pop();
+    let al = ip.pop();
+    let ah = ip.pop();
+    let b = vals_to_i128(bh, bl);
+    let a = vals_to_i128(ah, al);
+    let (rh, rl) = i128_to_vals(a / b);
+    ip.push(rh);
+    ip.push(rl);
+    InstructionResult::Continue
+}
+
+fn rem<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let bl = ip.pop();
+    let bh = ip.pop();
+    let al = ip.pop();
+    let ah = ip.pop();
+    let b = vals_to_i128(bh, bl);
+    let a = vals_to_i128(ah, al);
+    let (rh, rl) = i128_to_vals(a % b);
+    ip.push(rh);
+    ip.push(rl);
+    InstructionResult::Continue
+}
+
+fn shift_left<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let n = val_to_i128(ip.pop());
+    let al = ip.pop();
+    let ah = ip.pop();
+    let a = vals_to_i128(ah, al);
+    let (rh, rl) = i128_to_vals(a << n);
+    ip.push(rh);
+    ip.push(rl);
+    InstructionResult::Continue
+}
+
+fn shift_right<Idx, Space, Env>(
+    ip: &mut InstructionPointer<Idx, Space, Env>,
+    _space: &mut Space,
+    _env: &mut Env,
+) -> InstructionResult
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    let n = val_to_i128(ip.pop());
+    let al = ip.pop();
+    let ah = ip.pop();
+    let a = vals_to_i128(ah, al);
+    let (rh, rl) = i128_to_vals(a >> n);
+    ip.push(rh);
+    ip.push(rl);
     InstructionResult::Continue
 }

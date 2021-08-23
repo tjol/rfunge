@@ -22,6 +22,7 @@ mod BOOL;
 mod FIXP;
 mod FPSP;
 mod HRTI;
+mod LONG;
 mod MODU;
 mod NULL;
 mod REFC;
@@ -52,6 +53,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("MODU"),
         string_to_fingerprint("REFC"),
         string_to_fingerprint("FPSP"),
+        string_to_fingerprint("LONG"),
     ]
 }
 
@@ -83,6 +85,8 @@ where
         REFC::load(instructionset)
     } else if fpr == string_to_fingerprint("FPSP") {
         FPSP::load(instructionset)
+    } else if fpr == string_to_fingerprint("LONG") {
+        LONG::load(instructionset)
     } else {
         false
     }
@@ -114,6 +118,8 @@ where
         REFC::unload(instructionset)
     } else if fpr == string_to_fingerprint("FPSP") {
         FPSP::unload(instructionset)
+    } else if fpr == string_to_fingerprint("LONG") {
+        LONG::unload(instructionset)
     } else {
         false
     }

@@ -1,0 +1,11 @@
+"GNOL"4#v(fE2y8*L#v_f-#v_'.,01-E>:1+#v_\:1+#v_'.,01A#v_#v_'.,a,@
+v                 #  ,k8 "-1 wrong"a <      <        >  v
+        >a"GNOL on"7k,@ >:#,_@#:"high/low order wrong?"0<
+ @,ka"extend err"a<    <
+>'@01p ; alternate -1; 1EN      v
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ; Surprising discovery: CCBI implements LONG, but does not  ;
+  ; implement E correctly for negative numbers!               ;
+  ; Tested against rcFunge only.                              ;
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

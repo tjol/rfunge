@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 use hashbrown::HashMap;
-
 use num::ToPrimitive;
 
 use crate::fungespace::SrcIO;
@@ -94,14 +93,12 @@ where
     instructionset.pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
 }
 
-pub fn int2fpsp(i: i32) -> f32
-{
-    unsafe{ *((&i as *const i32) as *const f32) }
+pub fn int2fpsp(i: i32) -> f32 {
+    unsafe { *((&i as *const i32) as *const f32) }
 }
 
-pub fn fpsp2int(f: f32) -> i32
-{
-    unsafe{ *((&f as *const f32) as *const i32) }
+pub fn fpsp2int(f: f32) -> i32 {
+    unsafe { *((&f as *const f32) as *const i32) }
 }
 
 pub fn val2fpsp<T: FungeValue>(i: T) -> f32 {
@@ -458,4 +455,3 @@ where
     ip.push(fpsp2val(f.abs()));
     InstructionResult::Continue
 }
-
