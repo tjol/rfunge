@@ -1,0 +1,18 @@
+' 51#vtp"CFER"4#@(04R01p@
+     >a"tnerrucnoc ton"ek,1q >a"deliaf D"8k,1q
+v    >"CFER"4#v(05R11p '>01g#>Dp
+              >a"deliaf gnidaol"ek,1q
+z0a"labolg era sfer"            v
+z0a"euqinu-non & lacol era sfer"v,<
+>0a"lacol eb yam sfer"          >:|
+vv                 pD;#g11<'zzzt #<17R11p@;a"deliaf D"8k,1q
+ >0a"derahs ton era sfer"             v,<
+>0a"sPI dlihc neewteb derahs era sfer">:|
+                                        @
+
+ This test illustrates one (deliberate) incompatibility
+ between rfunge and the original docs for REFC: in rfunge,
+ the reference list of vectors is not global. Rather, it
+ is considered an inherited property of the IP that is
+ shared between IPs (as long as they are created after
+ loading / first using the fingerprint).

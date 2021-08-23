@@ -34,7 +34,7 @@ pub use self::paged::PagedFungeSpace;
 
 /// Generic index into funge space. Specific implementations of funge-space
 /// require additional traits to be implemented, as do some instructions.
-pub trait FungeIndex: Eq + Copy {
+pub trait FungeIndex: Eq + Copy + Debug + 'static {
     /// Minimum across all components of the index:
     /// Get the largest index for which all components are less than or equal
     /// to the corresponding components of `self` and `other`.
@@ -153,6 +153,7 @@ pub trait FungeValue:
     + Copy
     + Display
     + Debug
+    + 'static
 {
     /// Return the value as a character, if the unicode code point exists
     fn try_to_char(&self) -> Option<char> {
@@ -189,6 +190,7 @@ impl<T> FungeValue for T where
         + Copy
         + Display
         + Debug
+        + 'static
 {
 }
 

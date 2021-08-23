@@ -23,6 +23,7 @@ mod FIXP;
 mod HRTI;
 mod MODU;
 mod NULL;
+mod REFC;
 mod ROMA;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
@@ -45,6 +46,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("FIXP"),
         string_to_fingerprint("ROMA"),
         string_to_fingerprint("MODU"),
+        string_to_fingerprint("REFC"),
     ]
 }
 
@@ -71,6 +73,8 @@ where
         ROMA::load(instructionset)
     } else if fpr == string_to_fingerprint("MODU") {
         MODU::load(instructionset)
+    } else if fpr == string_to_fingerprint("REFC") {
+        REFC::load(instructionset)
     } else {
         false
     }
@@ -98,6 +102,8 @@ where
         ROMA::unload(instructionset)
     } else if fpr == string_to_fingerprint("MODU") {
         MODU::unload(instructionset)
+    } else if fpr == string_to_fingerprint("REFC") {
+        REFC::unload(instructionset)
     } else {
         false
     }
