@@ -21,9 +21,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 mod BOOL;
 mod FIXP;
 mod HRTI;
+mod MODU;
 mod NULL;
 mod ROMA;
-mod MODU;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};

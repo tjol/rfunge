@@ -75,7 +75,6 @@ where
     InstructionResult::Continue
 }
 
-
 /// `M` 'Mark' designates the timer as having been read by the IP with this
 /// ID at this instance in time.
 fn mark<Idx, Space, Env>(
@@ -90,10 +89,10 @@ where
     Env: InterpreterEnv,
 {
     let ts_micros: i64 = Utc::now().timestamp_nanos() / 1000;
-    ip.private_data.insert("HRTI.mark".to_owned(), Rc::new(ts_micros));
+    ip.private_data
+        .insert("HRTI.mark".to_owned(), Rc::new(ts_micros));
     InstructionResult::Continue
 }
-
 
 /// `T` 'Timer' pushes the number of microseconds elapsed since the last
 /// time an IP with this ID marked the timer. If there is no previous mark,

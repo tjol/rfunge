@@ -296,7 +296,10 @@ where
 
         'outer: while hypothesis.x < absolute_max.x && hypothesis.y < absolute_max.y {
             let mut min_x = hypothesis.x;
-            while ! pred(&Self { x: min_x, y: hypothesis.y }) {
+            while !pred(&Self {
+                x: min_x,
+                y: hypothesis.y,
+            }) {
                 min_x += 1.into();
                 if min_x >= absolute_max.x {
                     // move down one row
@@ -305,7 +308,10 @@ where
                 }
             }
             let mut min_y = hypothesis.y;
-            while ! pred(&Self { x: hypothesis.x, y: min_y }) {
+            while !pred(&Self {
+                x: hypothesis.x,
+                y: min_y,
+            }) {
                 min_y += 1.into();
                 if min_y >= absolute_max.y {
                     // move across one column
@@ -328,11 +334,17 @@ where
     where
         Pred: FnMut(&Self) -> bool,
     {
-        let mut hypothesis = Self{x: absolute_max.x - 1.into(), y: absolute_max.y - 1.into()};
+        let mut hypothesis = Self {
+            x: absolute_max.x - 1.into(),
+            y: absolute_max.y - 1.into(),
+        };
 
         'outer: while hypothesis.x >= absolute_min.x && hypothesis.y >= absolute_min.y {
             let mut max_x = hypothesis.x;
-            while ! pred(&Self { x: max_x, y: hypothesis.y }) {
+            while !pred(&Self {
+                x: max_x,
+                y: hypothesis.y,
+            }) {
                 max_x -= 1.into();
                 if max_x < absolute_min.x {
                     // move up one row
@@ -341,7 +353,10 @@ where
                 }
             }
             let mut max_y = hypothesis.y;
-            while ! pred(&Self { x: hypothesis.x, y: max_y }) {
+            while !pred(&Self {
+                x: hypothesis.x,
+                y: max_y,
+            }) {
                 max_y -= 1.into();
                 if max_y < absolute_min.y {
                     // move across one column
@@ -355,7 +370,6 @@ where
         // No valid values
         None
     }
-
 
     fn origin() -> Self {
         bfvec(0, 0)

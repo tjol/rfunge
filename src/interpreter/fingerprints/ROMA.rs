@@ -25,7 +25,7 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 
 /// After successfully loading fingerprint 0x4e554c4c, all 26 instructions
 /// `A` to `Z` take on the semantics of `r`.
-/// 
+///
 /// This can be loaded before loading a regular transparent fingerprint to
 /// make it act opaquely.
 pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool

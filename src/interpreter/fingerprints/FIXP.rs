@@ -19,7 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 use std::f64::consts::{FRAC_1_PI, PI};
 
-use num::{ToPrimitive, Signed};
+use num::{Signed, ToPrimitive};
 
 use super::BOOL;
 use crate::fungespace::SrcIO;
@@ -28,7 +28,7 @@ use crate::interpreter::MotionCmds;
 use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 
 /// From the rcFunge docs:
-/// 
+///
 /// "FIXP" 0x4649585
 /// A    (a b -- a and b)    And
 /// B    (n -- arccos(b))    Find arccosin of tos
@@ -50,8 +50,8 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 /// The functions C,I,T,B,J,U expect their arguments times 10000, for example:
 /// 45 should be passed as 450000. The results will also be multiplied by 10000,
 /// thereby giving 4 digits of decimal precision.
-/// 
-/// Trigonometric functions work in degrees. not radians. 
+///
+/// Trigonometric functions work in degrees. not radians.
 pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
 where
     Idx: MotionCmds<Space, Env> + SrcIO<Space>,

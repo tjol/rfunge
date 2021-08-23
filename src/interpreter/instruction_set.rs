@@ -141,7 +141,7 @@ where
         instruction: Space::Output,
     ) -> Option<Instruction<Idx, Space, Env>> {
         let instr_stack = self.instructions.get(instruction.to_usize()?)?;
-        if ! instr_stack.is_empty() {
+        if !instr_stack.is_empty() {
             Some(instr_stack[instr_stack.len() - 1])
         } else {
             None
@@ -149,10 +149,7 @@ where
     }
 
     /// Add a set of instructions as a new layer
-    pub fn add_layer(
-        &mut self,
-        instructions: HashMap<char, Instruction<Idx, Space, Env>>,
-    ) {
+    pub fn add_layer(&mut self, instructions: HashMap<char, Instruction<Idx, Space, Env>>) {
         for (&i, &f) in instructions.iter() {
             if i as usize >= self.instructions.len() {
                 self.instructions.resize_with((i as usize) + 1, Vec::new);
@@ -166,7 +163,7 @@ where
         let mut any_popped = false;
         for c in instructions {
             let i = *c as usize;
-            if i < self.instructions.len() && ! self.instructions[i].is_empty() {
+            if i < self.instructions.len() && !self.instructions[i].is_empty() {
                 self.instructions[i].pop();
                 any_popped = true;
             }
