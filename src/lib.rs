@@ -33,8 +33,8 @@ pub use crate::fungespace::{
     bfvec, read_funge_src, read_funge_src_bin, BefungeVec, FungeSpace, FungeValue, PagedFungeSpace,
 };
 pub use crate::interpreter::{
-    all_fingerprints, safe_fingerprints, ExecMode, IOMode, InstructionPointer, InstructionResult,
-    Interpreter, InterpreterEnv, ProgramResult, RunMode,
+    all_fingerprints, safe_fingerprints, string_to_fingerprint, ExecMode, IOMode,
+    InstructionPointer, InstructionResult, Interpreter, InterpreterEnv, ProgramResult, RunMode,
 };
 
 /// Create a new Unefunge interpreter using the default implementation and
@@ -46,7 +46,7 @@ pub use crate::interpreter::{
 /// settings.
 ///
 /// After creating the interpreter, you can fill fungespace with
-/// [read_unefunge] or [read_unefunge_bin].
+/// [read_funge_src] or [read_funge_src_bin].
 pub fn new_unefunge_interpreter<T, Env>(env: Env) -> Interpreter<T, PagedFungeSpace<T, T>, Env>
 where
     T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
@@ -68,7 +68,7 @@ where
 /// settings.
 ///
 /// After creating the interpreter, you can fill fungespace with
-/// [read_befunge] or [read_befunge_bin].
+/// [read_funge_src] or [read_funge_src_bin].
 pub fn new_befunge_interpreter<T, Env>(
     env: Env,
 ) -> Interpreter<BefungeVec<T>, PagedFungeSpace<BefungeVec<T>, T>, Env>

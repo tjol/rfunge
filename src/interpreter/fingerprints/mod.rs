@@ -29,6 +29,7 @@ mod ROMA;
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
+/// Convert a fingerprint string to a numeric fingerprint
 pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
     let mut fpr = 0;
     for c in fpr_str.chars() {
@@ -38,6 +39,8 @@ pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
     fpr as i32
 }
 
+/// Get a list of all available fingerprints that are considered "safe" (i.e.,
+/// no executing external commands, no IO)
 pub fn safe_fingerprints() -> Vec<i32> {
     vec![
         string_to_fingerprint("NULL"),
@@ -50,6 +53,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
     ]
 }
 
+/// Get a list of all available fingerprints
 pub fn all_fingerprints() -> Vec<i32> {
     safe_fingerprints()
 }

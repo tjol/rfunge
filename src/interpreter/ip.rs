@@ -78,12 +78,15 @@ where
     }
 }
 
+/// Helper trait used by [InstructionPointer::new]
 pub trait CreateInstructionPointer<Space, Env>: MotionCmds<Space, Env> + SrcIO<Space>
 where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
+    /// Create a new IP with the appropriate initial location, delta,
+    /// storage offset, etc.
     fn new_ip() -> InstructionPointer<Self, Space, Env>;
 }
 
@@ -179,6 +182,7 @@ where
         self.stack_mut().push(v)
     }
 
+    /// Pop a 0gnirts off the stack as a string
     pub fn pop_0gnirts(&mut self) -> String {
         let mut c = self.pop();
         let mut s = String::new();
@@ -189,6 +193,7 @@ where
         s
     }
 
+    /// Reflect the IP
     pub fn reflect(&mut self) {
         self.delta = self.delta * (-1).into();
     }

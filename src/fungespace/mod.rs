@@ -49,7 +49,7 @@ pub trait FungeIndex: Eq + Copy + Debug + 'static {
     /// This is used, e.g., to determine the maximum extent of funge-space.
     fn joint_max(&self, other: &Self) -> Self;
 
-    /// Get the minimum index (as defined for [joint_min]), no lower than
+    /// Get the minimum index (as defined for [Self::joint_min]), no lower than
     /// `absolute_min`, and lower than `absolute_max` (on all components) for
     /// which the predicate `pred` returns true
     ///
@@ -62,7 +62,7 @@ pub trait FungeIndex: Eq + Copy + Debug + 'static {
     where
         Pred: FnMut(&Self) -> bool;
 
-    /// Get the maximum index (as defined for [joint_min]), no lower than
+    /// Get the maximum index (as defined for [Self::joint_max]), no lower than
     /// `absolute_min`, and lower than `absolute_max` (on all components) for
     /// which the predicate `pred` returns true
     ///
@@ -82,7 +82,8 @@ pub trait FungeIndex: Eq + Copy + Debug + 'static {
     fn origin() -> Self;
 }
 
-/// Trait representing funge-space. Accessing specific
+/// Generic trait representing a theoretically infinite funge-space, and
+/// implementing Lahey-space wrapping.
 pub trait FungeSpace<Idx>: Index<Idx> + IndexMut<Idx>
 where
     Idx: FungeIndex,
@@ -91,6 +92,8 @@ where
     ///
     /// Stops at the next non-space character, and returns a tuple of the
     /// index of the new position and (a reference to) the value found there.
+    ///
+    /// Does not skip over `;` cells
     fn move_by(&self, start: Idx, delta: Idx) -> (Idx, &Self::Output);
 
     /// Get the minimum index with a non-space value, meaning the largest index
@@ -127,7 +130,8 @@ pub trait FungeArrayIdx: FungeIndex {
     fn from_lin_index(lin_idx: usize, array_size: &Self) -> Self;
 }
 
-/// A value that can live in funge space
+/// A value that can live in funge space (automatically implemented for any
+/// type that implements the prerequisites, in particular `i32` and `i64`)
 pub trait FungeValue:
     Num
     + ToPrimitive
@@ -194,20 +198,37 @@ impl<T> FungeValue for T where
 {
 }
 
+/// Trait for reading and writing the contents of a [FungeSpace] as funge-98
+/// source code.
 pub trait SrcIO<Space>: FungeIndex
 where
     Space: FungeSpace<Self>,
     Space::Output: FungeValue,
 {
+    /// Read a binary/latin1 file (`src`) into `space` starting at index
+    /// `start`; returns the size of the region written to.
     fn read_bin_at(space: &mut Space, start: &Self, src: &[u8]) -> Self;
+
+    /// Read a unicode file (`src`) into `space` starting at index
+    /// `start`; returns the size of the region written to.
     fn read_str_at(space: &mut Space, start: &Self, src: &str) -> Self;
+
+    /// Get the region of `space` starting at `start` with size `size` as
+    /// funge-98 source code, independently of encoding. If `strip` is `true`,
+    /// trailing spaces/newlines/etc should be removed.
     fn get_src_region(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<Space::Output>;
+
+    /// Like [SrcIO::get_src_region], but returns a UTF-8 string (replacing
+    /// out-of-range values with U+FFFD �)
     fn get_src_str(space: &Space, start: &Self, size: &Self, strip: bool) -> String {
         Self::get_src_region(space, start, size, strip)
             .into_iter()
             .map(|v| v.to_char())
             .collect()
     }
+
+    /// Like [SrcIO::get_src_region], but returns a byte string (consisting of
+    /// the least significant 8 bits of each value only)
     fn get_src_bin(space: &Space, start: &Self, size: &Self, strip: bool) -> Vec<u8> {
         Self::get_src_region(space, start, size, strip)
             .into_iter()
@@ -406,7 +427,7 @@ where
     Idx::read_str_at(space, &Idx::origin(), src)
 }
 
-/// Read a string into a funge space
+/// Read a binary/latin-1 buffer into a funge space
 pub fn read_funge_src_bin<Idx, Space>(space: &mut Space, src: &[u8]) -> Idx
 where
     Space: FungeSpace<Idx>,

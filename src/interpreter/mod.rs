@@ -31,12 +31,16 @@ use super::fungespace::{FungeSpace, FungeValue, SrcIO};
 pub use self::instruction_set::{InstructionMode, InstructionResult, InstructionSet};
 pub use self::ip::InstructionPointer;
 pub use self::motion::MotionCmds;
-pub use fingerprints::{all_fingerprints, safe_fingerprints};
+pub use fingerprints::{all_fingerprints, safe_fingerprints, string_to_fingerprint};
 
+/// Possible results of calling [Interpreter::run]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramResult {
+    /// Program finished with the indicated code
     Done(i32),
+    /// Catastrophic failure
     Panic,
+    /// Program is paused (only returned if using [RunMode::Step])
     Paused,
 }
 
@@ -46,6 +50,7 @@ pub enum IOMode {
     Binary,
 }
 
+/// Execution mode as indicated by the sysinfo (`y`) instruction
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecMode {
     Disabled,
@@ -56,10 +61,13 @@ pub enum ExecMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunMode {
+    /// Run program to the end
     Run,
+    /// Execute a single tick (for all IPs)
     Step,
 }
 
+/// State of an rfunge interpreter
 pub struct Interpreter<Idx, Space, Env>
 where
     Idx: MotionCmds<Space, Env> + SrcIO<Space>,
@@ -67,44 +75,68 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
+    /// Currently active IPs
     pub ips: Vec<InstructionPointer<Idx, Space, Env>>,
+    /// Funge-space
     pub space: Space,
+    /// User-supplied environment permitting access to the outside world
     pub env: Env,
 }
 
+/// An interpreter environment provides things like IO and will be implemented
+/// differently depending on whether the interpreter is running from the command
+/// line, in a web browser, as part of the test suite, etc.
 pub trait InterpreterEnv {
+    /// Are we using text or binary mode?
     fn get_iomode(&self) -> IOMode;
+    /// Should sysinfo (`y`) say that IO is buffered?
     fn is_io_buffered(&self) -> bool;
+    /// stdout or equivalent
     fn output_writer(&mut self) -> &mut dyn Write;
+    /// stdin or equivalent
     fn input_reader(&mut self) -> &mut dyn Read;
+    /// Method called on warnings like "unknown instruction"
     fn warn(&mut self, msg: &str);
+    /// What handprint should sysinfo (`y`) name? Default: 0x52464e47
     fn handprint(&self) -> i32 {
         0x52464e47 // RFNG
     }
+    /// Is `i` available? (see also: [InterpreterEnv::read_file])
     fn have_file_input(&self) -> bool {
         false
     }
+    /// Is `o` available? (see also: [InterpreterEnv::write_file])
     fn have_file_output(&self) -> bool {
         false
     }
+    /// Is `=` available, and how does [InterpreterEnv::execute_command] act
+    /// (in the terms defined for sysinfo (`y`))?
     fn have_execute(&self) -> ExecMode {
         ExecMode::Disabled
     }
+    /// Get the contents of a named file.
     fn read_file(&mut self, _filename: &str) -> io::Result<Vec<u8>> {
         Err(io::Error::from(io::ErrorKind::PermissionDenied))
     }
+    /// Write data to a named file.
     fn write_file(&mut self, _filename: &str, _content: &[u8]) -> io::Result<()> {
         Err(io::Error::from(io::ErrorKind::PermissionDenied))
     }
+    /// Execute a command and return the exit status
     fn execute_command(&mut self, _command: &str) -> i32 {
         -1
     }
+    /// Get the environment variables to pass to the program
     fn env_vars(&mut self) -> Vec<(String, String)> {
         Vec::new()
     }
+    /// Get the command line arguments to pass to the program (the first element
+    /// should be the name of the script)
     fn argv(&mut self) -> Vec<String> {
         Vec::new()
     }
+    /// Is a given fingerprint available? (See also: [all_fingerprints],
+    /// [safe_fingerprints])
     fn is_fingerprint_enabled(&self, _fpr: i32) -> bool {
         false
     }

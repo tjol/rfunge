@@ -30,14 +30,23 @@ use super::motion::MotionCmds;
 use super::{IOMode, InterpreterEnv};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
+/// Result of a single instruction. Most instructions return
+/// [InstructionResult::Continue].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstructionResult {
+    /// Continue processing
     Continue,
+    /// Continue processing, but don't move before the next iteration
     StayPut,
+    /// Continue processing within the same tick (only used by `;`)
     Skip,
+    /// Spawn a new IP (only used by `t`)
     Fork,
+    /// Stop this IP (only used by `@`)
     Stop,
+    /// Exit the program with a supplied code (only used by `q`)
     Exit(i32),
+    /// Abort/panic. Do not use if it can be at all avoided.
     Panic,
 }
 
@@ -114,6 +123,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
+    /// Create a new [InstructionSet] with the default commands
     pub fn new() -> Self {
         let mut instruction_vec: Vec<Vec<Instruction<Idx, Space, Env>>> = Vec::new();
         instruction_vec.resize_with(128, Vec::new);
@@ -173,7 +183,7 @@ where
 }
 
 #[inline]
-pub fn exec_instruction<Idx, Space, Env>(
+pub(super) fn exec_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
     ip: &mut InstructionPointer<Idx, Space, Env>,
     space: &mut Space,
