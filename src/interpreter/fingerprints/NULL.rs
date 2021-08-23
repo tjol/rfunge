@@ -16,9 +16,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
-use super::string_to_fingerprint;
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
 use crate::interpreter::MotionCmds;
@@ -40,7 +39,7 @@ where
     for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
         layer.insert(c, reflect);
     }
-    instructionset.add_layer(string_to_fingerprint("NULL"), layer);
+    instructionset.add_layer(layer);
     true
 }
 
@@ -52,12 +51,7 @@ where
     Env: InterpreterEnv,
 {
     // Check that this fingerprint is on top
-    if instructionset.top_fingerprint() == string_to_fingerprint("NULL") {
-        instructionset.pop_layer();
-        true
-    } else {
-        false
-    }
+    instructionset.pop_layer(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect::<Vec<char>>())
 }
 
 fn reflect<Idx, Space, Env>(

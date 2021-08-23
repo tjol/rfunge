@@ -16,9 +16,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
-use super::string_to_fingerprint;
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
 use crate::interpreter::MotionCmds;
@@ -45,7 +44,7 @@ where
     layer.insert('D', quingenti);
     layer.insert('M', mille);
 
-    instructionset.add_layer(string_to_fingerprint("ROMA"), layer);
+    instructionset.add_layer(layer);
     true
 }
 
@@ -56,13 +55,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    // Check that this fingerprint is on top
-    if instructionset.top_fingerprint() == string_to_fingerprint("ROMA") {
-        instructionset.pop_layer();
-        true
-    } else {
-        false
-    }
+    instructionset.pop_layer(&['I', 'V', 'X', 'L', 'C', 'D', 'M'])
 }
 
 fn unum<Idx, Space, Env>(

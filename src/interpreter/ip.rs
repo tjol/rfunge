@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 use std::any::Any;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::ops::Index;
 use std::rc::Rc;
 

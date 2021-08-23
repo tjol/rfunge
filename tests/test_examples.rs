@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 use colored::Colorize;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::fs::{read_dir, File};
 use std::io;
 use std::io::{Empty, Read, Write};

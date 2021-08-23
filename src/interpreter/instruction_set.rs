@@ -16,7 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufRead, BufReader, Read};
 
@@ -44,8 +44,6 @@ pub enum InstructionResult {
 pub type Instruction<Idx, Space, Env> =
     fn(&mut InstructionPointer<Idx, Space, Env>, &mut Space, &mut Env) -> InstructionResult;
 
-type InstructionLayer<Idx, Space, Env> = Vec<Option<Instruction<Idx, Space, Env>>>;
-
 #[derive(Debug, Clone, Copy)]
 pub enum InstructionMode {
     Normal,
@@ -63,7 +61,7 @@ where
     Env: InterpreterEnv,
 {
     pub mode: InstructionMode,
-    layers: Vec<(i32, InstructionLayer<Idx, Space, Env>)>,
+    instructions: Vec<Vec<Instruction<Idx, Space, Env>>>,
 }
 
 // Can't derive Clone by macro because it requires the type parameters to be
@@ -78,7 +76,7 @@ where
     fn clone(&self) -> Self {
         Self {
             mode: self.mode,
-            layers: self.layers.clone(),
+            instructions: self.instructions.clone(),
         }
     }
 }
@@ -117,23 +115,23 @@ where
     Env: InterpreterEnv,
 {
     pub fn new() -> Self {
-        let mut instruction_vec: InstructionLayer<Idx, Space, Env> = Vec::new();
-        instruction_vec.resize(128, None);
+        let mut instruction_vec: Vec<Vec<Instruction<Idx, Space, Env>>> = Vec::new();
+        instruction_vec.resize_with(128, Vec::new);
 
         // Add standard instructions (other than those implemented directly
         // in the main match statement in exec_normal_instructions)
-        instruction_vec['k' as usize] = Some(instructions::iterate);
-        instruction_vec['{' as usize] = Some(instructions::begin_block);
-        instruction_vec['}' as usize] = Some(instructions::end_block);
-        instruction_vec['u' as usize] = Some(instructions::stack_under_stack);
-        instruction_vec['i' as usize] = Some(instructions::input_file);
-        instruction_vec['o' as usize] = Some(instructions::output_file);
-        instruction_vec['=' as usize] = Some(instructions::execute);
-        instruction_vec['y' as usize] = Some(instructions::sysinfo);
+        instruction_vec['k' as usize].push(instructions::iterate);
+        instruction_vec['{' as usize].push(instructions::begin_block);
+        instruction_vec['}' as usize].push(instructions::end_block);
+        instruction_vec['u' as usize].push(instructions::stack_under_stack);
+        instruction_vec['i' as usize].push(instructions::input_file);
+        instruction_vec['o' as usize].push(instructions::output_file);
+        instruction_vec['=' as usize].push(instructions::execute);
+        instruction_vec['y' as usize].push(instructions::sysinfo);
 
         Self {
             mode: InstructionMode::Normal,
-            layers: vec![(0, instruction_vec)],
+            instructions: instruction_vec,
         }
     }
 
@@ -142,35 +140,38 @@ where
         &self,
         instruction: Space::Output,
     ) -> Option<Instruction<Idx, Space, Env>> {
-        *(self.layers[self.layers.len() - 1]
-            .1
-            .get(instruction.to_usize()?)?)
+        let instr_stack = self.instructions.get(instruction.to_usize()?)?;
+        if ! instr_stack.is_empty() {
+            Some(instr_stack[instr_stack.len() - 1])
+        } else {
+            None
+        }
     }
 
     /// Add a set of instructions as a new layer
     pub fn add_layer(
         &mut self,
-        fingerprint: i32,
         instructions: HashMap<char, Instruction<Idx, Space, Env>>,
     ) {
-        let mut new_layer = self.layers[self.layers.len() - 1].1.clone();
         for (&i, &f) in instructions.iter() {
-            if i as usize >= new_layer.len() {
-                new_layer.resize((i as usize) + 1, None);
+            if i as usize >= self.instructions.len() {
+                self.instructions.resize_with((i as usize) + 1, Vec::new);
             }
-            new_layer[i as usize] = Some(f);
+            self.instructions[i as usize].push(f);
         }
-        self.layers.push((fingerprint, new_layer));
     }
 
-    /// Get the fingerprint stored with the top layer
-    pub fn top_fingerprint(&self) -> i32 {
-        self.layers[self.layers.len() - 1].0
-    }
-
-    /// Remove the top layer
-    pub fn pop_layer(&mut self) {
-        self.layers.pop();
+    /// Remove the top layer for given instructions
+    pub fn pop_layer(&mut self, instructions: &[char]) -> bool {
+        let mut any_popped = false;
+        for c in instructions {
+            let i = *c as usize;
+            if i < self.instructions.len() && ! self.instructions[i].is_empty() {
+                self.instructions[i].pop();
+                any_popped = true;
+            }
+        }
+        any_popped
     }
 }
 
@@ -499,11 +500,11 @@ mod tests {
         let mut new_layer = HashMap::new();
         new_layer.insert('2', nop_for_test as Instr);
         new_layer.insert('5', nop_for_test as Instr);
-        is.add_layer(1, new_layer);
+        is.add_layer(new_layer);
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), Some(_)));
         assert!(matches!(is.get_instruction('3' as i64), None));
-        is.pop_layer();
+        is.pop_layer(&['2', '5']);
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), None));
         assert!(matches!(is.get_instruction('3' as i64), None));

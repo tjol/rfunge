@@ -16,11 +16,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use divrem::DivRem;
 
-use super::string_to_fingerprint;
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
 use crate::interpreter::MotionCmds;
@@ -74,7 +73,7 @@ where
     layer.insert('M', signed_rem);
     layer.insert('U', unsigned_rem);
     layer.insert('R', c_rem);
-    instructionset.add_layer(string_to_fingerprint("MODU"), layer);
+    instructionset.add_layer(layer);
     true
 }
 
@@ -85,13 +84,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    // Check that this fingerprint is on top
-    if instructionset.top_fingerprint() == string_to_fingerprint("MODU") {
-        instructionset.pop_layer();
-        true
-    } else {
-        false
-    }
+    instructionset.pop_layer(&['M', 'U', 'R'])
 }
 
 fn signed_rem<Idx, Space, Env>(

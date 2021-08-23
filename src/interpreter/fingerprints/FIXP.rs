@@ -16,12 +16,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::f64::consts::{FRAC_1_PI, PI};
 
 use num::{ToPrimitive, Signed};
 
-use super::string_to_fingerprint;
 use super::BOOL;
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
@@ -77,7 +76,7 @@ where
     layer.insert('U', arctan);
     layer.insert('V', abs);
     layer.insert('X', BOOL::xor);
-    instructionset.add_layer(string_to_fingerprint("FIXP"), layer);
+    instructionset.add_layer(layer);
     true
 }
 
@@ -88,13 +87,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    // Check that this fingerprint is on top
-    if instructionset.top_fingerprint() == string_to_fingerprint("FIXP") {
-        instructionset.pop_layer();
-        true
-    } else {
-        false
-    }
+    instructionset.pop_layer(&"ABCDIJNOPQRSTUVX".chars().collect::<Vec<char>>())
 }
 
 fn rad2deg(angle: f64) -> f64 {
