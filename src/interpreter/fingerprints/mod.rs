@@ -27,6 +27,7 @@ mod MODU;
 mod NULL;
 mod REFC;
 mod ROMA;
+mod FPDP;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
@@ -53,6 +54,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("MODU"),
         string_to_fingerprint("REFC"),
         string_to_fingerprint("FPSP"),
+        string_to_fingerprint("FPDP"),
         string_to_fingerprint("LONG"),
     ]
 }
@@ -85,6 +87,8 @@ where
         REFC::load(instructionset)
     } else if fpr == string_to_fingerprint("FPSP") {
         FPSP::load(instructionset)
+    } else if fpr == string_to_fingerprint("FPDP") {
+        FPDP::load(instructionset)
     } else if fpr == string_to_fingerprint("LONG") {
         LONG::load(instructionset)
     } else {
@@ -118,6 +122,8 @@ where
         REFC::unload(instructionset)
     } else if fpr == string_to_fingerprint("FPSP") {
         FPSP::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FPDP") {
+        FPDP::unload(instructionset)
     } else if fpr == string_to_fingerprint("LONG") {
         LONG::unload(instructionset)
     } else {
