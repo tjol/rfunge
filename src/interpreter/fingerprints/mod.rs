@@ -20,6 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 mod BOOL;
 mod FIXP;
+mod FPSP;
 mod HRTI;
 mod MODU;
 mod NULL;
@@ -50,6 +51,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("ROMA"),
         string_to_fingerprint("MODU"),
         string_to_fingerprint("REFC"),
+        string_to_fingerprint("FPSP"),
     ]
 }
 
@@ -79,6 +81,8 @@ where
         MODU::load(instructionset)
     } else if fpr == string_to_fingerprint("REFC") {
         REFC::load(instructionset)
+    } else if fpr == string_to_fingerprint("FPSP") {
+        FPSP::load(instructionset)
     } else {
         false
     }
@@ -108,6 +112,8 @@ where
         MODU::unload(instructionset)
     } else if fpr == string_to_fingerprint("REFC") {
         REFC::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FPSP") {
+        FPSP::unload(instructionset)
     } else {
         false
     }
