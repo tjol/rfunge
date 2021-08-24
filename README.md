@@ -20,6 +20,8 @@ rudimentary C and WASM APIs
 ## WebAssembly
 
 RFunge can run in the browser. [Try it out here!](https://tjol.eu/rfunge/)
+In the browser, `=` executes JavaScript code rather than traditional shell
+commands.
 
 ## Unicode Funge-98
 
@@ -33,6 +35,11 @@ an encoding other than Latin-1.
 While systems with multi-byte characters are explicitly allowed by the [spec],
 rfunge also features a traditional binary mode for compatibility with programs
 that require it (such as [Mycology]).
+
+## Handprint
+
+The native build uses handprint 0x52464e47 ('RFNG'), the WebAssembly build uses
+handprint 0x52464e57 ('RFNW').
 
 ## How to install
 

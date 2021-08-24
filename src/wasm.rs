@@ -20,8 +20,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::fungespace::SrcIO;
 use crate::{
-    bfvec, new_befunge_interpreter, read_funge_src, safe_fingerprints, BefungeVec, FungeSpace,
-    IOMode, Interpreter, InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode,
+    bfvec, new_befunge_interpreter, read_funge_src, safe_fingerprints, BefungeVec, ExecMode,
+    FungeSpace, IOMode, Interpreter, InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode,
 };
 
 // --------------------------------------------------------
@@ -77,6 +77,10 @@ impl Read for JSEnv {
 }
 
 impl InterpreterEnv for JSEnv {
+    fn handprint(&self) -> i32 {
+        // alternative handprint for the WASM version
+        0x52464e57 // RFNW
+    }
     fn get_iomode(&self) -> IOMode {
         IOMode::Text
     }
@@ -108,6 +112,27 @@ impl InterpreterEnv for JSEnv {
             .filter_map(|e| e.dyn_into::<js_sys::Array>().ok())
             .filter_map(|e| Some((e.get(0).as_string()?, e.get(1).as_string()?)))
             .collect()
+    }
+
+    fn have_execute(&self) -> ExecMode {
+        ExecMode::SameShell
+    }
+
+    fn execute_command(&mut self, command: &str) -> i32 {
+        match js_sys::eval(command) {
+            Ok(val) => {
+                if val.is_null() || val.is_undefined() {
+                    0
+                } else if let Some(n) = val.as_f64() {
+                    n as i32
+                } else if val.is_truthy() {
+                    0
+                } else {
+                    1
+                }
+            }
+            Err(_) => 1,
+        }
     }
 }
 
