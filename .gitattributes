@@ -1,0 +1,4 @@
+* text=auto
+
+# Don't modify line endings of our test case results
+*.b98.expected -text
