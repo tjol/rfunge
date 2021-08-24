@@ -29,6 +29,7 @@ mod MODU;
 mod NULL;
 mod REFC;
 mod ROMA;
+mod JSTR;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
@@ -58,6 +59,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("FPDP"),
         string_to_fingerprint("LONG"),
         string_to_fingerprint("FPRT"),
+        string_to_fingerprint("JSTR"),
     ]
 }
 
@@ -95,6 +97,8 @@ where
         LONG::load(instructionset)
     } else if fpr == string_to_fingerprint("FPRT") {
         FPRT::load(instructionset)
+    } else if fpr == string_to_fingerprint("JSTR") {
+        JSTR::load(instructionset)
     } else {
         false
     }
@@ -132,6 +136,8 @@ where
         LONG::unload(instructionset)
     } else if fpr == string_to_fingerprint("FPRT") {
         FPRT::unload(instructionset)
+    } else if fpr == string_to_fingerprint("JSTR") {
+        JSTR::unload(instructionset)
     } else {
         false
     }
