@@ -29,6 +29,7 @@ use crate::{
 // --------------------------------------------------------
 
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
+use wasm_bindgen::JsCast;
 
 // Use `wee_alloc` as the global allocator.
 #[global_allocator]
@@ -43,8 +44,12 @@ use std::io::{Read, Write};
 // interface
 #[wasm_bindgen(raw_module = "../wasm_io.js")]
 extern "C" {
-    fn write_rfunge_output(s: &str);
-    fn write_rfunge_warning(msg: &str);
+    #[wasm_bindgen(js_name = "writeOutput")]
+    fn write_output(s: &str);
+    #[wasm_bindgen(js_name = "writeWarning")]
+    fn write_warning(msg: &str);
+    #[wasm_bindgen(js_name = "getEnvVars")]
+    fn get_web_env_vars() -> js_sys::Object;
 }
 
 pub struct JSEnv {}
@@ -52,7 +57,7 @@ pub struct JSEnv {}
 impl Write for JSEnv {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if let Ok(s) = std::str::from_utf8(buf) {
-            write_rfunge_output(s);
+            write_output(s);
             Ok(s.len())
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "UTF-8 error"))
@@ -84,7 +89,7 @@ impl InterpreterEnv for JSEnv {
     }
 
     fn warn(&mut self, msg: &str) {
-        write_rfunge_warning(msg);
+        write_warning(msg);
     }
 
     fn is_io_buffered(&self) -> bool {
@@ -93,6 +98,16 @@ impl InterpreterEnv for JSEnv {
 
     fn is_fingerprint_enabled(&self, fpr: i32) -> bool {
         safe_fingerprints().into_iter().any(|f| f == fpr)
+    }
+
+    fn env_vars(&mut self) -> Vec<(String, String)> {
+        let js_env_vars = get_web_env_vars();
+        let entries: js_sys::Array = js_sys::Object::entries(&js_env_vars);
+        entries
+            .iter()
+            .filter_map(|e| e.dyn_into::<js_sys::Array>().ok())
+            .filter_map(|e| Some((e.get(0).as_string()?, e.get(1).as_string()?)))
+            .collect()
     }
 }
 
