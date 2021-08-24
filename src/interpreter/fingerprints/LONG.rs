@@ -89,14 +89,14 @@ pub fn vals_to_i128<T: FungeValue>(hi: T, lo: T) -> i128 {
     }
 }
 
-pub fn i128_to_vals<T: FungeValue>(lng: i128) -> (T, T) {
+pub fn i1282vals<T: FungeValue>(lng: i128) -> (T, T) {
     if size_of::<T>() == 4 {
         let hi = T::from((lng >> 32) as i32);
         let lo = T::from((lng & 0xffffffff) as i32);
         (hi, lo)
     } else {
-        let hi = T::from_i64((lng >> 64) as i64).unwrap_or(0.into());
-        let lo = T::from_i64((lng & 0xffffffffffffffff) as i64).unwrap_or(0.into());
+        let hi = T::from_i64((lng >> 64) as i64).unwrap_or_else(|| 0.into());
+        let lo = T::from_i64((lng & 0xffffffffffffffff) as i64).unwrap_or_else(|| 0.into());
         (hi, lo)
     }
 }
@@ -113,7 +113,7 @@ where
     Env: InterpreterEnv,
 {
     let lng = val_to_i128(ip.pop());
-    let (hi, lo) = i128_to_vals(lng);
+    let (hi, lo) = i1282vals(lng);
     ip.push(hi);
     ip.push(lo);
     InstructionResult::Continue
@@ -152,7 +152,7 @@ where
 {
     let s = ip.pop_0gnirts();
     let lng: i128 = s.parse().unwrap_or_default();
-    let (hi, lo) = i128_to_vals(lng);
+    let (hi, lo) = i1282vals(lng);
     ip.push(hi);
     ip.push(lo);
     InstructionResult::Continue
@@ -172,7 +172,7 @@ where
     let lo = ip.pop();
     let hi = ip.pop();
     let lng = vals_to_i128(hi, lo);
-    let (hi, lo) = i128_to_vals(lng.abs());
+    let (hi, lo) = i1282vals(lng.abs());
     ip.push(hi);
     ip.push(lo);
     InstructionResult::Continue
@@ -192,7 +192,7 @@ where
     let lo = ip.pop();
     let hi = ip.pop();
     let lng = vals_to_i128(hi, lo);
-    let (hi, lo) = i128_to_vals(-lng);
+    let (hi, lo) = i1282vals(-lng);
     ip.push(hi);
     ip.push(lo);
     InstructionResult::Continue
@@ -215,7 +215,7 @@ where
     let ah = ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
-    let (rh, rl) = i128_to_vals(a + b);
+    let (rh, rl) = i1282vals(a + b);
     ip.push(rh);
     ip.push(rl);
     InstructionResult::Continue
@@ -238,7 +238,7 @@ where
     let ah = ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
-    let (rh, rl) = i128_to_vals(a - b);
+    let (rh, rl) = i1282vals(a - b);
     ip.push(rh);
     ip.push(rl);
     InstructionResult::Continue
@@ -261,7 +261,7 @@ where
     let ah = ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
-    let (rh, rl) = i128_to_vals(a * b);
+    let (rh, rl) = i1282vals(a * b);
     ip.push(rh);
     ip.push(rl);
     InstructionResult::Continue
@@ -284,7 +284,7 @@ where
     let ah = ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
-    let (rh, rl) = i128_to_vals(a / b);
+    let (rh, rl) = i1282vals(a / b);
     ip.push(rh);
     ip.push(rl);
     InstructionResult::Continue
@@ -307,7 +307,7 @@ where
     let ah = ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
-    let (rh, rl) = i128_to_vals(a % b);
+    let (rh, rl) = i1282vals(a % b);
     ip.push(rh);
     ip.push(rl);
     InstructionResult::Continue
@@ -328,7 +328,7 @@ where
     let al = ip.pop();
     let ah = ip.pop();
     let a = vals_to_i128(ah, al);
-    let (rh, rl) = i128_to_vals(a << n);
+    let (rh, rl) = i1282vals(a << n);
     ip.push(rh);
     ip.push(rl);
     InstructionResult::Continue
@@ -349,7 +349,7 @@ where
     let al = ip.pop();
     let ah = ip.pop();
     let a = vals_to_i128(ah, al);
-    let (rh, rl) = i128_to_vals(a >> n);
+    let (rh, rl) = i1282vals(a >> n);
     ip.push(rh);
     ip.push(rl);
     InstructionResult::Continue

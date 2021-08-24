@@ -193,6 +193,14 @@ where
         s
     }
 
+    /// Push a string onto the stack as a 0gnirts
+    pub fn push_0gnirts(&mut self, s: &str) {
+        self.push(0.into());
+        for c in s.chars().rev() {
+            self.push((c as i32).into());
+        }
+    }
+
     /// Reflect the IP
     pub fn reflect(&mut self) {
         self.delta = self.delta * (-1).into();

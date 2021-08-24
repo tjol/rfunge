@@ -22,6 +22,7 @@ pkg-version = "1.0.0"
 chrono = "0.4"
 rand = "0.8"
 hashbrown = "0.11.2"
+sprintf = { git = "https://github.com/tjol/sprintf-rs" }
 
 [dev-dependencies]
 colored = "2.0"

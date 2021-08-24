@@ -65,7 +65,7 @@ where
     layer.insert('C', cos);
     layer.insert('D', div);
     layer.insert('E', arcsin);
-    layer.insert('F', conv_int2fpdp);
+    layer.insert('F', conv_int_to_fpdp);
     layer.insert('G', arctan);
     layer.insert('H', arccos);
     layer.insert('I', conv_fpdp2int);
@@ -95,7 +95,7 @@ where
     instructionset.pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
 }
 
-pub fn ints2fpdp(ih: i32, il: i32) -> f64 {
+pub fn ints_to_fpdp(ih: i32, il: i32) -> f64 {
     let i: u64 = (ih as u64 & 0xffffffff) << 32 | (il as u64 & 0xffffffff);
     unsafe { *((&i as *const u64) as *const f64) }
 }
@@ -105,8 +105,8 @@ pub fn fpdp2ints(f: f64) -> (i32, i32) {
     ((i >> 32) as i32, (i & 0xffffffff) as i32)
 }
 
-pub fn vals2fpdp<T: FungeValue>(hi: T, lo: T) -> f64 {
-    ints2fpdp(
+pub fn vals_to_fpdp<T: FungeValue>(hi: T, lo: T) -> f64 {
+    ints_to_fpdp(
         hi.to_i32().unwrap_or_default(),
         lo.to_i32().unwrap_or_default(),
     )
@@ -117,7 +117,7 @@ pub fn fpdp2vals<T: FungeValue>(f: f64) -> (T, T) {
     (ih.into(), il.into())
 }
 
-fn conv_int2fpdp<Idx, Space, Env>(
+fn conv_int_to_fpdp<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,
@@ -148,7 +148,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     ip.push((f.round() as i32).into());
     InstructionResult::Continue
 }
@@ -188,7 +188,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     if write!(env.output_writer(), "{:.6} ", f).is_err() {
         ip.reflect();
     }
@@ -210,8 +210,8 @@ where
     let bh = ip.pop();
     let al = ip.pop();
     let ah = ip.pop();
-    let b = vals2fpdp(bh, bl);
-    let a = vals2fpdp(ah, al);
+    let b = vals_to_fpdp(bh, bl);
+    let a = vals_to_fpdp(ah, al);
     let (rh, rl) = fpdp2vals(a + b);
     ip.push(rh);
     ip.push(rl);
@@ -233,8 +233,8 @@ where
     let bh = ip.pop();
     let al = ip.pop();
     let ah = ip.pop();
-    let b = vals2fpdp(bh, bl);
-    let a = vals2fpdp(ah, al);
+    let b = vals_to_fpdp(bh, bl);
+    let a = vals_to_fpdp(ah, al);
     let (rh, rl) = fpdp2vals(a - b);
     ip.push(rh);
     ip.push(rl);
@@ -256,8 +256,8 @@ where
     let bh = ip.pop();
     let al = ip.pop();
     let ah = ip.pop();
-    let b = vals2fpdp(bh, bl);
-    let a = vals2fpdp(ah, al);
+    let b = vals_to_fpdp(bh, bl);
+    let a = vals_to_fpdp(ah, al);
     let (rh, rl) = fpdp2vals(a * b);
     ip.push(rh);
     ip.push(rl);
@@ -279,8 +279,8 @@ where
     let bh = ip.pop();
     let al = ip.pop();
     let ah = ip.pop();
-    let b = vals2fpdp(bh, bl);
-    let a = vals2fpdp(ah, al);
+    let b = vals_to_fpdp(bh, bl);
+    let a = vals_to_fpdp(ah, al);
     let (rh, rl) = fpdp2vals(a / b);
     ip.push(rh);
     ip.push(rl);
@@ -302,8 +302,8 @@ where
     let bh = ip.pop();
     let al = ip.pop();
     let ah = ip.pop();
-    let b = vals2fpdp(bh, bl);
-    let a = vals2fpdp(ah, al);
+    let b = vals_to_fpdp(bh, bl);
+    let a = vals_to_fpdp(ah, al);
     let (rh, rl) = fpdp2vals(a.powf(b));
     ip.push(rh);
     ip.push(rl);
@@ -323,7 +323,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let angle = vals2fpdp(hi, lo);
+    let angle = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(angle.sin());
     ip.push(rh);
     ip.push(rl);
@@ -343,7 +343,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let angle = vals2fpdp(hi, lo);
+    let angle = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(angle.cos());
     ip.push(rh);
     ip.push(rl);
@@ -363,7 +363,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let angle = vals2fpdp(hi, lo);
+    let angle = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(angle.tan());
     ip.push(rh);
     ip.push(rl);
@@ -383,7 +383,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.asin());
     ip.push(rh);
     ip.push(rl);
@@ -403,7 +403,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.acos());
     ip.push(rh);
     ip.push(rl);
@@ -423,7 +423,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.atan());
     ip.push(rh);
     ip.push(rl);
@@ -443,7 +443,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.ln());
     ip.push(rh);
     ip.push(rl);
@@ -463,7 +463,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.log10());
     ip.push(rh);
     ip.push(rl);
@@ -483,7 +483,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(-f);
     ip.push(rh);
     ip.push(rl);
@@ -503,7 +503,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.sqrt());
     ip.push(rh);
     ip.push(rl);
@@ -523,7 +523,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.exp());
     ip.push(rh);
     ip.push(rl);
@@ -543,7 +543,7 @@ where
 {
     let lo = ip.pop();
     let hi = ip.pop();
-    let f = vals2fpdp(hi, lo);
+    let f = vals_to_fpdp(hi, lo);
     let (rh, rl) = fpdp2vals(f.abs());
     ip.push(rh);
     ip.push(rl);

@@ -20,6 +20,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 mod BOOL;
 mod FIXP;
+mod FPDP;
+mod FPRT;
 mod FPSP;
 mod HRTI;
 mod LONG;
@@ -27,7 +29,6 @@ mod MODU;
 mod NULL;
 mod REFC;
 mod ROMA;
-mod FPDP;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
@@ -56,6 +57,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("FPSP"),
         string_to_fingerprint("FPDP"),
         string_to_fingerprint("LONG"),
+        string_to_fingerprint("FPRT"),
     ]
 }
 
@@ -91,6 +93,8 @@ where
         FPDP::load(instructionset)
     } else if fpr == string_to_fingerprint("LONG") {
         LONG::load(instructionset)
+    } else if fpr == string_to_fingerprint("FPRT") {
+        FPRT::load(instructionset)
     } else {
         false
     }
@@ -126,6 +130,8 @@ where
         FPDP::unload(instructionset)
     } else if fpr == string_to_fingerprint("LONG") {
         LONG::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FPRT") {
+        FPRT::unload(instructionset)
     } else {
         false
     }

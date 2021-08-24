@@ -63,7 +63,7 @@ where
     layer.insert('C', cos);
     layer.insert('D', div);
     layer.insert('E', arcsin);
-    layer.insert('F', conv_int2fpsp);
+    layer.insert('F', conv_int_to_fpsp);
     layer.insert('G', arctan);
     layer.insert('H', arccos);
     layer.insert('I', conv_fpsp2int);
@@ -93,7 +93,7 @@ where
     instructionset.pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
 }
 
-pub fn int2fpsp(i: i32) -> f32 {
+pub fn int_to_fpsp(i: i32) -> f32 {
     unsafe { *((&i as *const i32) as *const f32) }
 }
 
@@ -101,15 +101,15 @@ pub fn fpsp2int(f: f32) -> i32 {
     unsafe { *((&f as *const f32) as *const i32) }
 }
 
-pub fn val2fpsp<T: FungeValue>(i: T) -> f32 {
-    int2fpsp(i.to_i32().unwrap_or_default())
+pub fn val_to_fpsp<T: FungeValue>(i: T) -> f32 {
+    int_to_fpsp(i.to_i32().unwrap_or_default())
 }
 
 pub fn fpsp2val<T: FungeValue>(f: f32) -> T {
     fpsp2int(f).into()
 }
 
-fn conv_int2fpsp<Idx, Space, Env>(
+fn conv_int_to_fpsp<Idx, Space, Env>(
     ip: &mut InstructionPointer<Idx, Space, Env>,
     _space: &mut Space,
     _env: &mut Env,
@@ -136,7 +136,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push((f.round() as i32).into());
     InstructionResult::Continue
 }
@@ -172,7 +172,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     if write!(env.output_writer(), "{:.6} ", f).is_err() {
         ip.reflect();
     }
@@ -190,8 +190,8 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let b = val2fpsp(ip.pop());
-    let a = val2fpsp(ip.pop());
+    let b = val_to_fpsp(ip.pop());
+    let a = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(a + b));
     InstructionResult::Continue
 }
@@ -207,8 +207,8 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let b = val2fpsp(ip.pop());
-    let a = val2fpsp(ip.pop());
+    let b = val_to_fpsp(ip.pop());
+    let a = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(a - b));
     InstructionResult::Continue
 }
@@ -224,8 +224,8 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let b = val2fpsp(ip.pop());
-    let a = val2fpsp(ip.pop());
+    let b = val_to_fpsp(ip.pop());
+    let a = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(a * b));
     InstructionResult::Continue
 }
@@ -241,8 +241,8 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let b = val2fpsp(ip.pop());
-    let a = val2fpsp(ip.pop());
+    let b = val_to_fpsp(ip.pop());
+    let a = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(a / b));
     InstructionResult::Continue
 }
@@ -258,8 +258,8 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let b = val2fpsp(ip.pop());
-    let a = val2fpsp(ip.pop());
+    let b = val_to_fpsp(ip.pop());
+    let a = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(a.powf(b)));
     InstructionResult::Continue
 }
@@ -275,7 +275,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let angle = val2fpsp(ip.pop());
+    let angle = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(angle.sin()));
     InstructionResult::Continue
 }
@@ -291,7 +291,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let angle = val2fpsp(ip.pop());
+    let angle = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(angle.cos()));
     InstructionResult::Continue
 }
@@ -307,7 +307,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let angle = val2fpsp(ip.pop());
+    let angle = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(angle.tan()));
     InstructionResult::Continue
 }
@@ -323,7 +323,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.asin()));
     InstructionResult::Continue
 }
@@ -339,7 +339,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.acos()));
     InstructionResult::Continue
 }
@@ -355,7 +355,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.atan()));
     InstructionResult::Continue
 }
@@ -371,7 +371,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.ln()));
     InstructionResult::Continue
 }
@@ -387,7 +387,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.log10()));
     InstructionResult::Continue
 }
@@ -403,7 +403,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(-f));
     InstructionResult::Continue
 }
@@ -419,7 +419,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.sqrt()));
     InstructionResult::Continue
 }
@@ -435,7 +435,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.exp()));
     InstructionResult::Continue
 }
@@ -451,7 +451,7 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    let f = val2fpsp(ip.pop());
+    let f = val_to_fpsp(ip.pop());
     ip.push(fpsp2val(f.abs()));
     InstructionResult::Continue
 }
