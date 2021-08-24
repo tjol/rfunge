@@ -72,7 +72,7 @@ where
     let va = MotionCmds::pop_vector(ip);
     let vd = MotionCmds::pop_vector(ip);
     
-    let mut pos = va;
+    let mut pos = va + ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
         space[pos] = ip.pop();
@@ -100,7 +100,7 @@ where
 
     ip.push(0.into());
     
-    let mut pos = va;
+    let mut pos = va + ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
         ip.push(space[pos]);
