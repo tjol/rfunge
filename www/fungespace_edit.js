@@ -107,7 +107,9 @@ function elemToString(elem) {
     let src = ""
     elem.childNodes.forEach(node => {
         if (node.nodeValue !== null) {
-            src += node.nodeValue.replaceAll("\n", "");
+            let val = node.nodeValue;
+            if (elem.tagName !== "PRE") val = val.replaceAll("\n", "");
+            src += val;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             src += elemToString(node)
         }
