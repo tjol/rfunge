@@ -1,0 +1,36 @@
+# <  Some of these tests are also done in Mycology               vv
+              >,v       "# skipped the last column in the file"a0<
+              |:<"# over the left edge jumped to the right edge"a0<
+#             <                                                 vv
+>,v               "# skipped over the last column in the line"a0<
+|:<"# over the left edge jumped to the last column in the line"a0<
+> v     >' -#v_01g1+01pv
+"0<     |:             <                                      p100"
+             > 0"!ecaps-non dah egde elif eht revo "'":>:#,_      v
+        >0" sniatnoc egde elif eht revo "'":>:#,_$01g.a"secaps"6k,v
+  v     >' -#v_01g1+01pv                                          >
+"0<     |:             <          p100"
+             > 0"!ecaps-non dah egde enil eht revo "'":>:#,_      v
+     v  >0" sniatnoc egde enil eht revo "'":>:#,_$01g.a"secaps"6k,>
+'    <v,<<  "' over left edge does something weird"a0_v#- '_v#-<':<
+      >:|^          "' over left edge picks a space"a0<
+ v      <^"' over left edge of file picks rightmost char"a0$<
+'<  v,<<    "' over left edge with gap is weird"a0_v#- '_v#-<':<
+    >:|^"' over left edge with gap picks a space"a0<     > v
+       ^"' over left edge with gap picks rightmost char"a0$<
+      >nk;v   ;v0a";...; retfa dmc revo spiks k0"  v,<
+          >0a"; elgnis revo spiks k0"              >:|
+               >0a")DAB( ylno ;...; revo spiks k0" ^  
+       >,v"3k executes cmd between ;...;! (BAD)"a0<
+       |:<                            ];       ^; k33<
+         ^  "3k executes cmd after ;...; thrice"a0<
+              >0a"k2 ekil stca k-20"v
+       >02-#vk]0a"k0 ekil stca k-20"v,<
+              >0a"gnihton seod k-20">:|
+            >0a"stcelfer k-20"      ^ >0k vv
+               >,v      "0k acts like #"a0<
+               |:<"0k skips next command"a0<
+               >                    0k ;v;vv
+      >,v "0k ;v;vv acts like # ;v;vv"a0  <
+      |:< "0k ;v;vv acts like  #;v;vv"a0<
+      @ ^ "0k ;v;vv acts like  ;v;#vv"a0   <
