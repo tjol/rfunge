@@ -146,6 +146,7 @@ where
     T: FungeValue,
 {
     type Output = Self;
+    #[inline(always)]
     fn add(self, rhs: Self) -> Self {
         Self {
             x: self.x + rhs.x,
@@ -159,6 +160,7 @@ where
     T: FungeValue,
 {
     type Output = Self;
+    #[inline(always)]
     fn sub(self, rhs: Self) -> Self {
         Self {
             x: self.x - rhs.x,
@@ -172,6 +174,7 @@ where
     T: FungeValue,
 {
     type Output = Self;
+    #[inline(always)]
     fn mul(self, rhs: T) -> Self {
         Self {
             x: self.x * rhs,
@@ -185,6 +188,7 @@ where
     T: FungeValue,
 {
     type Output = Self;
+    #[inline(always)]
     fn mul(self, rhs: Self) -> Self {
         Self {
             x: self.x * rhs.x,
@@ -198,6 +202,7 @@ where
     T: FungeValue,
 {
     type Output = Self;
+    #[inline(always)]
     fn div(self, rhs: Self) -> Self {
         Self {
             x: self.x / rhs.x,
@@ -211,6 +216,7 @@ where
     T: FungeValue,
 {
     type Output = Self;
+    #[inline(always)]
     fn rem(self, rhs: Self) -> Self {
         Self {
             x: self.x % rhs.x,
@@ -224,6 +230,7 @@ where
     T: FungeValue,
 {
     type Output = (Self, Self);
+    #[inline(always)]
     fn div_rem(self, rhs: Self) -> (Self, Self) {
         let (x_d, x_r) = self.x.div_rem(rhs.x);
         let (y_d, y_r) = self.y.div_rem(rhs.y);
@@ -235,6 +242,7 @@ impl<T> DivEuclid for BefungeVec<T>
 where
     T: FungeValue + DivEuclid,
 {
+    #[inline(always)]
     fn div_euclid(self, rhs: Self) -> Self {
         Self {
             x: self.x.div_euclid(rhs.x),
@@ -247,6 +255,7 @@ impl<T> RemEuclid for BefungeVec<T>
 where
     T: FungeValue + RemEuclid,
 {
+    #[inline(always)]
     fn rem_euclid(self, rhs: Self) -> Self {
         Self {
             x: self.x.rem_euclid(rhs.x),
@@ -259,6 +268,7 @@ impl<T> DivRemEuclid for BefungeVec<T>
 where
     T: FungeValue + DivRemEuclid,
 {
+    #[inline(always)]
     fn div_rem_euclid(self, rhs: Self) -> (Self, Self) {
         let (x_d, x_r) = self.x.div_rem_euclid(rhs.x);
         let (y_d, y_r) = self.y.div_rem_euclid(rhs.y);
@@ -270,6 +280,7 @@ impl<T> FungeIndex for BefungeVec<T>
 where
     T: FungeValue,
 {
+    #[inline(always)]
     fn joint_min(&self, other: &Self) -> Self {
         Self {
             x: min(self.x, other.x),
@@ -277,6 +288,7 @@ where
         }
     }
 
+    #[inline(always)]
     fn joint_max(&self, other: &Self) -> Self {
         Self {
             x: max(self.x, other.x),
