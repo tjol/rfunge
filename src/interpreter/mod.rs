@@ -152,11 +152,12 @@ where
     pub fn run(&mut self, mode: RunMode) -> ProgramResult {
         let mut stopped_ips = Vec::new();
         let mut new_ips = Vec::new();
+        let mut location_log = Vec::new();
 
         loop {
             for ip_idx in 0..self.ips.len() {
                 let mut go_again = true;
-                let mut location_log = Vec::new();
+                location_log.truncate(0);
                 while go_again {
                     let ip = &mut self.ips[ip_idx];
                     let instruction = if ip.must_advance {

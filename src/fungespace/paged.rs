@@ -18,11 +18,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::cmp::Ordering;
 use std::hash::Hash;
-use std::ops::{Add, Div, Index, IndexMut, Mul};
-
-use hashbrown::HashMap;
+use std::ops::{Add, Div, Index, IndexMut, Mul, Rem};
 
 use divrem::{DivEuclid, DivRem, DivRemEuclid, RemEuclid};
+use hashbrown::HashMap;
+use num::{One, Zero};
 
 use super::index::{bfvec, BefungeVec};
 use super::{FungeArrayIdx, FungeSpace, FungeValue};
@@ -32,9 +32,11 @@ pub trait PageSpaceVector<T>:
     Mul<T, Output = Self>
     + FungeArrayIdx
     + Div<Output = Self>
+    + Rem<Output = Self>
     + DivEuclid
     + DivRem<Output = (Self, Self)>
     + DivRemEuclid
+    + RemEuclid
     + Add<Output = Self>
     + Mul<Output = Self>
     + Hash
@@ -49,6 +51,15 @@ where
     /// If there is no such point (becuase the line defined `self + n * delta`
     /// doesn't pass through the region indicated), return `None`.
     fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<T>;
+
+    /// Call a closure for every idx = start + n * delta, n = 0, 1, ...,
+    /// such that idx lies within a region of size `limit` starting at the
+    /// origin, until the closure returns `true`. Returns `true` if the loop
+    /// was stopped because the closure returned `true`, return `false` if
+    /// it always returned `false`.
+    fn scan_within_region<F>(start: &Self, delta: &Self, limit: &Self, callback: &mut F) -> bool
+    where
+        F: FnMut(&Self) -> bool;
 }
 
 /// Implementation of funge space that stores fixed-size segments of funge-space
@@ -121,22 +132,36 @@ where
         let (mut page_idx, mut idx_in_page) = idx.div_rem_euclid(self.page_size);
 
         // first, lets try a straight scan
-        while self.pages.contains_key(&page_idx) {
-            let lin_idx = idx_in_page.to_lin_index(&self.page_size);
-            let v = self.pages.get(&page_idx).unwrap().index(lin_idx);
-            if *v != (' ' as i32).into() {
-                return (idx, v);
+        while let Some(this_page) = self.pages.get(&page_idx) {
+            let mut the_value = &self._blank;
+            let mut the_idx = idx;
+            let mut last_idx_in_page = idx_in_page;
+            let mut scan_closure = |this_idx: &Idx| {
+                last_idx_in_page = *this_idx;
+                let lin_idx = this_idx.to_lin_index_unchecked(&self.page_size);
+                let v = &this_page[lin_idx];
+                if *v != self._blank {
+                    the_value = v;
+                    the_idx = page_idx * self.page_size + *this_idx;
+                    true
+                } else {
+                    false
+                }
+            };
+            if Idx::scan_within_region(&idx_in_page, &delta, &self.page_size, &mut scan_closure) {
+                return (the_idx, the_value);
+            } else {
+                // Not found, move on
+                idx = page_idx * self.page_size + last_idx_in_page + delta;
+                let (q, r) = idx.div_rem_euclid(self.page_size);
+                page_idx = q;
+                idx_in_page = r;
             }
-            idx = idx + delta;
-            let (q, r) = idx.div_rem_euclid(self.page_size);
-            page_idx = q;
-            idx_in_page = r;
         }
 
         // We've hit the edge, time for some maths
-        let cur_page = idx.div_euclid(self.page_size);
         let cur_dist = idx
-            .dist_of_region(&delta, &(cur_page * self.page_size), &self.page_size)
+            .dist_of_region(&delta, &(page_idx * self.page_size), &self.page_size)
             .unwrap();
 
         let mut page_dists: Vec<(Idx, Elem)> = self
@@ -148,23 +173,41 @@ where
                     start.dist_of_region(&delta, &(*k * self.page_size), &self.page_size)?,
                 ))
             })
-            .filter(|(_, d)| *d > cur_dist || *d <= 0.into())
+            .filter(|(_, d)| *d > cur_dist || *d <= Zero::zero())
             .collect();
-        page_dists.sort_by_key(|(_, d)| (*d <= 0.into(), *d));
+        page_dists.sort_by_key(|(_, d)| (*d <= Zero::zero(), *d));
 
         for (target_page_idx, dist) in page_dists.into_iter() {
-            let mut new_idx = start + delta * dist;
-            let (mut cur_page_idx, mut idx_in_page) = new_idx.div_rem_euclid(self.page_size);
-            while cur_page_idx == target_page_idx {
-                let lin_idx = idx_in_page.to_lin_index(&self.page_size);
-                let v = self.pages.get(&target_page_idx).unwrap().index(lin_idx);
-                if *v != (' ' as i32).into() {
-                    return (new_idx, v);
+            idx = start + delta * dist;
+            page_idx = target_page_idx;
+            idx_in_page = idx.rem_euclid(self.page_size);
+            while page_idx == target_page_idx {
+                let this_page = &self.pages[&page_idx];
+                let mut the_value = &self._blank;
+                let mut the_idx = idx;
+                let mut last_idx_in_page = idx_in_page;
+                let mut scan_closure = |this_idx: &Idx| {
+                    last_idx_in_page = *this_idx;
+                    let lin_idx = this_idx.to_lin_index_unchecked(&self.page_size);
+                    let v = &this_page[lin_idx];
+                    if *v != self._blank {
+                        the_value = v;
+                        the_idx = page_idx * self.page_size + *this_idx;
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if Idx::scan_within_region(&idx_in_page, &delta, &self.page_size, &mut scan_closure)
+                {
+                    return (the_idx, the_value);
+                } else {
+                    // Not found, move on
+                    idx = page_idx * self.page_size + last_idx_in_page + delta;
+                    let (q, r) = idx.div_rem_euclid(self.page_size);
+                    page_idx = q;
+                    idx_in_page = r;
                 }
-                new_idx = new_idx + delta;
-                let (q, r) = new_idx.div_rem_euclid(self.page_size);
-                cur_page_idx = q;
-                idx_in_page = r;
             }
         }
 
@@ -206,15 +249,15 @@ where
     T: FungeValue + Hash + DivEuclid + RemEuclid + DivRemEuclid,
 {
     fn dist_of_region(&self, delta: &Self, start: &Self, size: &Self) -> Option<T> {
-        match (*delta).cmp(&0.into()) {
+        match (*delta).cmp(&Zero::zero()) {
             Ordering::Greater => {
                 // going forward
                 let (dist, rem) = (*start - *self).div_rem_euclid(*delta);
 
-                if rem == 0.into() {
+                if Zero::is_zero(&rem) {
                     Some(dist)
-                } else if (*self) + (dist + 1.into()) * (*delta) < ((*start) + (*size)) {
-                    Some(dist + 1.into())
+                } else if (*self) + (dist + One::one()) * (*delta) < ((*start) + (*size)) {
+                    Some(dist + One::one())
                 } else {
                     None
                 }
@@ -222,7 +265,7 @@ where
             Ordering::Equal => None,
             Ordering::Less => {
                 // going backward
-                let dist = ((*start) + (*size) - 1.into() - (*self)).div_euclid(*delta);
+                let dist = ((*start) + (*size) - One::one() - (*self)).div_euclid(*delta);
 
                 if (*self) + dist * (*delta) >= (*start) {
                     Some(dist)
@@ -231,6 +274,20 @@ where
                 }
             }
         }
+    }
+
+    fn scan_within_region<F>(start: &Self, delta: &Self, limit: &Self, callback: &mut F) -> bool
+    where
+        F: FnMut(&Self) -> bool,
+    {
+        let mut idx = *start;
+        while idx >= Zero::zero() && idx < *limit {
+            if callback(&idx) {
+                return true;
+            }
+            idx += *delta;
+        }
+        false
     }
 }
 
@@ -251,7 +308,7 @@ where
         let cross_bl = rel_bottomleft.x * delta.y - delta.x * rel_bottomleft.y;
         if cross_tl.signum() != cross_br.signum() || cross_tr.signum() != cross_bl.signum() {
             // The line crosses our region. Is there a "stop"?
-            if delta.x == 0.into() {
+            if Zero::is_zero(&delta.x) {
                 self.y.dist_of_region(&delta.y, &start.y, &size.y)
             } else {
                 let mut dist = self.x.dist_of_region(&delta.x, &start.x, &size.x)?;
@@ -259,7 +316,7 @@ where
 
                 // Make sure Y in in bounds
                 while first_pos.y < start.y || first_pos.y >= start.y + size.y {
-                    dist += 1.into();
+                    dist += One::one();
                     first_pos = *self + *delta * dist;
                     if first_pos.x >= start.x + size.x {
                         // Oops, we overshot
@@ -272,6 +329,20 @@ where
         } else {
             None
         }
+    }
+
+    fn scan_within_region<F>(start: &Self, delta: &Self, limit: &Self, callback: &mut F) -> bool
+    where
+        F: FnMut(&Self) -> bool,
+    {
+        let mut idx = *start;
+        while idx.x >= Zero::zero() && idx.x < limit.x && idx.y >= Zero::zero() && idx.y < limit.y {
+            if callback(&idx) {
+                return true;
+            }
+            idx = idx + *delta;
+        }
+        false
     }
 }
 

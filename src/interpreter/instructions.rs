@@ -114,7 +114,7 @@ where
         MotionCmds::push_vector(ip, ip.storage_offset); // onto SOSS / old TOSS
 
         // create a new stack
-        ip.stack_stack.push(Vec::new());
+        ip.stack_stack.insert(0, Vec::new());
 
         for _ in 0..zeros_for_toss {
             ip.push(0.into());
@@ -143,7 +143,7 @@ where
 {
     if ip.stack_stack.len() > 1 {
         if let Some(n) = ip.pop().to_isize() {
-            let mut toss = ip.stack_stack.pop().unwrap();
+            let mut toss = ip.stack_stack.remove(0);
 
             // restore the storage offset
             ip.storage_offset = MotionCmds::pop_vector(ip);
@@ -191,16 +191,14 @@ where
             match n.cmp(&0) {
                 Ordering::Greater => {
                     for _ in 0..n {
-                        let v = ip.stack_stack[nstacks - 2]
-                            .pop()
-                            .unwrap_or_else(|| 0.into());
+                        let v = ip.stack_stack[1].pop().unwrap_or_else(|| 0.into());
                         ip.push(v);
                     }
                 }
                 Ordering::Less => {
                     for _ in 0..(-n) {
                         let v = ip.pop();
-                        ip.stack_stack[nstacks - 2].push(v);
+                        ip.stack_stack[1].push(v);
                     }
                 }
                 Ordering::Equal => {}
@@ -460,7 +458,7 @@ where
     sysinfo_cells.push((ip.stack_stack.len() as i32).into());
 
     // 18. sizes of stacks
-    for stack in ip.stack_stack.iter().rev() {
+    for stack in ip.stack_stack.iter() {
         sysinfo_cells.push((stack.len() as i32).into());
     }
 

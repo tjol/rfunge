@@ -123,6 +123,11 @@ pub trait FungeArrayIdx: FungeIndex {
     /// The caller must ensure that the array is big enough.
     fn to_lin_index(&self, array_size: &Self) -> usize;
 
+    /// Map the index to a linear index into a `Vec` of size `array_size.lin_size()`
+    ///
+    /// The caller must ensure that the array is big enough. May panic.
+    fn to_lin_index_unchecked(&self, array_size: &Self) -> usize;
+
     /// Convert from a linear index as returned by
     /// [to_lin_index()][FungeArrayIdx::to_lin_index()] back to a funge index.
     ///

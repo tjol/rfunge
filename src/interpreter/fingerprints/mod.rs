@@ -24,12 +24,12 @@ mod FPDP;
 mod FPRT;
 mod FPSP;
 mod HRTI;
+mod JSTR;
 mod LONG;
 mod MODU;
 mod NULL;
 mod REFC;
 mod ROMA;
-mod JSTR;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};

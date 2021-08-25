@@ -162,22 +162,25 @@ where
     Env: InterpreterEnv,
 {
     /// Get the top of the stack stack
+    #[inline]
     pub fn stack(&self) -> &Vec<Space::Output> {
-        &self.stack_stack[self.stack_stack.len() - 1]
+        &self.stack_stack[0]
     }
 
     /// Get the top of the stack stack (mutable version)
+    #[inline]
     pub fn stack_mut(&mut self) -> &mut Vec<Space::Output> {
-        let end = self.stack_stack.len() - 1;
-        &mut self.stack_stack[end]
+        &mut self.stack_stack[0]
     }
 
     /// Pop one number from the stack and return it
+    #[inline]
     pub fn pop(&mut self) -> Space::Output {
         self.stack_mut().pop().unwrap_or_else(|| 0.into())
     }
 
     /// Push a number onto the stack
+    #[inline]
     pub fn push(&mut self, v: Space::Output) {
         self.stack_mut().push(v)
     }
@@ -202,6 +205,7 @@ where
     }
 
     /// Reflect the IP
+    #[inline]
     pub fn reflect(&mut self) {
         self.delta = self.delta * (-1).into();
     }
@@ -231,10 +235,10 @@ mod tests {
         ip.push(4);
         ip.push(5);
 
-        ip.stack_stack.push(Vec::new());
+        ip.stack_stack.insert(0, Vec::new());
         assert_eq!(ip.pop(), 0);
 
-        ip.stack_stack.pop();
+        ip.stack_stack.remove(0);
         assert_eq!(ip.pop(), 5);
         assert_eq!(ip.stack().len(), 1);
     }

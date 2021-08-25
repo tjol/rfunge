@@ -93,6 +93,10 @@ where
         self.rem_euclid(*array_size).to_usize().unwrap()
     }
 
+    fn to_lin_index_unchecked(&self, _array_size: &Self) -> usize {
+        self.to_usize().unwrap()
+    }
+
     fn from_lin_index(lin_idx: usize, _array_size: &Self) -> Self {
         T::from_usize(lin_idx).unwrap()
     }
@@ -383,6 +387,10 @@ where
     fn to_lin_index(&self, array_size: &Self) -> usize {
         let trunc = self.rem_euclid(*array_size);
         (trunc.x + trunc.y * array_size.x).to_usize().unwrap()
+    }
+
+    fn to_lin_index_unchecked(&self, array_size: &Self) -> usize {
+        (self.x + self.y * array_size.x).to_i64().unwrap() as usize
     }
 
     fn from_lin_index(lin_idx: usize, array_size: &Self) -> Self {

@@ -71,7 +71,7 @@ where
     let n = ip.pop();
     let va = MotionCmds::pop_vector(ip);
     let vd = MotionCmds::pop_vector(ip);
-    
+
     let mut pos = va + ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
@@ -99,7 +99,7 @@ where
     let vd = MotionCmds::pop_vector(ip);
 
     ip.push(0.into());
-    
+
     let mut pos = va + ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
@@ -110,5 +110,3 @@ where
 
     InstructionResult::Continue
 }
-
-
