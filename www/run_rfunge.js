@@ -28,6 +28,8 @@ async function initialize() {
     let origSrc = null
     let stop = false
 
+    let ticks_per_call = 1000
+
     document.getElementById("run-btn").onclick = () => {
         if (finished) return
         if (origSrc == null) {
@@ -40,7 +42,7 @@ async function initialize() {
         document.getElementById("run-btn").disabled = true
         document.getElementById("reset-btn").disabled = true
         document.getElementById("stop-btn").disabled = false
-        
+
         function continueRunning() {
             if (stop) {
                 finished = true
@@ -52,7 +54,11 @@ async function initialize() {
             }
             // Return control to the main event loop after every step
             // so we don't hang the browser
-            let result = interpreter.run_limited(500)
+            const t0 = performance.now()
+            const result = interpreter.run_limited(ticks_per_call)
+            const t1 = performance.now()
+            const dt = t1 - t0
+
             if (result != null) {
                 finished = true
                 editor.setSrc(interpreter.getSrcLines())
@@ -60,6 +66,17 @@ async function initialize() {
                 document.getElementById("reset-btn").disabled = false
                 document.getElementById("stop-btn").disabled = true
             } else {
+                // target: 100ms per interval
+                const time_factor = dt / 100
+                if (time_factor > 2) {
+                    // too slow
+                    ticks_per_call = Math.floor(ticks_per_call / time_factor)
+                    console.log(`adjusting to ${ticks_per_call} ticks per iteration`)
+                } else if (time_factor < 0.5) {
+                    // too fast
+                    ticks_per_call = Math.floor(ticks_per_call / time_factor)
+                    console.log(`adjusting to ${ticks_per_call} ticks per iteration`)
+                }
                 setTimeout(continueRunning, 0)
             }
         }
