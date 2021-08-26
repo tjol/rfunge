@@ -133,7 +133,7 @@ where
 
         // first, lets try a straight scan
         while let Some(this_page) = self.pages.get(&page_idx) {
-            match self.next_space_in_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
+            match self.scan_within_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
                 Ok(result) => {
                     return result;
                 }
@@ -171,7 +171,7 @@ where
             idx_in_page = idx.rem_euclid(self.page_size);
 
             let this_page = &self.pages[&page_idx];
-            match self.next_space_in_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
+            match self.scan_within_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
                 Ok(result) => {
                     return result;
                 }
@@ -219,7 +219,7 @@ where
     Idx: PageSpaceVector<Elem>,
     Elem: FungeValue,
 {
-    fn next_space_in_page<'s, 'i>(
+    fn scan_within_page<'s, 'i>(
         &'s self,
         page: &'s [Elem],
         idx: &'i Idx,
