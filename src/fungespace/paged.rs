@@ -169,19 +169,14 @@ where
             idx = start + delta * dist;
             page_idx = target_page_idx;
             idx_in_page = idx.rem_euclid(self.page_size);
-            while page_idx == target_page_idx {
-                let this_page = &self.pages[&page_idx];
-                match self.next_space_in_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
-                    Ok(result) => {
-                        return result;
-                    }
-                    Err(last_idx_in_page) => {
-                        // Not found, move on
-                        idx = page_idx * self.page_size + last_idx_in_page + delta;
-                        let (q, r) = idx.div_rem_euclid(self.page_size);
-                        page_idx = q;
-                        idx_in_page = r;
-                    }
+
+            let this_page = &self.pages[&page_idx];
+            match self.next_space_in_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
+                Ok(result) => {
+                    return result;
+                }
+                Err(_) => {
+                    // Not found, move on
                 }
             }
         }
