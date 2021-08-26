@@ -133,29 +133,17 @@ where
 
         // first, lets try a straight scan
         while let Some(this_page) = self.pages.get(&page_idx) {
-            let mut the_value = &self._blank;
-            let mut the_idx = idx;
-            let mut last_idx_in_page = idx_in_page;
-            let mut scan_closure = |this_idx: &Idx| {
-                last_idx_in_page = *this_idx;
-                let lin_idx = this_idx.to_lin_index_unchecked(&self.page_size);
-                let v = &this_page[lin_idx];
-                if *v != self._blank {
-                    the_value = v;
-                    the_idx = page_idx * self.page_size + *this_idx;
-                    true
-                } else {
-                    false
+            match self.next_space_in_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
+                Ok(result) => {
+                    return result;
                 }
-            };
-            if Idx::scan_within_region(&idx_in_page, &delta, &self.page_size, &mut scan_closure) {
-                return (the_idx, the_value);
-            } else {
-                // Not found, move on
-                idx = page_idx * self.page_size + last_idx_in_page + delta;
-                let (q, r) = idx.div_rem_euclid(self.page_size);
-                page_idx = q;
-                idx_in_page = r;
+                Err(last_idx_in_page) => {
+                    // Not found, move on
+                    idx = page_idx * self.page_size + last_idx_in_page + delta;
+                    let (q, r) = idx.div_rem_euclid(self.page_size);
+                    page_idx = q;
+                    idx_in_page = r;
+                }
             }
         }
 
@@ -183,30 +171,17 @@ where
             idx_in_page = idx.rem_euclid(self.page_size);
             while page_idx == target_page_idx {
                 let this_page = &self.pages[&page_idx];
-                let mut the_value = &self._blank;
-                let mut the_idx = idx;
-                let mut last_idx_in_page = idx_in_page;
-                let mut scan_closure = |this_idx: &Idx| {
-                    last_idx_in_page = *this_idx;
-                    let lin_idx = this_idx.to_lin_index_unchecked(&self.page_size);
-                    let v = &this_page[lin_idx];
-                    if *v != self._blank {
-                        the_value = v;
-                        the_idx = page_idx * self.page_size + *this_idx;
-                        true
-                    } else {
-                        false
+                match self.next_space_in_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
+                    Ok(result) => {
+                        return result;
                     }
-                };
-                if Idx::scan_within_region(&idx_in_page, &delta, &self.page_size, &mut scan_closure)
-                {
-                    return (the_idx, the_value);
-                } else {
-                    // Not found, move on
-                    idx = page_idx * self.page_size + last_idx_in_page + delta;
-                    let (q, r) = idx.div_rem_euclid(self.page_size);
-                    page_idx = q;
-                    idx_in_page = r;
+                    Err(last_idx_in_page) => {
+                        // Not found, move on
+                        idx = page_idx * self.page_size + last_idx_in_page + delta;
+                        let (q, r) = idx.div_rem_euclid(self.page_size);
+                        page_idx = q;
+                        idx_in_page = r;
+                    }
                 }
             }
         }
@@ -241,6 +216,42 @@ where
                 .map(|max_idx| max_idx + (*k * self.page_size))
             })
             .reduce(|i1, i2| i1.joint_max(&i2))
+    }
+}
+
+impl<Idx, Elem> PagedFungeSpace<Idx, Elem>
+where
+    Idx: PageSpaceVector<Elem>,
+    Elem: FungeValue,
+{
+    fn next_space_in_page<'s, 'i>(
+        &'s self,
+        page: &'s [Elem],
+        idx: &'i Idx,
+        page_idx: &'i Idx,
+        idx_in_page: &'i Idx,
+        delta: &'i Idx,
+    ) -> Result<(Idx, &'s Elem), Idx> {
+        let mut the_value = &self._blank;
+        let mut the_idx = *idx;
+        let mut last_idx_in_page = *idx_in_page;
+        let mut scan_closure = |this_idx: &Idx| {
+            last_idx_in_page = *this_idx;
+            let lin_idx = this_idx.to_lin_index_unchecked(&self.page_size);
+            let v = &page[lin_idx];
+            if *v != (b' ' as i32).into() {
+                the_value = v;
+                the_idx = *page_idx * self.page_size + *this_idx;
+                true
+            } else {
+                false
+            }
+        };
+        if Idx::scan_within_region(idx_in_page, delta, &self.page_size, &mut scan_closure) {
+            Ok((the_idx, the_value))
+        } else {
+            Err(last_idx_in_page)
+        }
     }
 }
 
