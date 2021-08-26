@@ -23,6 +23,7 @@ mod FIXP;
 mod FPDP;
 mod FPRT;
 mod FPSP;
+mod FRTH;
 mod HRTI;
 mod JSTR;
 mod LONG;
@@ -60,6 +61,7 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("LONG"),
         string_to_fingerprint("FPRT"),
         string_to_fingerprint("JSTR"),
+        string_to_fingerprint("FRTH"),
     ]
 }
 
@@ -99,6 +101,8 @@ where
         FPRT::load(instructionset)
     } else if fpr == string_to_fingerprint("JSTR") {
         JSTR::load(instructionset)
+    } else if fpr == string_to_fingerprint("FRTH") {
+        FRTH::load(instructionset)
     } else {
         false
     }
@@ -138,6 +142,8 @@ where
         FPRT::unload(instructionset)
     } else if fpr == string_to_fingerprint("JSTR") {
         JSTR::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FRTH") {
+        FRTH::unload(instructionset)
     } else {
         false
     }

@@ -94,6 +94,8 @@ fn get_b98_tests() -> io::Result<Vec<(PathBuf, PathBuf)>> {
         }
     }
 
+    result.sort();
+
     return Ok(result);
 }
 
