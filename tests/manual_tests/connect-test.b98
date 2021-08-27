@@ -1,0 +1,12 @@
+<                >'d:a**01g#vR11p0v    >0p:      v           >_v#  $k+day0(v#4"SOCK"
+                 f                     2          >:#,_@#:"SOCK required"a0<
+              >,v0          #     #    ^+*ag02-0'_v#:p020p01Iv#<
+>11g1+11pv    |:<"connected"a0Cv#g01g022p10:Sv#122<          >0a"!sserdda PI na ton">:#,_@
+^pfg11~v#<p110<  #          >   >            >0a"rorre krowten">:#,_@
+       >0f11g01gW^        >:fg,1+ v
+                          | `\g11:<
+                          >01gK@
+
+  This program connects takes an IP and port number as command-line arguments,
+  connects to that server over TCP, reads all input from stdin (until EOF),
+  and then reads and displays one message from the server before quitting.

@@ -32,6 +32,9 @@ mod NULL;
 mod REFC;
 mod ROMA;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod SOCK;
+
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
@@ -67,7 +70,11 @@ pub fn safe_fingerprints() -> Vec<i32> {
 
 /// Get a list of all available fingerprints
 pub fn all_fingerprints() -> Vec<i32> {
-    safe_fingerprints()
+    let mut fprts = safe_fingerprints();
+    if cfg!(not(target_arch = "wasm32")) {
+        fprts.push(string_to_fingerprint("SOCK"));
+    }
+    fprts
 }
 
 pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>, fpr: i32) -> bool
@@ -104,8 +111,40 @@ where
     } else if fpr == string_to_fingerprint("FRTH") {
         FRTH::load(instructionset)
     } else {
+        load_platform_specific(instructionset, fpr)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_platform_specific<Idx, Space, Env>(
+    instructionset: &mut InstructionSet<Idx, Space, Env>,
+    fpr: i32,
+) -> bool
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    if fpr == string_to_fingerprint("SOCK") {
+        SOCK::load(instructionset)
+    } else {
         false
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn load_platform_specific<Idx, Space, Env>(
+    _instructionset: &mut InstructionSet<Idx, Space, Env>,
+    _fpr: i32,
+) -> bool
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    false
 }
 
 pub fn unload<Idx, Space, Env>(
@@ -145,6 +184,38 @@ where
     } else if fpr == string_to_fingerprint("FRTH") {
         FRTH::unload(instructionset)
     } else {
+        unload_platform_specific(instructionset, fpr)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn unload_platform_specific<Idx, Space, Env>(
+    instructionset: &mut InstructionSet<Idx, Space, Env>,
+    fpr: i32,
+) -> bool
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    if fpr == string_to_fingerprint("SOCK") {
+        SOCK::unload(instructionset)
+    } else {
         false
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn unload_platform_specific<Idx, Space, Env>(
+    _instructionset: &mut InstructionSet<Idx, Space, Env>,
+    _fpr: i32,
+) -> bool
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
+    Space: FungeSpace<Idx>,
+    Space::Output: FungeValue,
+    Env: InterpreterEnv,
+{
+    false
 }

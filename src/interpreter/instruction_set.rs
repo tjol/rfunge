@@ -398,7 +398,7 @@ where
             let count = ip.pop().to_usize().unwrap_or(0);
             let mut fpr = 0;
             for _ in 0..count {
-                fpr *= 256;
+                fpr = fpr << 8;
                 fpr += ip.pop().to_i32().unwrap_or(0);
             }
             if fpr != 0 && env.is_fingerprint_enabled(fpr) {
@@ -417,7 +417,7 @@ where
             let count = ip.pop().to_usize().unwrap_or(0);
             let mut fpr = 0;
             for _ in 0..count {
-                fpr *= 256;
+                fpr = fpr << 8;
                 fpr += ip.pop().to_i32().unwrap_or(0);
             }
             if fpr != 0 {
