@@ -50,26 +50,26 @@ where
     let (mut new_loc, new_val_ref) = space.move_by(ip.location, ip.delta);
     let mut new_val = *new_val_ref;
     let mut loop_result = InstructionResult::Continue;
-    if let Some(n) = n.to_isize() {
-        if n <= 0 {
+    let mut new_val_c = new_val.to_char();
+    while new_val_c == ';' {
+        // skip what must be skipped
+        // fake-execute!
+        let old_loc = ip.location;
+        ip.location = new_loc;
+        exec_instruction(new_val, ip, space, env);
+        let (new_loc2, new_val_ref) = space.move_by(ip.location, ip.delta);
+        new_loc = new_loc2;
+        new_val = *new_val_ref;
+        ip.location = old_loc;
+        new_val_c = new_val.to_char();
+    }
+    if let Some(n) = n.to_usize() {
+        if n == 0 {
             // surprising behaviour! 1k leads to the next instruction
             // being executed twice, 0k to it being skipped
             ip.location = new_loc;
             loop_result = InstructionResult::Continue;
         } else {
-            let mut new_val_c = new_val.to_char();
-            while new_val_c == ';' {
-                // skip what must be skipped
-                // fake-execute!
-                let old_loc = ip.location;
-                ip.location = new_loc;
-                exec_instruction(new_val, ip, space, env);
-                let (new_loc2, new_val_ref) = space.move_by(ip.location, ip.delta);
-                new_loc = new_loc2;
-                new_val = *new_val_ref;
-                ip.location = old_loc;
-                new_val_c = new_val.to_char();
-            }
             for _ in 0..n {
                 match exec_instruction(new_val, ip, space, env) {
                     InstructionResult::Continue => {}
@@ -81,7 +81,7 @@ where
             }
         }
     } else {
-        // Reflect on overflow
+        // Reflect on over- or underflow
         ip.reflect();
     }
     loop_result
