@@ -2,14 +2,13 @@ a#vkt    'p,@,r'
   >      'c,@
 
 Inspired by a cfunge test: what happens when you repeat t?
-cfunge and pyfunge show the arguably correct behaviour, printing
+cfunge, pyfunge and rfunge show the arguably correct behaviour, printing
     pccccccccccr
 rcfunge appears to send some of the child IPs in the wrong direction?
     ppppppcccccr
 CCBI appears to split twice at the t (should be at the k?) and ends up
 with 4 IPs
     pprr
-rfunge splits twice, once at the t and once at the k, and ends up with
-3 IPs
+rfunge previously (erroneously) split twice, once at the t and once at the k:
     pcr
 
