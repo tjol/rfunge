@@ -70,9 +70,14 @@ where
             ip.location = new_loc;
             loop_result = InstructionResult::Continue;
         } else {
+            let mut forks = 0;
             for _ in 0..n {
                 match exec_instruction(new_val, ip, space, env) {
                     InstructionResult::Continue => {}
+                    InstructionResult::Fork(n) => {
+                        forks += n;
+                        loop_result = InstructionResult::Fork(forks)
+                    }
                     res => {
                         loop_result = res;
                         break;

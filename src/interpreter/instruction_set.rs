@@ -40,8 +40,8 @@ pub enum InstructionResult {
     StayPut,
     /// Continue processing within the same tick (only used by `;`)
     Skip,
-    /// Spawn a new IP (only used by `t`)
-    Fork,
+    /// Spawn new IPs (only used by `t`... and `kt`)
+    Fork(i32),
     /// Stop this IP (only used by `@`)
     Stop,
     /// Exit the program with a supplied code (only used by `q`)
@@ -217,7 +217,7 @@ where
     match raw_instruction.try_to_char() {
         Some(' ') => InstructionResult::Skip,
         Some('@') => InstructionResult::Stop,
-        Some('t') => InstructionResult::Fork,
+        Some('t') => InstructionResult::Fork(1),
         Some('q') => InstructionResult::Exit(ip.pop().to_i32().unwrap_or(-1)),
         Some('#') => {
             // Trampoline

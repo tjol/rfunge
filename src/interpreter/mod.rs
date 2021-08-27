@@ -193,26 +193,27 @@ where
                         InstructionResult::Panic => {
                             return ProgramResult::Panic;
                         }
-                        InstructionResult::Fork => {
-                            // Find an ID for the new IP
-                            let new_id = self.ips.iter().map(|ip| ip.id).max().unwrap() + 1.into();
-                            let ip = &mut self.ips[ip_idx]; // re-borrow
-                                                            // Create the IP
-                            let mut new_ip = ip.clone();
-                            new_ip.id = new_id;
-                            new_ip.delta = ip.delta * (-1).into();
-                            let (new_loc, _) = self.space.move_by(ip.location, new_ip.delta);
-                            new_ip.location = new_loc;
-                            new_ips.push((ip_idx, new_ip));
-                            // Move the parent along
+                        InstructionResult::Fork(n_forks) => {
+                            // Make sure the IPs move correctly.
                             ip.must_advance = true;
+                            // Find an ID for the new IP
+                            let mut new_id =
+                                self.ips.iter().map(|ip| ip.id).max().unwrap() + 1.into();
+                            for _ in 0..n_forks {
+                                let ip = &mut self.ips[ip_idx]; // re-borrow
+                                let mut new_ip = ip.clone(); // Create the IP
+                                new_ip.id = new_id;
+                                new_id += 1.into();
+                                new_ip.delta = ip.delta * (-1).into();
+                                new_ips.push((ip_idx, new_ip));
+                            }
                         }
                     }
                 }
             }
 
             // handle forks
-            for (ip_idx, new_ip) in new_ips.drain(0..) {
+            for (ip_idx, new_ip) in new_ips.drain(0..).rev() {
                 self.ips.insert(ip_idx, new_ip);
                 // Fix ip indices in stopped_ips
                 for idx in stopped_ips.iter_mut() {
