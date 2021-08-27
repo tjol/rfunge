@@ -49,10 +49,9 @@ EXCLUDE_TESTS=(
 #    MODU2.b98 # reasonable people can disagree
 #
 # For Funge++:
-#    input_reflects.b98 # hangs (ERROR)
 #    FIXP.b98 # not implemented
-#    FPDP.b98 # not implemented
-#    FPSP.b98 # not implemented
+#    FPDP.b98 # different output format
+#    FPSP.b98 # different output format
 #    FPRT.b98 # not implemented
 #    JSTR.b98 # not implemented
 #    LONG.b98 # not implemented
