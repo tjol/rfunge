@@ -93,18 +93,20 @@ where
     /// Stops at the next non-space character, and returns a tuple of the
     /// index of the new position and (a reference to) the value found there.
     ///
-    /// Does not skip over `;` cells
+    /// Need not skip over `;` cells
     fn move_by(&self, start: Idx, delta: Idx) -> (Idx, &Self::Output);
 
-    /// Get the minimum index with a non-space value, meaning the largest index
-    /// such that all data/code is at larger indices.
+    /// Get the least index of the funge-space, meaning the largest index
+    /// such that there is no data/code at lesser indices in any cardinal
+    /// direction
     /// (See also [FungeIndex::joint_min()])
     ///
     /// Returns `None` when there is no data/code
     fn min_idx(&self) -> Option<Idx>;
 
-    /// Get the minimum index with a non-space value, meaning the largest index
-    /// such that all data/code is at larger indices.
+    /// Get the greatest index of the funge-space, meaning the smallest index
+    /// such that there is no data/code at greater indices in any cardinal
+    /// direction
     /// (See also [FungeIndex::joint_max()])
     ///
     /// Returns `None` when there is no data/code
