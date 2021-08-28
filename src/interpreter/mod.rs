@@ -160,30 +160,22 @@ where
                 location_log.truncate(0);
                 while go_again {
                     let ip = &mut self.ips[ip_idx];
-                    let instruction = if ip.must_advance {
-                        let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
-                        // Check that this loop is not infinite
-                        if location_log.iter().any(|l| *l == new_loc) {
-                            return ProgramResult::Panic;
-                        } else {
-                            location_log.push(new_loc);
-                        }
-                        ip.location = new_loc;
-                        ip.must_advance = false;
-                        *new_val
+                    let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
+                    // Check that this loop is not infinite
+                    if location_log.iter().any(|l| *l == new_loc) {
+                        return ProgramResult::Panic;
                     } else {
-                        self.space[ip.location]
-                    };
+                        location_log.push(new_loc);
+                    }
+                    ip.location = new_loc;
+                    let instruction = *new_val;
+
                     go_again = false;
                     match exec_instruction(instruction, ip, &mut self.space, &mut self.env) {
-                        InstructionResult::Continue => {
-                            ip.must_advance = true;
-                        }
+                        InstructionResult::Continue => {}
                         InstructionResult::Skip => {
-                            ip.must_advance = true;
                             go_again = true;
                         }
-                        InstructionResult::StayPut => (),
                         InstructionResult::Stop => {
                             stopped_ips.push(ip_idx);
                         }
@@ -194,8 +186,6 @@ where
                             return ProgramResult::Panic;
                         }
                         InstructionResult::Fork(n_forks) => {
-                            // Make sure the IPs move correctly.
-                            ip.must_advance = true;
                             // Find an ID for the new IP
                             let mut new_id =
                                 self.ips.iter().map(|ip| ip.id).max().unwrap() + 1.into();

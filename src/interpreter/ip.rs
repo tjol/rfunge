@@ -49,7 +49,6 @@ where
     /// The currently available
     pub instructions: InstructionSet<Idx, Space, Env>,
     /// Does the IP have to move before its next turn?
-    pub must_advance: bool,
     /// If instructions or fingerprints need to store additional data with the
     /// IP, put them here.
     pub private_data: HashMap<String, Rc<dyn Any>>,
@@ -72,7 +71,6 @@ where
             storage_offset: self.storage_offset,
             stack_stack: self.stack_stack.clone(),
             instructions: self.instructions.clone(),
-            must_advance: self.must_advance,
             private_data: self.private_data.clone(),
         }
     }
@@ -99,12 +97,11 @@ where
     fn new_ip() -> InstructionPointer<T, Space, Env> {
         InstructionPointer {
             id: 0.into(),
-            location: 0.into(),
+            location: (-1).into(),
             delta: 1.into(),
             storage_offset: 0.into(),
             stack_stack: vec![Vec::new()],
             instructions: InstructionSet::new(),
-            must_advance: false,
             private_data: HashMap::new(),
         }
     }
@@ -119,12 +116,11 @@ where
     fn new_ip() -> InstructionPointer<BefungeVec<T>, Space, Env> {
         InstructionPointer {
             id: 0.into(),
-            location: bfvec(0, 0),
+            location: bfvec(-1, 0),
             delta: bfvec(1, 0),
             storage_offset: bfvec(0, 0),
             stack_stack: vec![Vec::new()],
             instructions: InstructionSet::new(),
-            must_advance: false,
             private_data: HashMap::new(),
         }
     }

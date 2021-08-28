@@ -36,8 +36,6 @@ use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 pub enum InstructionResult {
     /// Continue processing
     Continue,
-    /// Continue processing, but don't move before the next iteration
-    StayPut,
     /// Continue processing within the same tick (only used by `;`)
     Skip,
     /// Spawn new IPs (only used by `t`... and `kt`)
@@ -215,14 +213,21 @@ where
     Env: InterpreterEnv,
 {
     match raw_instruction.try_to_char() {
-        Some(' ') => InstructionResult::Skip,
-        Some('@') => InstructionResult::Stop,
-        Some('t') => InstructionResult::Fork(1),
-        Some('q') => InstructionResult::Exit(ip.pop().to_i32().unwrap_or(-1)),
+        Some(' ') => {
+            return InstructionResult::Skip;
+        }
+        Some('@') => {
+            return InstructionResult::Stop;
+        }
+        Some('t') => {
+            return InstructionResult::Fork(1);
+        }
+        Some('q') => {
+            return InstructionResult::Exit(ip.pop().to_i32().unwrap_or(-1));
+        }
         Some('#') => {
             // Trampoline
             ip.location = ip.location + ip.delta;
-            InstructionResult::Continue
         }
         Some(';') => {
             loop {
@@ -232,59 +237,48 @@ where
                     break;
                 }
             }
-            InstructionResult::Skip
+            return InstructionResult::Skip;
         }
         Some('$') => {
             ip.pop();
-            InstructionResult::Continue
         }
         Some('n') => {
             ip.stack_mut().drain(0..);
-            InstructionResult::Continue
         }
         Some('\\') => {
             let a = ip.pop();
             let b = ip.pop();
             ip.push(a);
             ip.push(b);
-            InstructionResult::Continue
         }
         Some(':') => {
             let n = ip.pop();
             ip.push(n);
             ip.push(n);
-            InstructionResult::Continue
         }
         Some(digit) if ('0'..='9').contains(&digit) => {
             ip.push(((digit as i32) - ('0' as i32)).into());
-            InstructionResult::Continue
         }
         Some(digit) if ('a'..='f').contains(&digit) => {
             ip.push((0xa + (digit as i32) - ('a' as i32)).into());
-            InstructionResult::Continue
         }
         Some('"') => {
             ip.instructions.mode = InstructionMode::String;
-            ip.location = ip.location + ip.delta;
-            InstructionResult::StayPut
         }
         Some('\'') => {
             let loc = ip.location + ip.delta;
             ip.push(space[loc]);
             ip.location = loc;
-            InstructionResult::Continue
         }
         Some('s') => {
             let loc = ip.location + ip.delta;
             space[loc] = ip.pop();
             ip.location = loc;
-            InstructionResult::Continue
         }
         Some('.') => {
             if write!(env.output_writer(), "{} ", ip.pop()).is_err() {
                 env.warn("IO Error");
             }
-            InstructionResult::Continue
         }
         Some(',') => {
             let c = ip.pop();
@@ -299,7 +293,6 @@ where
             {
                 env.warn("IO Error");
             }
-            InstructionResult::Continue
         }
         Some('~') => {
             match env.get_iomode() {
@@ -319,7 +312,6 @@ where
                     }
                 }
             };
-            InstructionResult::Continue
         }
         Some('&') => {
             let mut s = String::new();
@@ -333,66 +325,54 @@ where
             } else {
                 ip.reflect();
             }
-            InstructionResult::Continue
         }
         Some('+') => {
             let b = ip.pop();
             let a = ip.pop();
             ip.push(a + b);
-            InstructionResult::Continue
         }
         Some('-') => {
             let b = ip.pop();
             let a = ip.pop();
             ip.push(a - b);
-            InstructionResult::Continue
         }
         Some('*') => {
             let b = ip.pop();
             let a = ip.pop();
             ip.push(a * b);
-            InstructionResult::Continue
         }
         Some('/') => {
             let b = ip.pop();
             let a = ip.pop();
             ip.push(if b != 0.into() { a / b } else { 0.into() });
-            InstructionResult::Continue
         }
         Some('%') => {
             let b = ip.pop();
             let a = ip.pop();
             ip.push(if b != 0.into() { a % b } else { 0.into() });
-            InstructionResult::Continue
         }
         Some('`') => {
             let b = ip.pop();
             let a = ip.pop();
             ip.push(if a > b { 1.into() } else { 0.into() });
-            InstructionResult::Continue
         }
         Some('!') => {
             let v = ip.pop();
             ip.push(if v == 0.into() { 1.into() } else { 0.into() });
-            InstructionResult::Continue
         }
         Some('j') => {
             ip.location = ip.location + ip.delta * ip.pop();
-            InstructionResult::Continue
         }
         Some('x') => {
             ip.delta = MotionCmds::pop_vector(ip);
-            InstructionResult::Continue
         }
         Some('p') => {
             let loc = MotionCmds::pop_vector(ip) + ip.storage_offset;
             space[loc] = ip.pop();
-            InstructionResult::Continue
         }
         Some('g') => {
             let loc = MotionCmds::pop_vector(ip) + ip.storage_offset;
             ip.push(space[loc]);
-            InstructionResult::Continue
         }
         Some('(') => {
             let count = ip.pop().to_usize().unwrap_or(0);
@@ -411,7 +391,6 @@ where
             } else {
                 ip.reflect();
             }
-            InstructionResult::Continue
         }
         Some(')') => {
             let count = ip.pop().to_usize().unwrap_or(0);
@@ -430,37 +409,34 @@ where
             } else {
                 ip.reflect();
             }
-            InstructionResult::Continue
         }
         Some('r') => {
             ip.reflect();
-            InstructionResult::Continue
         }
-        Some('z') => InstructionResult::Continue,
+        Some('z') => {}
         Some(c) => {
             if MotionCmds::apply_delta(c, ip) {
-                InstructionResult::Continue
+                // ok
             } else if let Some(instr_fn) = ip.instructions.get_instruction(raw_instruction) {
-                (instr_fn)(ip, space, env)
+                return (instr_fn)(ip, space, env);
             } else {
                 ip.reflect();
                 env.warn(&format!("Unknown instruction: '{}'", c));
-                InstructionResult::Continue
             }
         }
         None => {
             ip.reflect();
             env.warn("Unknown non-Unicode instruction!");
-            InstructionResult::Continue
         }
     }
+    InstructionResult::Continue
 }
 
 #[inline]
 fn exec_string_instruction<Idx, Space, Env>(
     raw_instruction: Space::Output,
     ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
+    space: &mut Space,
     _env: &mut Env,
 ) -> InstructionResult
 where
@@ -469,24 +445,22 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
+    // did we just skip over a space?
+    let prev_loc = ip.location - ip.delta;
+    let prev_val = space[prev_loc];
+    if prev_val == (' ' as i32).into() {
+        ip.push(prev_val);
+    }
     match raw_instruction.to_char() {
         '"' => {
             ip.instructions.mode = InstructionMode::Normal;
-            InstructionResult::Continue
-        }
-        ' ' => {
-            ip.push(raw_instruction);
-            // skip over the following spaces
-            InstructionResult::Continue
         }
         _ => {
-            // Some other character
+            // Push this character.
             ip.push(raw_instruction);
-            // Do not skip over the following spaces
-            ip.location = ip.location + ip.delta;
-            InstructionResult::StayPut
         }
     }
+    InstructionResult::Continue
 }
 
 #[cfg(test)]
