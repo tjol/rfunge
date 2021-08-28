@@ -171,13 +171,10 @@ where
             idx_in_page = idx.rem_euclid(self.page_size);
 
             let this_page = &self.pages[&page_idx];
-            match self.scan_within_page(this_page, &idx, &page_idx, &idx_in_page, &delta) {
-                Ok(result) => {
-                    return result;
-                }
-                Err(_) => {
-                    // Not found, move on
-                }
+            if let Ok(result) =
+                self.scan_within_page(this_page, &idx, &page_idx, &idx_in_page, &delta)
+            {
+                return result;
             }
         }
 

@@ -152,23 +152,17 @@ where
     // scope to limit the lifetime of sl
     let mut sl = get_socketlist(ip);
     for (i, s) in sl.iter().enumerate() {
-        match s {
-            None => {
-                sock_idx = Some(i);
-                break;
-            }
-            _ => {}
+        if s.is_none() {
+            sock_idx = Some(i);
+            break;
         }
     }
-    match sock_idx {
-        Some(i) => {
-            sl[i] = Some(socket);
-            i
-        }
-        None => {
-            sl.push(Some(socket));
-            sl.len() - 1
-        }
+    if let Some(i) = sock_idx {
+        sl[i] = Some(socket);
+        i
+    } else {
+        sl.push(Some(socket));
+        sl.len() - 1
     }
 }
 
@@ -571,8 +565,8 @@ where
     let count = ip.pop().to_usize().unwrap_or_default();
     let mut loc = MotionCmds::pop_vector(ip);
     let mut buf = vec![0_u8; count];
-    for idx in 0..count {
-        buf[idx] = (space[loc] & 0xff.into()).to_u8().unwrap_or_default();
+    for elem in buf.iter_mut().take(count) {
+        *elem = (space[loc] & 0xff.into()).to_u8().unwrap_or_default();
         loc = loc.one_further();
     }
 
@@ -583,7 +577,7 @@ where
         .and_then(|mut sock| sock.write_all(&buf).ok());
 
     if write_result.is_some() {
-        ip.push(FromPrimitive::from_usize(buf.len()).unwrap_or(0.into()));
+        ip.push(FromPrimitive::from_usize(buf.len()).unwrap_or_else(|| 0.into()));
     } else {
         ip.reflect();
     }

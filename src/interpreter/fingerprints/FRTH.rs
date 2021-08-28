@@ -16,6 +16,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::cmp::Ordering;
+
 use hashbrown::HashMap;
 use num::{FromPrimitive, ToPrimitive, Zero};
 
@@ -99,26 +101,29 @@ where
 {
     let stack = ip.stack_mut();
     let u = stack.pop().and_then(|v| v.to_isize()).unwrap_or_default();
-    if u > Zero::zero() {
-        // roll mode
-        let u = u as usize;
-        let l = stack.len();
-        let v = if u < l {
-            stack.remove(l - 1 - u)
-        } else {
-            Zero::zero()
-        };
-        ip.push(v);
-    } else if u < Zero::zero() {
-        // -roll mode
-        let u = (-u) as usize;
-        let v = stack.pop().unwrap_or(Zero::zero());
-        while stack.len() < u {
-            stack.insert(0, Zero::zero());
+    match u.cmp(&Zero::zero()) {
+        Ordering::Greater => {
+            // roll mode
+            let u = u as usize;
+            let l = stack.len();
+            let v = if u < l {
+                stack.remove(l - 1 - u)
+            } else {
+                Zero::zero()
+            };
+            ip.push(v);
         }
-        stack.insert(stack.len() - u, v);
+        Ordering::Less => {
+            // -roll mode
+            let u = (-u) as usize;
+            let v = stack.pop().unwrap_or_else(Zero::zero);
+            while stack.len() < u {
+                stack.insert(0, Zero::zero());
+            }
+            stack.insert(stack.len() - u, v);
+        }
+        _ => {}
     }
-
     InstructionResult::Continue
 }
 
