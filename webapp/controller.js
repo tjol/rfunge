@@ -1,4 +1,4 @@
-import initRFunge, {BefungeInterpreter} from './rfunge_wasm/rfunge.js'
+import initRFunge, { BefungeInterpreter } from './rfunge_wasm/rfunge.js'
 
 let wasmInitialized = false
 
@@ -7,7 +7,7 @@ let ticksPerCall = 1000
 export class RFungeController {
   constructor (host) {
     this._host = host
-    this._mustStop = false
+    this._stopRequest = null
   }
 
   async init () {
@@ -25,11 +25,13 @@ export class RFungeController {
   warn (msg) {}
 
   run () {
-    new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const continueRunning = () => {
-        if (this._mustStop) {
-          this._mustStop = false
+        if (this._stopRequest != null) {
+          let callback = this._stopRequest
+          this._stopRequest = null
           reject(new InterpreterStopped())
+          callback()
           return
         }
         // Execute tickPerCall instructions and meausure how long it took
@@ -59,25 +61,32 @@ export class RFungeController {
           setTimeout(continueRunning, 0)
         }
       }
+      this._mustStop = false
       continueRunning()
     })
   }
 
-  reset() {
-      this._interpreter.close()
-      this._interpreter = new BefungeInterpreter(this)
+  stop () {
+    return new Promise((resolve, _) => {
+      this._stopRequest = resolve
+    })
   }
 
-  setSrc(src) {
-      this._interpreter.loadSrc(src)
+  reset () {
+    this._interpreter.close()
+    this._interpreter = new BefungeInterpreter(this)
   }
 
-  getSrc() {
-      return this._interpreter.getSrc()
+  setSrc (src) {
+    this._interpreter.loadSrc(src)
   }
 
-  getSrcLines() {
-      return this._interpreter.getSrcLines()
+  getSrc () {
+    return this._interpreter.getSrc()
+  }
+
+  getSrcLines () {
+    return this._interpreter.getSrcLines()
   }
 
   get envVars () {

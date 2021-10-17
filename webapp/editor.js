@@ -22,7 +22,6 @@ export class RFungeEditor extends LitElement {
     switch (this.mode) {
       case RFungeMode.EDIT:
         return this.renderEditor()
-        break
       case RFungeMode.DEBUG:
       case RFungeMode.RUN:
         return this.renderDebugger()
@@ -36,7 +35,7 @@ export class RFungeEditor extends LitElement {
   }
   renderEditor () {
     return html`
-      <textarea ${ref(this._textArea)}>${this.src}</textarea>
+      <textarea ${ref(this._textArea)} .value="${this.src}"></textarea>
     `
   }
   renderDebugger () {
@@ -55,4 +54,3 @@ export class RFungeEditor extends LitElement {
   }
 }
 window.customElements.define('rfunge-editor', RFungeEditor)
-

@@ -1,6 +1,10 @@
 import { createRef, ref } from 'lit/directives/ref.js'
 import { html, css, LitElement } from 'lit'
-import { RFungeController, RFungeError } from './controller.js'
+import {
+  InterpreterStopped,
+  RFungeController,
+  RFungeError
+} from './controller.js'
 import { RFungeEditor } from './editor.js'
 import { RFungeMode } from './rfunge-common.js'
 
@@ -31,12 +35,21 @@ export class RFungeGui extends LitElement {
       <rfunge-editor ${ref(this.editor)} mode="${this.mode}"></rfunge-editor>
     `
     let buttonbar = ''
-    if (this.mode == RFungeMode.EDIT) {
-      buttonbar = html`
-        <nav>
-          <input type="button" @click="${this._run}" value="Run" />
-        </nav>
-      `
+    switch (this.mode) {
+      case RFungeMode.EDIT:
+        buttonbar = html`
+          <nav>
+            <input type="button" @click="${this._run}" value="Run" />
+          </nav>
+        `
+        break
+      case RFungeMode.RUN:
+        buttonbar = html`
+          <nav>
+            <input type="button" @click="${this._stop}" value="Stop" />
+          </nav>
+        `
+        break
     }
     let outputArea = html`
       <output-area ${ref(this.stdout)}></output-area>
@@ -47,13 +60,26 @@ export class RFungeGui extends LitElement {
   }
 
   async _run () {
-    this.mode = RFungeError.DEBUG
+    this.mode = RFungeMode.RUN
     this._controller.reset()
     let src = this.editor.value.getSrc()
     this._controller.setSrc(src)
-    await this._controller.run()
-    this.editor.value.src = this._controller.getSrc()
-    this.mode = RFungeMode.EDIT
+    try {
+      await this._controller.run()
+    } catch (e) {
+      if (e instanceof InterpreterStopped) {
+        console.log('Interpreter stopped at user request')
+      } else {
+        console.log(`An error occurred: ${e}`)
+      }
+    } finally {
+      this.editor.value.src = this._controller.getSrc()
+      this.mode = RFungeMode.EDIT
+    }
+  }
+
+  async _stop () {
+    this._controller.stop()
   }
 }
 window.customElements.define('rfunge-app', RFungeGui)
