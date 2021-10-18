@@ -22,7 +22,9 @@ export class RFungeController {
     this._host.stdout.value.write(s)
   }
 
-  warn (msg) {}
+  warn (msg) {
+    console.warn('RFunge warning: %s', msg)
+  }
 
   run () {
     return new Promise((resolve, reject) => {
@@ -47,7 +49,7 @@ export class RFungeController {
         } else {
           // Continue running
           // target 100ms per step
-          const timeFactor = dt / 100
+          const timeFactor = (dt + 1) / 100
           if (timeFactor > 2) {
             // too slow
             ticksPerCall = Math.floor(ticksPerCall / timeFactor)
@@ -55,6 +57,10 @@ export class RFungeController {
           } else if (timeFactor < 0.5) {
             // too fast
             ticksPerCall = Math.floor(ticksPerCall / timeFactor)
+
+            // prevent overflow on supercomputers (or with buggy WASM...)
+            if (ticksPerCall > 1 << 30) ticksPerCall = 1 << 30
+
             console.log(`adjusting to ${ticksPerCall} ticks per iteration`)
           }
           // go again

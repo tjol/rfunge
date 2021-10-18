@@ -48,7 +48,6 @@ where
     pub stack_stack: Vec<Vec<Space::Output>>,
     /// The currently available
     pub instructions: InstructionSet<Idx, Space, Env>,
-    /// Does the IP have to move before its next turn?
     /// If instructions or fingerprints need to store additional data with the
     /// IP, put them here.
     pub private_data: HashMap<String, Rc<dyn Any>>,

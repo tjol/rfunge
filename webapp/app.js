@@ -70,7 +70,7 @@ export class RFungeGui extends LitElement {
       if (e instanceof InterpreterStopped) {
         console.log('Interpreter stopped at user request')
       } else {
-        console.log(`An error occurred: ${e}`)
+        console.warn(`An error occurred: ${e}`)
       }
     } finally {
       this.editor.value.src = this._controller.getSrc()

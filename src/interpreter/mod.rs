@@ -65,6 +65,8 @@ pub enum RunMode {
     Run,
     /// Execute a single tick (for all IPs)
     Step,
+    /// Run up to a certain number of instructions
+    Limited(u32),
 }
 
 /// State of an rfunge interpreter
@@ -153,6 +155,7 @@ where
         let mut stopped_ips = Vec::new();
         let mut new_ips = Vec::new();
         let mut location_log = Vec::new();
+        let mut counter: u32 = 0;
 
         loop {
             for ip_idx in 0..self.ips.len() {
@@ -222,8 +225,15 @@ where
                 return ProgramResult::Done(0);
             }
 
-            if mode == RunMode::Step {
-                return ProgramResult::Paused;
+            match mode {
+                RunMode::Run => (),
+                RunMode::Step => return ProgramResult::Paused,
+                RunMode::Limited(max_instructions) => {
+                    counter += 1;
+                    if counter >= max_instructions {
+                        return ProgramResult::Paused
+                    }
+                }
             }
         }
     }

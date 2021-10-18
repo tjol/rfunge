@@ -31,10 +31,6 @@ use crate::{
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use wasm_bindgen::JsCast;
 
-// Use `wee_alloc` as the global allocator.
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 use std::cmp::min;
 use std::io;
 use std::io::{Read, Write};
@@ -180,16 +176,11 @@ impl BefungeInterpreter {
     }
 
     pub fn run_limited(&mut self, loop_limit: u32) -> Option<i32> {
-        for _ in 0..loop_limit {
-            match self.interpreter.run(RunMode::Step) {
-                ProgramResult::Done(returncode) => {
-                    return Some(returncode);
-                }
-                ProgramResult::Panic => return Some(-1),
-                ProgramResult::Paused => {}
-            }
+        match self.interpreter.run(RunMode::Limited(loop_limit)) {
+            ProgramResult::Done(returncode) => Some(returncode),
+            ProgramResult::Panic => Some(-1),
+            ProgramResult::Paused => None,
         }
-        None
     }
 
     pub fn step(&mut self) -> Option<i32> {
@@ -200,7 +191,7 @@ impl BefungeInterpreter {
         }
     }
 
-    #[wasm_bindgen(js_name = "ipCount")]
+    #[wasm_bindgen(getter, js_name = "ipCount")]
     pub fn ip_count(&self) -> usize {
         self.interpreter.ips.len()
     }
@@ -209,6 +200,19 @@ impl BefungeInterpreter {
     pub fn ip_location(&self, ip_idx: usize) -> Option<Vec<i32>> {
         let loc = self.interpreter.ips.get(ip_idx)?.location;
         Some(vec![loc.x, loc.y])
+    }
+
+    #[wasm_bindgen(js_name = "ipDelta")]
+    pub fn ip_delta(&self, ip_idx: usize) -> Option<Vec<i32>> {
+        let d = self.interpreter.ips.get(ip_idx)?.delta;
+        Some(vec![d.x, d.y])
+    }
+
+    #[wasm_bindgen(js_name = "projectedIpLocation")]
+    pub fn projected_ip_location(&self, ip_idx: usize) -> Option<Vec<i32>> {
+        let ip = self.interpreter.ips.get(ip_idx)?;
+        let (next_loc, _) = self.interpreter.space.move_by(ip.location, ip.delta);
+        Some(vec![next_loc.x, next_loc.y])
     }
 
     #[wasm_bindgen(js_name = "stackCount")]
@@ -220,6 +224,7 @@ impl BefungeInterpreter {
             .unwrap_or(0)
     }
 
+    /// Get a stack; TOSS is the stack_idx = 0
     #[wasm_bindgen(js_name = "getStack")]
     pub fn get_stack(&self, ip_idx: usize, stack_idx: usize) -> Option<Vec<i32>> {
         self.interpreter
