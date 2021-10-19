@@ -1,16 +1,19 @@
+// lib
 import { createRef, ref } from 'lit/directives/ref.js'
 import { html, css, LitElement } from 'lit'
-import {
-  InterpreterStopped,
-  RFungeController,
-  RFungeError
-} from './controller.js'
-import { RFungeEditor } from './editor.js'
+
+// project (js)
+import { InterpreterStopped, RFungeController } from './controller.js'
 import { RFungeMode } from './rfunge-common.js'
 
+// project (web components)
+import { RFungeEditor } from './editor.js'
+import { StackWindow } from './stack-window.js'
+
 export class RFungeGui extends LitElement {
-  editor = createRef()
-  stdout = createRef()
+  editorRef = createRef()
+  stdoutRef = createRef()
+  stackWindowRef = createRef()
 
   static properties = {
     mode: { type: Number }
@@ -32,7 +35,7 @@ export class RFungeGui extends LitElement {
 
   render () {
     let editor = html`
-      <rfunge-editor ${ref(this.editor)} mode="${this.mode}"></rfunge-editor>
+      <rfunge-editor ${ref(this.editorRef)} mode="${this.mode}"></rfunge-editor>
     `
     let buttonbar = ''
     switch (this.mode) {
@@ -40,6 +43,11 @@ export class RFungeGui extends LitElement {
         buttonbar = html`
           <nav>
             <input type="button" @click="${this._run}" value="Run" />
+            <input
+              type="button"
+              @click="${this._startDebugger}"
+              value="Debug"
+            />
           </nav>
         `
         break
@@ -50,23 +58,49 @@ export class RFungeGui extends LitElement {
           </nav>
         `
         break
+      case RFungeMode.DEBUG:
+        buttonbar = html`
+          <nav>
+            <input type="button" @click="${this._step}" value="Step" />
+            <input type="button" @click="${this._stopDebugger}" value="Abort" />
+          </nav>
+        `
+        break
+      case RFungeMode.DEBUG_FINISHED:
+        buttonbar = html`
+          <nav>
+            <input
+              type="button"
+              @click="${this._closeDebugger}"
+              value="Close Debugger"
+            />
+          </nav>
+        `
+        break
     }
     let outputArea = html`
-      <output-area ${ref(this.stdout)}></output-area>
+      <output-area ${ref(this.stdoutRef)}></output-area>
+    `
+    let stackWindow = html`
+      <rfunge-stack-window
+        ${ref(this.stackWindowRef)}
+        mode="${this.mode}"
+      ></rfunge-stack-window>
     `
     return html`
-      ${editor}${buttonbar}${outputArea}
+      ${editor}${buttonbar}${outputArea}${stackWindow}
     `
   }
 
   async _run () {
     this.mode = RFungeMode.RUN
     this._controller.reset()
-    let src = this.editor.value.getSrc()
+    let src = this.editorRef.value.getSrc()
     this._controller.setSrc(src)
-    this.editor.value.srcLines = this._controller.getSrcLines()
+    this.editorRef.value.srcLines = this._controller.getSrcLines()
     try {
-      await this._controller.run()
+      let result = await this._controller.run()
+      this._done(result)
     } catch (e) {
       if (e instanceof InterpreterStopped) {
         console.log('Interpreter stopped at user request')
@@ -74,12 +108,51 @@ export class RFungeGui extends LitElement {
         console.warn(`An error occurred: ${e}`)
       }
     } finally {
-      this.editor.value.src = src // replace the original source code
+      this.editorRef.value.src = src // replace the original source code
       this.mode = RFungeMode.EDIT
     }
   }
 
-  async _stop () {
+  _done (result) {
+    this.stdoutRef.value.writeLine(`\nFinished with code ${result}`)
+  }
+
+  _startDebugger () {
+    this.mode = RFungeMode.DEBUG
+    this._controller.reset()
+    let src = this.editorRef.value.getSrc()
+    this._origSrc = src
+    this._controller.setSrc(src)
+    this.editorRef.value.srcLines = this._controller.getSrcLines()
+    this.editorRef.value.cursors = this._controller.getCursors()
+  }
+
+  _step () {
+    let result = this._controller.step()
+    if (result != null) {
+      // process ended
+      this._done(result)
+      this.mode = RFungeMode.DEBUG_FINISHED
+    }
+    // update state
+    this.editorRef.value.srcLines = this._controller.getSrcLines()
+    this.editorRef.value.cursors = this._controller.getCursors()
+    this.stackWindowRef.value.stacks = this._controller.getStacks()
+  }
+
+  _stopDebugger () {
+    // free up memory, maybe
+    this._controller.reset()
+    // reset UI
+    this._closeDebugger()
+  }
+
+  _closeDebugger () {
+    this.editorRef.value.src = this._origSrc // replace the original source code
+    this.mode = RFungeMode.EDIT
+  }
+
+  _stop () {
     this._controller.stop()
   }
 }
@@ -116,5 +189,4 @@ class OutputArea extends LitElement {
     }
   `
 }
-
 window.customElements.define('output-area', OutputArea)

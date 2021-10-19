@@ -25,6 +25,7 @@ export class RFungeEditor extends LitElement {
       case RFungeMode.EDIT:
         return this.renderEditor()
       case RFungeMode.DEBUG:
+      case RFungeMode.DEBUG_FINISHED:
       case RFungeMode.RUN:
         return this.renderDebugger()
       case RFungeMode.INACTIVE:
@@ -41,16 +42,49 @@ export class RFungeEditor extends LitElement {
     `
   }
   renderDebugger () {
+    // Transpose (in a manner of speaking) the information about IP locations
+    let ipPositionClasses = {}
+    this.cursors.forEach((ipInfo, ipIndex) => {
+      const loc = Array.from(ipInfo.location)
+      if (!(loc in ipPositionClasses)) ipPositionClasses[loc] = []
+      ipPositionClasses[loc].push('ip-location')
+      ipPositionClasses[loc].push(`ip-${ipIndex}-location`)
+      const nextLoc = Array.from(ipInfo.projectedLocation)
+      if (!(nextLoc in ipPositionClasses)) ipPositionClasses[nextLoc] = []
+      ipPositionClasses[nextLoc].push('ip-next-location')
+      ipPositionClasses[nextLoc].push(`ip-${ipIndex}-next-location`)
+    })
+
+    // render the content
     return html`
-    <div class="debug-src">
-    ${this.srcLines.map(line => html`<p>${
-      Array.from(line).map(c => {
-        if (c == ' ') return html`<span class="cell space">\xa0</span>`
-        else if (c.match(/\p{Z}|\p{C}/u)) return html`<span class="cell as-number">${c.codePointAt(0)}</span>`
-        else return html`<span class="cell">${c}</span>`
-      })
-    }</p>`)}
-    </div>
+      <div class="debug-src">
+        ${this.srcLines.map(
+          (line, y) =>
+            html`
+              <p>
+                ${Array.from(line).map((c, x) => {
+                  let classes = ["cell"]
+                  const pos = [x,y]
+                  if (pos in ipPositionClasses) {
+                    classes.push(...ipPositionClasses[pos])
+                  }
+                  if (c == ' ')
+                    return html`
+                      <span class="${classes.join(" ")} space"> </span>
+                    `
+                  else if (c.match(/\p{Z}|\p{C}/u))
+                    return html`
+                      <span class="${classes.join(" ")} as-number">${c.codePointAt(0)}</span>
+                    `
+                  else
+                    return html`
+                      <span class="${classes.join(" ")}">${c}</span>
+                    `
+                })}
+              </p>
+            `
+        )}
+      </div>
     `
   }
 
@@ -64,20 +98,26 @@ export class RFungeEditor extends LitElement {
   }
 
   static styles = css`
-  .debug-src {
-    font-family: monospace;
-    font-size: 1.1em;
-  }
-  .debug-src p {
-    margin: 0;
-    padding: 0;
-    margin-bottom: 0.2em;
-  }
-  .cell {
-    display: inline-block;
-    width: 1em;
-    text-align: center;
-  }
-`
+    .debug-src {
+      font-family: monospace;
+      font-size: 1.1em;
+    }
+    .debug-src p {
+      margin: 0;
+      padding: 0;
+      margin-bottom: 0.2em;
+    }
+    .cell {
+      display: inline-block;
+      width: 1em;
+      text-align: center;
+    }
+    .ip-next-location {
+      background: pink;
+    }
+    .ip-location {
+      background: lavenderblush;
+    }
+  `
 }
 window.customElements.define('rfunge-editor', RFungeEditor)

@@ -19,7 +19,7 @@ export class RFungeController {
   }
 
   writeOutput (s) {
-    this._host.stdout.value.write(s)
+    this._host.stdoutRef.value.write(s)
   }
 
   warn (msg) {
@@ -72,6 +72,10 @@ export class RFungeController {
     })
   }
 
+  step() {
+    return this._interpreter.step()
+  }
+
   stop () {
     return new Promise((resolve, _) => {
       this._stopRequest = resolve
@@ -93,6 +97,33 @@ export class RFungeController {
 
   getSrcLines () {
     return this._interpreter.getSrcLines()
+  }
+
+  getCursors () {
+    const ipCount = this._interpreter.ipCount
+    let cursors = []
+    for (let i = 0; i < ipCount; ++i) {
+      cursors.push({
+        location: this._interpreter.ipLocation(i),
+        delta: this._interpreter.ipDelta(i),
+        projectedLocation: this._interpreter.projectedIpLocation(i)
+      })
+    }
+    return cursors
+  }
+
+  getStacks () {
+    const ipCount = this._interpreter.ipCount
+    let stackStackStack = []
+    for (let i = 0; i < ipCount; ++i) {
+      const stackCount = this._interpreter.stackCount(i)
+      let stackStack = []
+      for (let j = 0; j < stackCount; ++j) {
+        stackStack.push(this._interpreter.getStack(i, j))
+      }
+      stackStackStack.push(stackStack)
+    }
+    return stackStackStack
   }
 
   get envVars () {
