@@ -45,11 +45,11 @@ export class RFungeEditor extends LitElement {
     // Transpose (in a manner of speaking) the information about IP locations
     let ipPositionClasses = {}
     this.cursors.forEach((ipInfo, ipIndex) => {
-      const loc = Array.from(ipInfo.location)
+      const loc = ipInfo.location
       if (!(loc in ipPositionClasses)) ipPositionClasses[loc] = []
       ipPositionClasses[loc].push('ip-location')
       ipPositionClasses[loc].push(`ip-${ipIndex}-location`)
-      const nextLoc = Array.from(ipInfo.projectedLocation)
+      const nextLoc = ipInfo.projectedLocation
       if (!(nextLoc in ipPositionClasses)) ipPositionClasses[nextLoc] = []
       ipPositionClasses[nextLoc].push('ip-next-location')
       ipPositionClasses[nextLoc].push(`ip-${ipIndex}-next-location`)
@@ -98,19 +98,29 @@ export class RFungeEditor extends LitElement {
   }
 
   static styles = css`
+    textarea {
+      font-size: 1.1rem;
+      width: 80%;
+      min-height: 25rem;
+    }
     .debug-src {
       font-family: monospace;
-      font-size: 1.1em;
+      font-size: 1.1rem;
+      overflow-x: auto;
     }
     .debug-src p {
       margin: 0;
       padding: 0;
-      margin-bottom: 0.2em;
+      margin-bottom: 0.2rem;
     }
     .cell {
       display: inline-block;
-      width: 1em;
+      width: 1rem;
       text-align: center;
+    }
+    .cell.as-number {
+      font-size: 0.5rem;
+      word-break: break-all;
     }
     .ip-next-location {
       background: pink;

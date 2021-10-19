@@ -256,7 +256,7 @@ impl BefungeInterpreter {
                     &self.interpreter.space,
                     &bfvec(start.x, y),
                     &bfvec(line_len, 1),
-                    true,
+                    false,
                 )
             })
             .map(|s| JsValue::from_str(&s))
