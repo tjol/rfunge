@@ -8,6 +8,7 @@ export class RFungeEditor extends LitElement {
   static properties = {
     mode: { type: Number },
     src: { type: String },
+    srcLines: { type: Array },
     cursors: { type: Array }
   }
 
@@ -15,6 +16,7 @@ export class RFungeEditor extends LitElement {
     super()
     this.mode = RFungeMode.EDIT
     this.src = ''
+    this.srdLines = []
     this.cursors = []
   }
 
@@ -40,7 +42,15 @@ export class RFungeEditor extends LitElement {
   }
   renderDebugger () {
     return html`
-      <p>Debugger goes here</p>
+    <div class="debug-src">
+    ${this.srcLines.map(line => html`<p>${
+      Array.from(line).map(c => {
+        if (c == ' ') return html`<span class="cell space">\xa0</span>`
+        else if (c.match(/\p{Z}|\p{C}/u)) return html`<span class="cell as-number">${c.codePointAt(0)}</span>`
+        else return html`<span class="cell">${c}</span>`
+      })
+    }</p>`)}
+    </div>
     `
   }
 
@@ -52,5 +62,22 @@ export class RFungeEditor extends LitElement {
         return this.src
     }
   }
+
+  static styles = css`
+  .debug-src {
+    font-family: monospace;
+    font-size: 1.1em;
+  }
+  .debug-src p {
+    margin: 0;
+    padding: 0;
+    margin-bottom: 0.2em;
+  }
+  .cell {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+  }
+`
 }
 window.customElements.define('rfunge-editor', RFungeEditor)

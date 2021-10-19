@@ -64,6 +64,7 @@ export class RFungeGui extends LitElement {
     this._controller.reset()
     let src = this.editor.value.getSrc()
     this._controller.setSrc(src)
+    this.editor.value.srcLines = this._controller.getSrcLines()
     try {
       await this._controller.run()
     } catch (e) {
@@ -73,7 +74,7 @@ export class RFungeGui extends LitElement {
         console.warn(`An error occurred: ${e}`)
       }
     } finally {
-      this.editor.value.src = this._controller.getSrc()
+      this.editor.value.src = src // replace the original source code
       this.mode = RFungeMode.EDIT
     }
   }
