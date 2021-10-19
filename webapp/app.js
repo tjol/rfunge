@@ -62,6 +62,11 @@ export class RFungeGui extends LitElement {
         buttonbar = html`
           <nav>
             <input type="button" @click="${this._step}" value="Step" />
+            <input
+              type="button"
+              @click="${this._continueRunning}"
+              value="Continue"
+            />
             <input type="button" @click="${this._stopDebugger}" value="Abort" />
           </nav>
         `
@@ -127,6 +132,21 @@ export class RFungeGui extends LitElement {
     this.editorRef.value.cursors = this._controller.getCursors()
   }
 
+  async _continueRunning () {
+    try {
+      this._done(await this._controller.run())
+    } catch (e) {
+      if (e instanceof InterpreterStopped) {
+        console.log('Interpreter stopped at user request')
+      } else {
+        console.warn(`An error occurred: ${e}`)
+      }
+    } finally {
+      this.mode = RFungeMode.DEBUG_FINISHED
+      this._syncDebuggerState()
+    }
+  }
+
   _step () {
     let result = this._controller.step()
     if (result != null) {
@@ -134,13 +154,18 @@ export class RFungeGui extends LitElement {
       this._done(result)
       this.mode = RFungeMode.DEBUG_FINISHED
     }
-    // update state
+    this._syncDebuggerState()
+  }
+
+  _syncDebuggerState () {
     this.editorRef.value.srcLines = this._controller.getSrcLines()
     this.editorRef.value.cursors = this._controller.getCursors()
     this.stackWindowRef.value.stacks = this._controller.getStacks()
   }
 
   _stopDebugger () {
+    // stop if currently running
+    this._controller.stop()
     // free up memory, maybe
     this._controller.reset()
     // reset UI
