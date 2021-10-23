@@ -47,10 +47,14 @@ extern "C" {
 
     #[wasm_bindgen(method, getter, js_name = "envVars")]
     fn env_vars(this: &JSEnvInterface) -> js_sys::Object;
+
+    #[wasm_bindgen(method, js_name = "readInput")]
+    fn read_input(this: &JSEnvInterface) -> String;
 }
 
 pub struct JSEnv {
     inner: JSEnvInterface,
+    input_buf: Vec<u8>
 }
 
 impl Write for JSEnv {
@@ -69,9 +73,29 @@ impl Write for JSEnv {
 }
 
 impl Read for JSEnv {
-    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        // EOF by default [TODO]
-        Ok(0)
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        // THIS IS FLAWED: Javascript can't block to wait for IO!
+        // Make sure we have enough input buffered
+        while self.input_buf.len() < buf.len() {
+            let s = self.inner.read_input();
+            self.input_buf.extend_from_slice(s.as_ref());
+            if s.len() == 0 {
+                break; // EOF
+            }
+        }
+        // Copy to output
+        if self.input_buf.len() < buf.len() {
+            // hit EOF
+            let input_len = self.input_buf.len();
+            buf[..input_len].copy_from_slice(&self.input_buf);
+            self.input_buf.clear();
+            Ok(input_len)
+        } else {
+            buf.copy_from_slice(&self.input_buf[0..buf.len()]);
+            let rest = self.input_buf.drain(buf.len()..).collect();
+            self.input_buf = rest;
+            Ok(buf.len())
+        }
     }
 }
 
@@ -96,7 +120,7 @@ impl InterpreterEnv for JSEnv {
     }
 
     fn is_io_buffered(&self) -> bool {
-        false
+        true
     }
 
     fn is_fingerprint_enabled(&self, fpr: i32) -> bool {
@@ -147,7 +171,7 @@ impl BefungeInterpreter {
     #[wasm_bindgen(constructor)]
     pub fn new(env: JSEnvInterface) -> Self {
         // console_error_panic_hook::set_once();
-        let real_env = JSEnv { inner: env };
+        let real_env = JSEnv { inner: env, input_buf: vec![] };
         Self {
             interpreter: new_befunge_interpreter::<i32, _>(real_env),
         }

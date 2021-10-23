@@ -1,6 +1,6 @@
 // lib
-import { createRef, ref } from 'lit/directives/ref.js'
 import { html, css, LitElement } from 'lit'
+import { createRef, ref } from 'lit/directives/ref.js'
 
 // project (js)
 import { InterpreterStopped, RFungeController } from './controller.js'
@@ -9,10 +9,11 @@ import { RFungeMode } from './rfunge-common.js'
 // project (web components)
 import { RFungeEditor } from './editor.js'
 import { StackWindow } from './stack-window.js'
+import { IOWindow } from './io-window.js'
 
 export class RFungeGui extends LitElement {
   editorRef = createRef()
-  stdoutRef = createRef()
+  ioRef = createRef()
   stackWindowRef = createRef()
 
   static properties = {
@@ -84,7 +85,10 @@ export class RFungeGui extends LitElement {
         break
     }
     let outputArea = html`
-      <output-area ${ref(this.stdoutRef)}></output-area>
+      <rfunge-io-window
+        ${ref(this.ioRef)}
+        @rfunge-input="${this._onInput}"
+      ></rfunge-io-window>
     `
     let stackWindow = html`
       <rfunge-stack-window
@@ -119,7 +123,7 @@ export class RFungeGui extends LitElement {
   }
 
   _done (result) {
-    this.stdoutRef.value.writeLine(`\nFinished with code ${result}`)
+    this.ioRef.value.writeLine(`\nFinished with code ${result}`)
   }
 
   _startDebugger () {
@@ -180,38 +184,9 @@ export class RFungeGui extends LitElement {
   _stop () {
     this._controller.stop()
   }
+
+  _onInput (ev) {
+    this._controller.writeInput(ev.detail.value)
+  }
 }
 window.customElements.define('rfunge-app', RFungeGui)
-
-class OutputArea extends LitElement {
-  static properties = {
-    text: { type: String }
-  }
-
-  constructor () {
-    super()
-    this.text = ''
-  }
-
-  render () {
-    return html`
-      <p>${this.text}</p>
-    `
-  }
-
-  write (s) {
-    this.text += s
-  }
-
-  writeLine (ln) {
-    this.write(`${ln}\n`)
-  }
-
-  static styles = css`
-    p {
-      font-family: monospace;
-      white-space: pre-wrap;
-    }
-  `
-}
-window.customElements.define('output-area', OutputArea)

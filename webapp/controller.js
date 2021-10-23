@@ -8,6 +8,7 @@ export class RFungeController {
   constructor (host) {
     this._host = host
     this._stopRequest = null
+    this._inputBuffer = ""
   }
 
   async init () {
@@ -18,13 +19,40 @@ export class RFungeController {
     this._interpreter = new BefungeInterpreter(this)
   }
 
+  /******************************************************
+    METHODS CALLED BY RUST
+   ******************************************************/
+
   writeOutput (s) {
-    this._host.stdoutRef.value.write(s)
+    this._host.ioRef.value.write(s)
   }
 
   warn (msg) {
     console.warn('RFunge warning: %s', msg)
   }
+
+  get envVars () {
+    return {
+      USER_AGENT: navigator.userAgent,
+      HREF: window.location.href,
+      PATH: window.location.pathname,
+      HOST: window.location.host,
+      QUERY: window.location.search,
+      HASH: window.location.hash,
+      CONTENT_TYPE: document.contentType,
+      CHARSET: document.characterSet
+    }
+  }
+
+  readInput () {
+    const result = this._inputBuffer
+    this._inputBuffer = ""
+    return result
+  }
+
+  /******************************************************
+    METHODS CALLED BY THE JAVASCRIPT APP
+   ******************************************************/
 
   run () {
     return new Promise((resolve, reject) => {
@@ -126,17 +154,8 @@ export class RFungeController {
     return stackStackStack
   }
 
-  get envVars () {
-    return {
-      USER_AGENT: navigator.userAgent,
-      HREF: window.location.href,
-      PATH: window.location.pathname,
-      HOST: window.location.host,
-      QUERY: window.location.search,
-      HASH: window.location.hash,
-      CONTENT_TYPE: document.contentType,
-      CHARSET: document.characterSet
-    }
+  writeInput (s) {
+    this._inputBuffer += s
   }
 }
 
