@@ -19,9 +19,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 /// From the catseye library
 ///
@@ -49,13 +51,13 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('I', unum);
-    layer.insert('V', quinque);
-    layer.insert('X', decem);
-    layer.insert('L', quinquaginta);
-    layer.insert('C', centum);
-    layer.insert('D', quingenti);
-    layer.insert('M', mille);
+    layer.insert('I', sync_instruction(unum));
+    layer.insert('V', sync_instruction(quinque));
+    layer.insert('X', sync_instruction(decem));
+    layer.insert('L', sync_instruction(quinquaginta));
+    layer.insert('C', sync_instruction(centum));
+    layer.insert('D', sync_instruction(quingenti));
+    layer.insert('M', sync_instruction(mille));
 
     instructionset.add_layer(layer);
     true
@@ -72,106 +74,92 @@ where
 }
 
 fn unum<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(1.into());
-    InstructionResult::Continue
+    ctx.ip.push(1.into());
+    (ctx, InstructionResult::Continue)
 }
 
 fn quinque<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(5.into());
-    InstructionResult::Continue
+    ctx.ip.push(5.into());
+    (ctx, InstructionResult::Continue)
 }
 
 fn decem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(10.into());
-    InstructionResult::Continue
+    ctx.ip.push(10.into());
+    (ctx, InstructionResult::Continue)
 }
 
 fn quinquaginta<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(50.into());
-    InstructionResult::Continue
+    ctx.ip.push(50.into());
+    (ctx, InstructionResult::Continue)
 }
 
 fn centum<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(100.into());
-    InstructionResult::Continue
+    ctx.ip.push(100.into());
+    (ctx, InstructionResult::Continue)
 }
 
 fn quingenti<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(500.into());
-    InstructionResult::Continue
+    ctx.ip.push(500.into());
+    (ctx, InstructionResult::Continue)
 }
 
 fn mille<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(1000.into());
-    InstructionResult::Continue
+    ctx.ip.push(1000.into());
+    (ctx, InstructionResult::Continue)
 }

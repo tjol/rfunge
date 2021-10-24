@@ -517,12 +517,10 @@ mod tests {
     use crate::fungespace::paged::PagedFungeSpace;
 
     type TestSpace = PagedFungeSpace<BefungeVec<i64>, i64>;
-    type TestIP = InstructionPointer<BefungeVec<i64>, TestSpace, NoEnv>;
     type TestCtx = InstructionContext<BefungeVec<i64>, TestSpace, NoEnv>;
 
     #[test]
     fn test_instruction_layers() {
-        // type Instr = Instruction<BefungeVec<i64>, PagedFungeSpace<BefungeVec<i64>, i64>, NoEnv>;
         let mut is = InstructionSet::<BefungeVec<i64>, TestSpace, NoEnv>::new();
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), None));

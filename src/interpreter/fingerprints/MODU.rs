@@ -20,9 +20,11 @@ use divrem::DivRem;
 use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 /// From the catseye library
 ///
@@ -69,9 +71,9 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('M', signed_rem);
-    layer.insert('U', unsigned_rem);
-    layer.insert('R', c_rem);
+    layer.insert('M', sync_instruction(signed_rem));
+    layer.insert('U', sync_instruction(unsigned_rem));
+    layer.insert('R', sync_instruction(c_rem));
     instructionset.add_layer(layer);
     true
 }
@@ -87,45 +89,41 @@ where
 }
 
 fn signed_rem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let b = ip.pop();
-    let a = ip.pop();
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
     if b == 0.into() {
-        ip.push(0.into());
+        ctx.ip.push(0.into());
     } else {
         let (q, r) = a.div_rem(b); // truncating
-        ip.push(if q < 0.into() { r + b } else { r });
+        ctx.ip.push(if q < 0.into() { r + b } else { r });
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn unsigned_rem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let b = ip.pop();
-    let a = ip.pop();
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
     if b == 0.into() {
-        ip.push(0.into());
+        ctx.ip.push(0.into());
     } else {
         let r = a % b; // truncating
-        ip.push(if r < 0.into() {
+        ctx.ip.push(if r < 0.into() {
             if b > 0.into() {
                 r + b
             } else {
@@ -135,26 +133,24 @@ where
             r
         });
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn c_rem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let b = ip.pop();
-    let a = ip.pop();
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
     if b == 0.into() {
-        ip.push(0.into());
+        ctx.ip.push(0.into());
     } else {
-        ip.push(a % b); // default in Rust
+        ctx.ip.push(a % b); // default in Rust
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }

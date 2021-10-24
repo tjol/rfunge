@@ -25,9 +25,11 @@ use super::FPSP::val_to_fpsp;
 use super::LONG::vals_to_i128;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 /// From the rcFunge docs:
 ///
@@ -48,11 +50,11 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('D', sprintf_fpdp);
-    layer.insert('F', sprintf_fpsp);
-    layer.insert('I', sprintf_int);
-    layer.insert('L', sprintf_long);
-    layer.insert('S', sprintf_str);
+    layer.insert('D', sync_instruction(sprintf_fpdp));
+    layer.insert('F', sync_instruction(sprintf_fpsp));
+    layer.insert('I', sync_instruction(sprintf_int));
+    layer.insert('L', sync_instruction(sprintf_long));
+    layer.insert('S', sync_instruction(sprintf_str));
     instructionset.add_layer(layer);
     true
 }
@@ -68,111 +70,101 @@ where
 }
 
 fn sprintf_int<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let arg = ip.pop().to_i64().unwrap_or_default();
-    let fmt = ip.pop_0gnirts();
+    let arg = ctx.ip.pop().to_i64().unwrap_or_default();
+    let fmt = ctx.ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ip.push_0gnirts(&s);
+        ctx.ip.push_0gnirts(&s);
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn sprintf_long<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let lo = ip.pop();
-    let hi = ip.pop();
+    let lo = ctx.ip.pop();
+    let hi = ctx.ip.pop();
     let arg = vals_to_i128(hi, lo) as i64; // sprintf does not support i128
-    let fmt = ip.pop_0gnirts();
+    let fmt = ctx.ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ip.push_0gnirts(&s);
+        ctx.ip.push_0gnirts(&s);
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn sprintf_fpdp<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let lo = ip.pop();
-    let hi = ip.pop();
+    let lo = ctx.ip.pop();
+    let hi = ctx.ip.pop();
     let arg = vals_to_fpdp(hi, lo);
-    let fmt = ip.pop_0gnirts();
+    let fmt = ctx.ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ip.push_0gnirts(&s);
+        ctx.ip.push_0gnirts(&s);
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn sprintf_fpsp<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let i = ip.pop();
+    let i = ctx.ip.pop();
     let arg = val_to_fpsp(i); // sprintf does not support i128
-    let fmt = ip.pop_0gnirts();
+    let fmt = ctx.ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ip.push_0gnirts(&s);
+        ctx.ip.push_0gnirts(&s);
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn sprintf_str<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let arg = ip.pop_0gnirts();
-    let fmt = ip.pop_0gnirts();
+    let arg = ctx.ip.pop_0gnirts();
+    let fmt = ctx.ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ip.push_0gnirts(&s);
+        ctx.ip.push_0gnirts(&s);
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }

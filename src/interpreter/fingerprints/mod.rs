@@ -18,22 +18,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 #![allow(non_snake_case)]
 
-// mod BOOL;
-// mod FIXP;
-// mod FPDP;
-// mod FPRT;
-// mod FPSP;
-// mod FRTH;
-// mod HRTI;
-// mod JSTR;
-// mod LONG;
-// mod MODU;
-// mod NULL;
-// mod REFC;
-// mod ROMA;
+mod BOOL;
+mod FIXP;
+mod FPDP;
+mod FPRT;
+mod FPSP;
+mod FRTH;
+mod HRTI;
+mod JSTR;
+mod LONG;
+mod MODU;
+mod NULL;
+mod REFC;
+mod ROMA;
 
-// #[cfg(not(target_arch = "wasm32"))]
-// mod SOCK;
+#[cfg(not(target_arch = "wasm32"))]
+mod SOCK;
 
 use super::{InstructionSet, InterpreterEnv, MotionCmds};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
@@ -52,28 +52,28 @@ pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
 /// no executing external commands, no IO)
 pub fn safe_fingerprints() -> Vec<i32> {
     vec![
-        // string_to_fingerprint("NULL"),
-        // string_to_fingerprint("BOOL"),
-        // string_to_fingerprint("HRTI"),
-        // string_to_fingerprint("FIXP"),
-        // string_to_fingerprint("ROMA"),
-        // string_to_fingerprint("MODU"),
-        // string_to_fingerprint("REFC"),
-        // string_to_fingerprint("FPSP"),
-        // string_to_fingerprint("FPDP"),
-        // string_to_fingerprint("LONG"),
-        // string_to_fingerprint("FPRT"),
-        // string_to_fingerprint("JSTR"),
-        // string_to_fingerprint("FRTH"),
+        string_to_fingerprint("NULL"),
+        string_to_fingerprint("BOOL"),
+        string_to_fingerprint("HRTI"),
+        string_to_fingerprint("FIXP"),
+        string_to_fingerprint("ROMA"),
+        string_to_fingerprint("MODU"),
+        string_to_fingerprint("REFC"),
+        string_to_fingerprint("FPSP"),
+        string_to_fingerprint("FPDP"),
+        string_to_fingerprint("LONG"),
+        string_to_fingerprint("FPRT"),
+        string_to_fingerprint("JSTR"),
+        string_to_fingerprint("FRTH"),
     ]
 }
 
 /// Get a list of all available fingerprints
 pub fn all_fingerprints() -> Vec<i32> {
     let mut fprts = safe_fingerprints();
-    // if cfg!(not(target_arch = "wasm32")) {
-    //     fprts.push(string_to_fingerprint("SOCK"));
-    // }
+    if cfg!(not(target_arch = "wasm32")) {
+        fprts.push(string_to_fingerprint("SOCK"));
+    }
     fprts
 }
 
@@ -84,36 +84,35 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    // if fpr == string_to_fingerprint("NULL") {
-    //     NULL::load(instructionset)
-    // } else if fpr == string_to_fingerprint("BOOL") {
-    //     BOOL::load(instructionset)
-    // } else if fpr == string_to_fingerprint("HRTI") {
-    //     HRTI::load(instructionset)
-    // } else if fpr == string_to_fingerprint("FIXP") {
-    //     FIXP::load(instructionset)
-    // } else if fpr == string_to_fingerprint("ROMA") {
-    //     ROMA::load(instructionset)
-    // } else if fpr == string_to_fingerprint("MODU") {
-    //     MODU::load(instructionset)
-    // } else if fpr == string_to_fingerprint("REFC") {
-    //     REFC::load(instructionset)
-    // } else if fpr == string_to_fingerprint("FPSP") {
-    //     FPSP::load(instructionset)
-    // } else if fpr == string_to_fingerprint("FPDP") {
-    //     FPDP::load(instructionset)
-    // } else if fpr == string_to_fingerprint("LONG") {
-    //     LONG::load(instructionset)
-    // } else if fpr == string_to_fingerprint("FPRT") {
-    //     FPRT::load(instructionset)
-    // } else if fpr == string_to_fingerprint("JSTR") {
-    //     JSTR::load(instructionset)
-    // } else if fpr == string_to_fingerprint("FRTH") {
-    //     FRTH::load(instructionset)
-    // } else {
-    //     load_platform_specific(instructionset, fpr)
-    // }
-    false
+    if fpr == string_to_fingerprint("NULL") {
+        NULL::load(instructionset)
+    } else if fpr == string_to_fingerprint("BOOL") {
+        BOOL::load(instructionset)
+    } else if fpr == string_to_fingerprint("HRTI") {
+        HRTI::load(instructionset)
+    } else if fpr == string_to_fingerprint("FIXP") {
+        FIXP::load(instructionset)
+    } else if fpr == string_to_fingerprint("ROMA") {
+        ROMA::load(instructionset)
+    } else if fpr == string_to_fingerprint("MODU") {
+        MODU::load(instructionset)
+    } else if fpr == string_to_fingerprint("REFC") {
+        REFC::load(instructionset)
+    } else if fpr == string_to_fingerprint("FPSP") {
+        FPSP::load(instructionset)
+    } else if fpr == string_to_fingerprint("FPDP") {
+        FPDP::load(instructionset)
+    } else if fpr == string_to_fingerprint("LONG") {
+        LONG::load(instructionset)
+    } else if fpr == string_to_fingerprint("FPRT") {
+        FPRT::load(instructionset)
+    } else if fpr == string_to_fingerprint("JSTR") {
+        JSTR::load(instructionset)
+    } else if fpr == string_to_fingerprint("FRTH") {
+        FRTH::load(instructionset)
+    } else {
+        load_platform_specific(instructionset, fpr)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -127,11 +126,11 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    // if fpr == string_to_fingerprint("SOCK") {
-        // SOCK::load(instructionset)
-    // } else {
+    if fpr == string_to_fingerprint("SOCK") {
+        SOCK::load(instructionset)
+    } else {
         false
-    // }
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -158,36 +157,35 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    // if fpr == string_to_fingerprint("NULL") {
-    //     NULL::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("BOOL") {
-    //     BOOL::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("HRTI") {
-    //     HRTI::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("FIXP") {
-    //     FIXP::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("ROMA") {
-    //     ROMA::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("MODU") {
-    //     MODU::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("REFC") {
-    //     REFC::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("FPSP") {
-    //     FPSP::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("FPDP") {
-    //     FPDP::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("LONG") {
-    //     LONG::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("FPRT") {
-    //     FPRT::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("JSTR") {
-    //     JSTR::unload(instructionset)
-    // } else if fpr == string_to_fingerprint("FRTH") {
-    //     FRTH::unload(instructionset)
-    // } else {
-        // unload_platform_specific(instructionset, fpr)
-    // }
-    false
+    if fpr == string_to_fingerprint("NULL") {
+        NULL::unload(instructionset)
+    } else if fpr == string_to_fingerprint("BOOL") {
+        BOOL::unload(instructionset)
+    } else if fpr == string_to_fingerprint("HRTI") {
+        HRTI::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FIXP") {
+        FIXP::unload(instructionset)
+    } else if fpr == string_to_fingerprint("ROMA") {
+        ROMA::unload(instructionset)
+    } else if fpr == string_to_fingerprint("MODU") {
+        MODU::unload(instructionset)
+    } else if fpr == string_to_fingerprint("REFC") {
+        REFC::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FPSP") {
+        FPSP::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FPDP") {
+        FPDP::unload(instructionset)
+    } else if fpr == string_to_fingerprint("LONG") {
+        LONG::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FPRT") {
+        FPRT::unload(instructionset)
+    } else if fpr == string_to_fingerprint("JSTR") {
+        JSTR::unload(instructionset)
+    } else if fpr == string_to_fingerprint("FRTH") {
+        FRTH::unload(instructionset)
+    } else {
+        unload_platform_specific(instructionset, fpr)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -201,11 +199,11 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    // if fpr == string_to_fingerprint("SOCK") {
-    //     SOCK::unload(instructionset)
-    // } else {
+    if fpr == string_to_fingerprint("SOCK") {
+        SOCK::unload(instructionset)
+    } else {
         false
-    // }
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

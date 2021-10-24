@@ -19,9 +19,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
 where
@@ -31,10 +33,10 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('A', and);
-    layer.insert('O', or);
-    layer.insert('N', not);
-    layer.insert('X', xor);
+    layer.insert('A', sync_instruction(and));
+    layer.insert('O', sync_instruction(or));
+    layer.insert('N', sync_instruction(not));
+    layer.insert('X', sync_instruction(xor));
     instructionset.add_layer(layer);
     true
 }
@@ -50,68 +52,60 @@ where
 }
 
 pub(super) fn and<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let b = ip.pop();
-    let a = ip.pop();
-    ip.push(a & b);
-    InstructionResult::Continue
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
+    ctx.ip.push(a & b);
+    (ctx, InstructionResult::Continue)
 }
 
 pub(super) fn or<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let b = ip.pop();
-    let a = ip.pop();
-    ip.push(a | b);
-    InstructionResult::Continue
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
+    ctx.ip.push(a | b);
+    (ctx, InstructionResult::Continue)
 }
 
 fn not<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let n = ip.pop();
-    ip.push(!n);
-    InstructionResult::Continue
+    let n = ctx.ip.pop();
+    ctx.ip.push(!n);
+    (ctx, InstructionResult::Continue)
 }
 
 pub(super) fn xor<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let b = ip.pop();
-    let a = ip.pop();
-    ip.push(a ^ b);
-    InstructionResult::Continue
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
+    ctx.ip.push(a ^ b);
+    (ctx, InstructionResult::Continue)
 }

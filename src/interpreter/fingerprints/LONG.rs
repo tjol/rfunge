@@ -21,9 +21,11 @@ use std::mem::size_of;
 use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 /// From the rcFunge docs:
 ///
@@ -51,18 +53,18 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('A', add);
-    layer.insert('B', abs);
-    layer.insert('D', div);
-    layer.insert('E', extend);
-    layer.insert('L', shift_left);
-    layer.insert('M', mul);
-    layer.insert('N', neg);
-    layer.insert('O', rem);
-    layer.insert('P', print_long);
-    layer.insert('R', shift_right);
-    layer.insert('S', sub);
-    layer.insert('Z', parse_long);
+    layer.insert('A', sync_instruction(add));
+    layer.insert('B', sync_instruction(abs));
+    layer.insert('D', sync_instruction(div));
+    layer.insert('E', sync_instruction(extend));
+    layer.insert('L', sync_instruction(shift_left));
+    layer.insert('M', sync_instruction(mul));
+    layer.insert('N', sync_instruction(neg));
+    layer.insert('O', sync_instruction(rem));
+    layer.insert('P', sync_instruction(print_long));
+    layer.insert('R', sync_instruction(shift_right));
+    layer.insert('S', sync_instruction(sub));
+    layer.insert('Z', sync_instruction(parse_long));
     instructionset.add_layer(layer);
     true
 }
@@ -102,255 +104,231 @@ pub fn i1282vals<T: FungeValue>(lng: i128) -> (T, T) {
 }
 
 fn extend<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let lng = val_to_i128(ip.pop());
+    let lng = val_to_i128(ctx.ip.pop());
     let (hi, lo) = i1282vals(lng);
-    ip.push(hi);
-    ip.push(lo);
-    InstructionResult::Continue
+    ctx.ip.push(hi);
+    ctx.ip.push(lo);
+    (ctx, InstructionResult::Continue)
 }
 
 fn print_long<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let lo = ip.pop();
-    let hi = ip.pop();
+    let lo = ctx.ip.pop();
+    let hi = ctx.ip.pop();
     let lng = vals_to_i128(hi, lo);
-    if write!(env.output_writer(), "{} ", lng).is_err() {
-        ip.reflect();
+    if write!(ctx.env.output_writer(), "{} ", lng).is_err() {
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn parse_long<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let s = ip.pop_0gnirts();
+    let s = ctx.ip.pop_0gnirts();
     let lng: i128 = s.parse().unwrap_or_default();
     let (hi, lo) = i1282vals(lng);
-    ip.push(hi);
-    ip.push(lo);
-    InstructionResult::Continue
+    ctx.ip.push(hi);
+    ctx.ip.push(lo);
+    (ctx, InstructionResult::Continue)
 }
 
 fn abs<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let lo = ip.pop();
-    let hi = ip.pop();
+    let lo = ctx.ip.pop();
+    let hi = ctx.ip.pop();
     let lng = vals_to_i128(hi, lo);
     let (hi, lo) = i1282vals(lng.abs());
-    ip.push(hi);
-    ip.push(lo);
-    InstructionResult::Continue
+    ctx.ip.push(hi);
+    ctx.ip.push(lo);
+    (ctx, InstructionResult::Continue)
 }
 
 fn neg<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let lo = ip.pop();
-    let hi = ip.pop();
+    let lo = ctx.ip.pop();
+    let hi = ctx.ip.pop();
     let lng = vals_to_i128(hi, lo);
     let (hi, lo) = i1282vals(-lng);
-    ip.push(hi);
-    ip.push(lo);
-    InstructionResult::Continue
+    ctx.ip.push(hi);
+    ctx.ip.push(lo);
+    (ctx, InstructionResult::Continue)
 }
 
 fn add<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let bl = ip.pop();
-    let bh = ip.pop();
-    let al = ip.pop();
-    let ah = ip.pop();
+    let bl = ctx.ip.pop();
+    let bh = ctx.ip.pop();
+    let al = ctx.ip.pop();
+    let ah = ctx.ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
     let (rh, rl) = i1282vals(a + b);
-    ip.push(rh);
-    ip.push(rl);
-    InstructionResult::Continue
+    ctx.ip.push(rh);
+    ctx.ip.push(rl);
+    (ctx, InstructionResult::Continue)
 }
 
 fn sub<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let bl = ip.pop();
-    let bh = ip.pop();
-    let al = ip.pop();
-    let ah = ip.pop();
+    let bl = ctx.ip.pop();
+    let bh = ctx.ip.pop();
+    let al = ctx.ip.pop();
+    let ah = ctx.ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
     let (rh, rl) = i1282vals(a - b);
-    ip.push(rh);
-    ip.push(rl);
-    InstructionResult::Continue
+    ctx.ip.push(rh);
+    ctx.ip.push(rl);
+    (ctx, InstructionResult::Continue)
 }
 
 fn mul<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let bl = ip.pop();
-    let bh = ip.pop();
-    let al = ip.pop();
-    let ah = ip.pop();
+    let bl = ctx.ip.pop();
+    let bh = ctx.ip.pop();
+    let al = ctx.ip.pop();
+    let ah = ctx.ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
     let (rh, rl) = i1282vals(a * b);
-    ip.push(rh);
-    ip.push(rl);
-    InstructionResult::Continue
+    ctx.ip.push(rh);
+    ctx.ip.push(rl);
+    (ctx, InstructionResult::Continue)
 }
 
 fn div<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let bl = ip.pop();
-    let bh = ip.pop();
-    let al = ip.pop();
-    let ah = ip.pop();
+    let bl = ctx.ip.pop();
+    let bh = ctx.ip.pop();
+    let al = ctx.ip.pop();
+    let ah = ctx.ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
     let (rh, rl) = i1282vals(a / b);
-    ip.push(rh);
-    ip.push(rl);
-    InstructionResult::Continue
+    ctx.ip.push(rh);
+    ctx.ip.push(rl);
+    (ctx, InstructionResult::Continue)
 }
 
 fn rem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let bl = ip.pop();
-    let bh = ip.pop();
-    let al = ip.pop();
-    let ah = ip.pop();
+    let bl = ctx.ip.pop();
+    let bh = ctx.ip.pop();
+    let al = ctx.ip.pop();
+    let ah = ctx.ip.pop();
     let b = vals_to_i128(bh, bl);
     let a = vals_to_i128(ah, al);
     let (rh, rl) = i1282vals(a % b);
-    ip.push(rh);
-    ip.push(rl);
-    InstructionResult::Continue
+    ctx.ip.push(rh);
+    ctx.ip.push(rl);
+    (ctx, InstructionResult::Continue)
 }
 
 fn shift_left<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let n = val_to_i128(ip.pop());
-    let al = ip.pop();
-    let ah = ip.pop();
+    let n = val_to_i128(ctx.ip.pop());
+    let al = ctx.ip.pop();
+    let ah = ctx.ip.pop();
     let a = vals_to_i128(ah, al);
     let (rh, rl) = i1282vals(a << n);
-    ip.push(rh);
-    ip.push(rl);
-    InstructionResult::Continue
+    ctx.ip.push(rh);
+    ctx.ip.push(rl);
+    (ctx, InstructionResult::Continue)
 }
 
 fn shift_right<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let n = val_to_i128(ip.pop());
-    let al = ip.pop();
-    let ah = ip.pop();
+    let n = val_to_i128(ctx.ip.pop());
+    let al = ctx.ip.pop();
+    let ah = ctx.ip.pop();
     let a = vals_to_i128(ah, al);
     let (rh, rl) = i1282vals(a >> n);
-    ip.push(rh);
-    ip.push(rl);
-    InstructionResult::Continue
+    ctx.ip.push(rh);
+    ctx.ip.push(rl);
+    (ctx, InstructionResult::Continue)
 }

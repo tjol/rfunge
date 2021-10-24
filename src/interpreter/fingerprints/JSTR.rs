@@ -19,9 +19,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 /// From https://web.archive.org/web/20070525220700/http://www.jess2.net:80/code/funge/myexts.txt
 ///
@@ -41,8 +43,8 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('P', put);
-    layer.insert('G', get);
+    layer.insert('P', sync_instruction(put));
+    layer.insert('G', sync_instruction(get));
     instructionset.add_layer(layer);
     true
 }
@@ -58,55 +60,51 @@ where
 }
 
 fn put<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let n = ip.pop();
-    let va = MotionCmds::pop_vector(ip);
-    let vd = MotionCmds::pop_vector(ip);
+    let n = ctx.ip.pop();
+    let va = MotionCmds::pop_vector(&mut ctx.ip);
+    let vd = MotionCmds::pop_vector(&mut ctx.ip);
 
-    let mut pos = va + ip.storage_offset;
+    let mut pos = va + ctx.ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
-        space[pos] = ip.pop();
+        ctx.space[pos] = ctx.ip.pop();
         pos = pos + vd;
         remaining -= 1.into();
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn get<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let n = ip.pop();
-    let va = MotionCmds::pop_vector(ip);
-    let vd = MotionCmds::pop_vector(ip);
+    let n = ctx.ip.pop();
+    let va = MotionCmds::pop_vector(&mut ctx.ip);
+    let vd = MotionCmds::pop_vector(&mut ctx.ip);
 
-    ip.push(0.into());
+    ctx.ip.push(0.into());
 
-    let mut pos = va + ip.storage_offset;
+    let mut pos = va + ctx.ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
-        ip.push(space[pos]);
+        ctx.ip.push(ctx.space[pos]);
         pos = pos + vd;
         remaining -= 1.into();
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }

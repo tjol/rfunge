@@ -23,7 +23,9 @@ use hashbrown::HashMap;
 use num::ToPrimitive;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
 use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 
@@ -63,8 +65,8 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('R', reference);
-    layer.insert('D', dereference);
+    layer.insert('R', sync_instruction(reference));
+    layer.insert('D', sync_instruction(dereference));
     instructionset.add_layer(layer);
     true
 }
@@ -100,19 +102,17 @@ where
 }
 
 fn reference<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let vec = MotionCmds::pop_vector(ip);
+    let vec = MotionCmds::pop_vector(&mut ctx.ip);
     let ref_idx = {
-        let mut rl = get_reflist(ip);
+        let mut rl = get_reflist(&mut ctx.ip);
         match rl.iter().position(|v| *v == vec) {
             Some(idx) => (idx as i32).into(),
             None => {
@@ -121,29 +121,28 @@ where
             }
         }
     };
-    ip.push(ref_idx);
-    InstructionResult::Continue
+    ctx.ip.push(ref_idx);
+    (ctx, InstructionResult::Continue)
 }
 
 fn dereference<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    if let Some(vec) = ip
+    if let Some(vec) = ctx
+        .ip
         .pop()
         .to_usize()
-        .and_then(|idx| get_reflist(ip).get(idx).copied())
+        .and_then(|idx| get_reflist(&mut ctx.ip).get(idx).copied())
     {
-        MotionCmds::push_vector(ip, vec);
+        MotionCmds::push_vector(&mut ctx.ip, vec);
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }

@@ -22,9 +22,11 @@ use hashbrown::HashMap;
 use num::{FromPrimitive, ToPrimitive, Zero};
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 /// From the rcFunge docs
 ///
@@ -53,11 +55,11 @@ where
     Env: InterpreterEnv,
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('D', depth);
-    layer.insert('L', roll);
-    layer.insert('O', over);
-    layer.insert('P', pick);
-    layer.insert('R', rot);
+    layer.insert('D', sync_instruction(depth));
+    layer.insert('L', sync_instruction(roll));
+    layer.insert('O', sync_instruction(over));
+    layer.insert('P', sync_instruction(pick));
+    layer.insert('R', sync_instruction(rot));
     instructionset.add_layer(layer);
     true
 }
@@ -73,33 +75,30 @@ where
 }
 
 fn depth<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.push(FromPrimitive::from_usize(ip.stack().len()).unwrap_or_else(Zero::zero));
+    ctx.ip
+        .push(FromPrimitive::from_usize(ctx.ip.stack().len()).unwrap_or_else(Zero::zero));
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn roll<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let stack = ip.stack_mut();
+    let stack = ctx.ip.stack_mut();
     let u = stack.pop().and_then(|v| v.to_isize()).unwrap_or_default();
     match u.cmp(&Zero::zero()) {
         Ordering::Greater => {
@@ -111,7 +110,7 @@ where
             } else {
                 Zero::zero()
             };
-            ip.push(v);
+            ctx.ip.push(v);
         }
         Ordering::Less => {
             // -roll mode
@@ -124,79 +123,73 @@ where
         }
         _ => {}
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn over<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let stack = ip.stack();
+    let stack = ctx.ip.stack();
     let v = if stack.len() >= 2 {
         stack[stack.len() - 2]
     } else {
         Zero::zero()
     };
-    ip.push(v);
+    ctx.ip.push(v);
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn pick<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let u = ip.pop();
+    let u = ctx.ip.pop();
     if u < Zero::zero() {
-        ip.reflect()
+        ctx.ip.reflect()
     } else {
         let u = u.to_usize().unwrap_or_default();
-        let stack = ip.stack();
+        let stack = ctx.ip.stack();
         let l = stack.len();
         let v = if u < l {
             stack[l - 1 - u]
         } else {
             Zero::zero()
         };
-        ip.push(v);
+        ctx.ip.push(v);
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 fn rot<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let stack = ip.stack_mut();
+    let stack = ctx.ip.stack_mut();
     let l = stack.len();
     let v = if l >= 3 {
         stack.remove(l - 3)
     } else {
         Zero::zero()
     };
-    ip.push(v);
+    ctx.ip.push(v);
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }

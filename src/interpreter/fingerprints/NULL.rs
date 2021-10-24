@@ -19,9 +19,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::{FungeSpace, FungeValue, InterpreterEnv};
 
 /// After successfully loading fingerprint 0x4e554c4c, all 26 instructions
 /// `A` to `Z` take on the semantics of `r`.
@@ -37,7 +39,7 @@ where
 {
     let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
     for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
-        layer.insert(c, reflect);
+        layer.insert(c, sync_instruction(reflect));
     }
     instructionset.add_layer(layer);
     true
@@ -55,16 +57,14 @@ where
 }
 
 fn reflect<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    ip.reflect();
-    InstructionResult::Continue
+    ctx.ip.reflect();
+    (ctx, InstructionResult::Continue)
 }
