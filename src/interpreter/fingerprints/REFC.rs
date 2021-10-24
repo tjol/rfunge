@@ -22,10 +22,12 @@ use std::rc::Rc;
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
-use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
+use crate::interpreter::Funge;
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::InstructionPointer;
 
 /// From the catseye library
 ///
@@ -55,64 +57,36 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 /// fingerprint is loaded twice, independently, by two IPs, the IPs get
 /// separate ref lists. (But the ref list is shared between IPs forked off after
 /// loading).
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('R', reference);
-    layer.insert('D', dereference);
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
+    layer.insert('R', sync_instruction(reference));
+    layer.insert('D', sync_instruction(dereference));
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['R', 'D'])
 }
 
-fn get_reflist<Idx, Space, Env>(ip: &mut InstructionPointer<Idx, Space, Env>) -> RefMut<Vec<Idx>>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>> {
     if !ip.private_data.contains_key("REFC.reflist") {
         ip.private_data.insert(
             "REFC.reflist".to_owned(),
-            Rc::new(RefCell::new(Vec::<Idx>::new())),
+            Rc::new(RefCell::new(Vec::<F::Idx>::new())),
         );
     }
     ip.private_data
         .get("REFC.reflist")
-        .and_then(|any_ref| any_ref.downcast_ref::<RefCell<Vec<Idx>>>())
+        .and_then(|any_ref| any_ref.downcast_ref::<RefCell<Vec<F::Idx>>>())
         .map(|refcell| refcell.borrow_mut())
         .unwrap()
 }
 
-fn reference<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let vec = MotionCmds::pop_vector(ip);
+fn reference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let vec = MotionCmds::pop_vector(&mut ctx.ip);
     let ref_idx = {
-        let mut rl = get_reflist(ip);
+        let mut rl = get_reflist(&mut ctx.ip);
         match rl.iter().position(|v| *v == vec) {
             Some(idx) => (idx as i32).into(),
             None => {
@@ -121,29 +95,20 @@ where
             }
         }
     };
-    ip.push(ref_idx);
+    ctx.ip.push(ref_idx);
     InstructionResult::Continue
 }
 
-fn dereference<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    if let Some(vec) = ip
+fn dereference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    if let Some(vec) = ctx
+        .ip
         .pop()
         .to_usize()
-        .and_then(|idx| get_reflist(ip).get(idx).copied())
+        .and_then(|idx| get_reflist(&mut ctx.ip).get(idx).copied())
     {
-        MotionCmds::push_vector(ip, vec);
+        MotionCmds::push_vector(&mut ctx.ip, vec);
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
     InstructionResult::Continue
 }

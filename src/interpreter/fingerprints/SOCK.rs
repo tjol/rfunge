@@ -28,10 +28,11 @@ use hashbrown::HashMap;
 use num::{FromPrimitive, ToPrimitive};
 use socket2::{Domain, Protocol, Socket, Type};
 
-use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
+use crate::interpreter::{Funge, MotionCmds};
+use crate::InstructionPointer;
 
 /// From the rcFunge docs:
 ///
@@ -83,48 +84,28 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 ///
 /// ct=1 and pf=1 are a broken spec and should not be implemented. Usage of
 /// either of these should reflect.
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('A', accept);
-    layer.insert('B', bind);
-    layer.insert('C', connect);
-    layer.insert('I', ipaddr);
-    layer.insert('K', kill);
-    layer.insert('L', listen);
-    layer.insert('O', setopt);
-    layer.insert('R', recv);
-    layer.insert('S', socket_create);
-    layer.insert('W', write);
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
+    layer.insert('A', sync_instruction(accept));
+    layer.insert('B', sync_instruction(bind));
+    layer.insert('C', sync_instruction(connect));
+    layer.insert('I', sync_instruction(ipaddr));
+    layer.insert('K', sync_instruction(kill));
+    layer.insert('L', sync_instruction(listen));
+    layer.insert('O', sync_instruction(setopt));
+    layer.insert('R', sync_instruction(recv));
+    layer.insert('S', sync_instruction(socket_create));
+    layer.insert('W', sync_instruction(write));
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     // Check that this fingerprint is on top
     instructionset.pop_layer(&"ABCIKLORSW".chars().collect::<Vec<char>>())
 }
 
-fn get_socketlist<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-) -> RefMut<Vec<Option<Socket>>>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn get_socketlist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<Option<Socket>>> {
     if !ip.private_data.contains_key("SOCK.sockets") {
         ip.private_data.insert(
             "SOCK.sockets".to_owned(),
@@ -138,16 +119,7 @@ where
         .unwrap()
 }
 
-fn push_socket<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    socket: Socket,
-) -> usize
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn push_socket<F: Funge>(ip: &mut InstructionPointer<F>, socket: Socket) -> usize {
     let mut sock_idx = None;
     // scope to limit the lifetime of sl
     let mut sl = get_socketlist(ip);
@@ -166,24 +138,14 @@ where
     }
 }
 
-fn socket_create<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn socket_create<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let proto = ip.pop();
-    let typ = ip.pop();
-    let pf = ip.pop();
+    let proto = ctx.ip.pop();
+    let typ = ctx.ip.pop();
+    let pf = ctx.ip.pop();
     if pf != 2.into() {
         // only allow PF_INET
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     }
 
@@ -192,7 +154,7 @@ where
         2 => Some(Protocol::UDP),
         0 => None,
         _ => {
-            ip.reflect();
+            ctx.ip.reflect();
             return InstructionResult::Continue;
         }
     };
@@ -202,36 +164,26 @@ where
         2 => Socket::new(Domain::IPV4, Type::STREAM, real_proto).ok(),
         _ => None,
     } {
-        let sock_idx = push_socket(ip, new_socket);
-        ip.push(FromPrimitive::from_usize(sock_idx).unwrap());
+        let sock_idx = push_socket(&mut ctx.ip, new_socket);
+        ctx.ip.push(FromPrimitive::from_usize(sock_idx).unwrap());
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn kill<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn kill<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
 
     let success = {
-        let mut sl = get_socketlist(ip);
+        let mut sl = get_socketlist(&mut ctx.ip);
         if sock_id <= sl.len() {
             if let Some(sock) = &sl[sock_id] {
                 sock.shutdown(Shutdown::Both).ok();
@@ -244,37 +196,27 @@ where
     };
 
     if !success {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn setopt<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn setopt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
-    let opt = ip.pop();
-    let flag = ip.pop() != 0.into();
+    let opt = ctx.ip.pop();
+    let flag = ctx.ip.pop() != 0.into();
 
     let mut had_error = false;
 
     // Get the socket
-    if let Some(sock) = get_socketlist(ip)
+    if let Some(sock) = get_socketlist(&mut ctx.ip)
         .get(sock_id)
         .map(|o| o.as_ref())
         .unwrap_or_default()
@@ -308,42 +250,32 @@ where
     }
 
     if had_error {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn bind<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn bind<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let addr = ip.pop().to_i32().unwrap_or_default();
-    let port = if let Some(prt16) = ip.pop().to_u16() {
+    let addr = ctx.ip.pop().to_i32().unwrap_or_default();
+    let port = if let Some(prt16) = ctx.ip.pop().to_u16() {
         prt16
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
-    let ct = ip.pop();
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let ct = ctx.ip.pop();
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
 
     if ct != 2.into() {
         // must be AF_INET
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     }
 
@@ -352,7 +284,7 @@ where
     let mut success = false;
 
     // Get the socket
-    if let Some(sock) = get_socketlist(ip)
+    if let Some(sock) = get_socketlist(&mut ctx.ip)
         .get(sock_id)
         .map(|o| o.as_ref())
         .unwrap_or_default()
@@ -361,42 +293,32 @@ where
     }
 
     if !success {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn connect<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn connect<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let addr = ip.pop().to_i32().unwrap_or_default();
-    let port = if let Some(prt16) = ip.pop().to_u16() {
+    let addr = ctx.ip.pop().to_i32().unwrap_or_default();
+    let port = if let Some(prt16) = ctx.ip.pop().to_u16() {
         prt16
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
-    let ct = ip.pop();
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let ct = ctx.ip.pop();
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
 
     if ct != 2.into() {
         // must be AF_INET
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     }
 
@@ -405,7 +327,7 @@ where
     let mut success = false;
 
     // Get the socket
-    if let Some(sock) = get_socketlist(ip)
+    if let Some(sock) = get_socketlist(&mut ctx.ip)
         .get(sock_id)
         .map(|o| o.as_ref())
         .unwrap_or_default()
@@ -414,37 +336,27 @@ where
     }
 
     if !success {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn listen<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn listen<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
 
-    let backlog = ip.pop().to_i32().unwrap_or(1) as c_int;
+    let backlog = ctx.ip.pop().to_i32().unwrap_or(1) as c_int;
 
     let mut success = false;
 
     // Get the socket
-    if let Some(sock) = get_socketlist(ip)
+    if let Some(sock) = get_socketlist(&mut ctx.ip)
         .get(sock_id)
         .map(|o| o.as_ref())
         .unwrap_or_default()
@@ -453,34 +365,24 @@ where
     }
 
     if !success {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn accept<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn accept<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
 
     let mut success = false;
 
-    let accept_result = get_socketlist(ip)
+    let accept_result = get_socketlist(&mut ctx.ip)
         .get(sock_id)
         .map(|o| o.as_ref())
         .unwrap_or_default()
@@ -489,43 +391,33 @@ where
     if let Some((client_sock, client_addr)) = accept_result {
         success = true;
         let v4_addr = client_addr.as_socket_ipv4().unwrap();
-        ip.push((v4_addr.port() as i32).into());
-        ip.push((u32::from(*v4_addr.ip()) as i32).into());
+        ctx.ip.push((v4_addr.port() as i32).into());
+        ctx.ip.push((u32::from(*v4_addr.ip()) as i32).into());
         // store the socket
-        let sock_idx = push_socket(ip, client_sock);
-        ip.push(FromPrimitive::from_usize(sock_idx).unwrap());
+        let sock_idx = push_socket(&mut ctx.ip, client_sock);
+        ctx.ip.push(FromPrimitive::from_usize(sock_idx).unwrap());
     }
 
     if !success {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn recv<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
-    let max_count = ip.pop();
-    let mut loc = MotionCmds::pop_vector(ip);
+    let max_count = ctx.ip.pop();
+    let mut loc = MotionCmds::pop_vector(&mut ctx.ip);
     let mut buf = vec![0_u8; max_count.to_usize().unwrap_or_default()];
 
-    let read_result = get_socketlist(ip)
+    let read_result = get_socketlist(&mut ctx.ip)
         .get_mut(sock_id)
         .map(|o| o.as_ref())
         .unwrap_or_default()
@@ -534,75 +426,56 @@ where
     if let Some(count) = read_result {
         // copy data to fungespace
         for b in buf[0..count].iter() {
-            space[loc] = (*b as i32).into();
+            ctx.space[loc] = (*b as i32).into();
             loc = loc.one_further();
         }
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn write<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+fn write<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
-    let sock_id = if let Some(sock_id_usize) = ip.pop().to_usize() {
+    let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
         return InstructionResult::Continue;
     };
-    let count = ip.pop().to_usize().unwrap_or_default();
-    let mut loc = MotionCmds::pop_vector(ip);
+    let count = ctx.ip.pop().to_usize().unwrap_or_default();
+    let mut loc = MotionCmds::pop_vector(&mut ctx.ip);
     let mut buf = vec![0_u8; count];
     for elem in buf.iter_mut().take(count) {
-        *elem = (space[loc] & 0xff.into()).to_u8().unwrap_or_default();
+        *elem = (ctx.space[loc] & 0xff.into()).to_u8().unwrap_or_default();
         loc = loc.one_further();
     }
 
-    let write_result = get_socketlist(ip)
+    let write_result = get_socketlist(&mut ctx.ip)
         .get_mut(sock_id)
         .map(|o| o.as_ref())
         .unwrap_or_default()
         .and_then(|mut sock| sock.write_all(&buf).ok());
 
     if write_result.is_some() {
-        ip.push(FromPrimitive::from_usize(buf.len()).unwrap_or_else(|| 0.into()));
+        ctx.ip
+            .push(FromPrimitive::from_usize(buf.len()).unwrap_or_else(|| 0.into()));
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue
 }
 
-fn ipaddr<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let ip_string = ip.pop_0gnirts();
+fn ipaddr<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let ip_string = ctx.ip.pop_0gnirts();
 
     if let Ok(addr) = ip_string.parse::<Ipv4Addr>() {
         let addr_long: u32 = addr.into();
-        ip.push((addr_long as i32).into());
+        ctx.ip.push((addr_long as i32).into());
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
     InstructionResult::Continue

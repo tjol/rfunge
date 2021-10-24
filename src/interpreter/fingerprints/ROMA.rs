@@ -18,10 +18,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use hashbrown::HashMap;
 
-use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
+use crate::interpreter::Funge;
 
 /// From the catseye library
 ///
@@ -41,137 +41,55 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 /// Note that these are just digits, you still have to do the arithmetic
 /// yourself. Executing `MCMLXXXIV` will not leave 1984 on the stack. But
 /// executing `MCM\-+LXXX+++IV\-++` should.
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('I', unum);
-    layer.insert('V', quinque);
-    layer.insert('X', decem);
-    layer.insert('L', quinquaginta);
-    layer.insert('C', centum);
-    layer.insert('D', quingenti);
-    layer.insert('M', mille);
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
+    layer.insert('I', sync_instruction(unum));
+    layer.insert('V', sync_instruction(quinque));
+    layer.insert('X', sync_instruction(decem));
+    layer.insert('L', sync_instruction(quinquaginta));
+    layer.insert('C', sync_instruction(centum));
+    layer.insert('D', sync_instruction(quingenti));
+    layer.insert('M', sync_instruction(mille));
 
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['I', 'V', 'X', 'L', 'C', 'D', 'M'])
 }
 
-fn unum<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    ip.push(1.into());
+fn unum<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    ctx.ip.push(1.into());
     InstructionResult::Continue
 }
 
-fn quinque<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    ip.push(5.into());
+fn quinque<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    ctx.ip.push(5.into());
     InstructionResult::Continue
 }
 
-fn decem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    ip.push(10.into());
+fn decem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    ctx.ip.push(10.into());
     InstructionResult::Continue
 }
 
-fn quinquaginta<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    ip.push(50.into());
+fn quinquaginta<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    ctx.ip.push(50.into());
     InstructionResult::Continue
 }
 
-fn centum<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    ip.push(100.into());
+fn centum<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    ctx.ip.push(100.into());
     InstructionResult::Continue
 }
 
-fn quingenti<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    ip.push(500.into());
+fn quingenti<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    ctx.ip.push(500.into());
     InstructionResult::Continue
 }
 
-fn mille<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    ip.push(1000.into());
+fn mille<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    ctx.ip.push(1000.into());
     InstructionResult::Continue
 }

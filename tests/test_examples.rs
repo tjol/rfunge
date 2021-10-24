@@ -16,12 +16,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-use colored::Colorize;
-use hashbrown::HashMap;
 use std::fs::{read_dir, File};
 use std::io;
-use std::io::{Empty, Read, Write};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+
+use async_std::io::Empty;
+use colored::Colorize;
+use futures_lite::io::{AsyncRead, AsyncWrite};
+use hashbrown::HashMap;
 
 use rfunge::{
     new_befunge_interpreter, read_funge_src_bin, ExecMode, IOMode, InterpreterEnv, ProgramResult,
@@ -41,10 +44,10 @@ impl InterpreterEnv for TestEnv {
     fn is_io_buffered(&self) -> bool {
         true
     }
-    fn output_writer(&mut self) -> &mut dyn Write {
+    fn output_writer(&mut self) -> &mut (dyn AsyncWrite + Unpin) {
         &mut self.output
     }
-    fn input_reader(&mut self) -> &mut dyn Read {
+    fn input_reader(&mut self) -> &mut (dyn AsyncRead + Unpin) {
         &mut self.input
     }
     fn warn(&mut self, _msg: &str) {}
@@ -109,7 +112,7 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
         // Set up the interpreter
         let mut interpreter = new_befunge_interpreter::<i32, _>(TestEnv {
             output: Vec::new(),
-            input: std::io::empty(),
+            input: async_std::io::empty(),
             working_dir: dir_name.to_owned(),
         });
 
@@ -118,12 +121,12 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
             File::open(program_path)
                 .and_then(|mut f| f.read_to_end(&mut src))
                 .unwrap();
-            read_funge_src_bin(&mut interpreter.space, &src);
+            read_funge_src_bin(interpreter.space.as_mut().unwrap(), &src);
         }
 
         assert_eq!(interpreter.run(RunMode::Run), ProgramResult::Done(0));
 
-        interpreter.env.output
+        interpreter.env.unwrap().output
     };
     let mut ref_out = Vec::<u8>::new();
     File::open(output_path)

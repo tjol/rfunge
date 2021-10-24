@@ -18,10 +18,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use hashbrown::HashMap;
 
-use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
+use crate::interpreter::Funge;
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 
 /// From https://web.archive.org/web/20070525220700/http://www.jess2.net:80/code/funge/myexts.txt
 ///
@@ -33,49 +34,27 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 ///
 /// NOTE: The rcFunge docs swap `G` and `P`, but rcFunge still implements the
 /// fingerprint as documented here!
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('P', put);
-    layer.insert('G', get);
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
+    layer.insert('P', sync_instruction(put));
+    layer.insert('G', sync_instruction(get));
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['P', 'G'][..])
 }
 
-fn put<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let n = ip.pop();
-    let va = MotionCmds::pop_vector(ip);
-    let vd = MotionCmds::pop_vector(ip);
+fn put<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let n = ctx.ip.pop();
+    let va = MotionCmds::pop_vector(&mut ctx.ip);
+    let vd = MotionCmds::pop_vector(&mut ctx.ip);
 
-    let mut pos = va + ip.storage_offset;
+    let mut pos = va + ctx.ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
-        space[pos] = ip.pop();
+        ctx.space[pos] = ctx.ip.pop();
         pos = pos + vd;
         remaining -= 1.into();
     }
@@ -83,27 +62,17 @@ where
     InstructionResult::Continue
 }
 
-fn get<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let n = ip.pop();
-    let va = MotionCmds::pop_vector(ip);
-    let vd = MotionCmds::pop_vector(ip);
+fn get<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let n = ctx.ip.pop();
+    let va = MotionCmds::pop_vector(&mut ctx.ip);
+    let vd = MotionCmds::pop_vector(&mut ctx.ip);
 
-    ip.push(0.into());
+    ctx.ip.push(0.into());
 
-    let mut pos = va + ip.storage_offset;
+    let mut pos = va + ctx.ip.storage_offset;
     let mut remaining = n;
     while remaining > 0.into() {
-        ip.push(space[pos]);
+        ctx.ip.push(ctx.space[pos]);
         pos = pos + vd;
         remaining -= 1.into();
     }

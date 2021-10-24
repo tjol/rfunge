@@ -16,13 +16,16 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use futures_lite::io::AsyncWriteExt;
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
-use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::interpreter::instruction_set::{
+    async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
+    InstructionSet,
+};
+use crate::interpreter::Funge;
+use crate::{FungeValue, InterpreterEnv};
 
 /// From the rcFunge docs:
 ///
@@ -50,46 +53,34 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 /// Y    (x y -- n)     Raise x to the power of y
 ///
 /// Trig functions work in radians
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('A', add);
-    layer.insert('B', sin);
-    layer.insert('C', cos);
-    layer.insert('D', div);
-    layer.insert('E', arcsin);
-    layer.insert('F', conv_int_to_fpsp);
-    layer.insert('G', arctan);
-    layer.insert('H', arccos);
-    layer.insert('I', conv_fpsp2int);
-    layer.insert('K', ln);
-    layer.insert('L', log10);
-    layer.insert('M', mul);
-    layer.insert('N', neg);
-    layer.insert('P', print_fpsp);
-    layer.insert('Q', sqrt);
-    layer.insert('R', conv_str2fpsp);
-    layer.insert('S', sub);
-    layer.insert('T', tan);
-    layer.insert('V', abs);
-    layer.insert('X', exp);
-    layer.insert('Y', pow);
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
+    layer.insert('A', sync_instruction(add));
+    layer.insert('B', sync_instruction(sin));
+    layer.insert('C', sync_instruction(cos));
+    layer.insert('D', sync_instruction(div));
+    layer.insert('E', sync_instruction(arcsin));
+    layer.insert('F', sync_instruction(conv_int_to_fpsp));
+    layer.insert('G', sync_instruction(arctan));
+    layer.insert('H', sync_instruction(arccos));
+    layer.insert('I', sync_instruction(conv_fpsp2int));
+    layer.insert('K', sync_instruction(ln));
+    layer.insert('L', sync_instruction(log10));
+    layer.insert('M', sync_instruction(mul));
+    layer.insert('N', sync_instruction(neg));
+    layer.insert('P', async_instruction(print_fpsp));
+    layer.insert('Q', sync_instruction(sqrt));
+    layer.insert('R', sync_instruction(conv_str2fpsp));
+    layer.insert('S', sync_instruction(sub));
+    layer.insert('T', sync_instruction(tan));
+    layer.insert('V', sync_instruction(abs));
+    layer.insert('X', sync_instruction(exp));
+    layer.insert('Y', sync_instruction(pow));
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
 }
 
@@ -109,349 +100,142 @@ pub fn fpsp2val<T: FungeValue>(f: f32) -> T {
     fpsp2int(f).into()
 }
 
-fn conv_int_to_fpsp<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let i = ip.pop();
-    ip.push(fpsp2val(i.to_f32().unwrap_or_default()));
+fn conv_int_to_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let i = ctx.ip.pop();
+    ctx.ip.push(fpsp2val(i.to_f32().unwrap_or_default()));
     InstructionResult::Continue
 }
 
-fn conv_fpsp2int<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push((f.round() as i32).into());
+fn conv_fpsp2int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push((f.round() as i32).into());
     InstructionResult::Continue
 }
 
-fn conv_str2fpsp<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let s = ip.pop_0gnirts();
+fn conv_str2fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let s = ctx.ip.pop_0gnirts();
     if let Ok(f) = s.parse() {
-        ip.push(fpsp2val(f));
+        ctx.ip.push(fpsp2val(f));
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn print_fpsp<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    if write!(env.output_writer(), "{:.6} ", f).is_err() {
-        ip.reflect();
+async fn print_fpsp<F: Funge>(
+    mut ctx: InstructionContext<F>,
+) -> (InstructionContext<F>, InstructionResult) {
+    let f = val_to_fpsp(ctx.ip.pop());
+    let s = format!("{:.6} ", f);
+    if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
+        ctx.ip.reflect();
     }
+    (ctx, InstructionResult::Continue)
+}
+
+fn add<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = val_to_fpsp(ctx.ip.pop());
+    let a = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(a + b));
     InstructionResult::Continue
 }
 
-fn add<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = val_to_fpsp(ip.pop());
-    let a = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(a + b));
+fn sub<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = val_to_fpsp(ctx.ip.pop());
+    let a = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(a - b));
     InstructionResult::Continue
 }
 
-fn sub<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = val_to_fpsp(ip.pop());
-    let a = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(a - b));
+fn mul<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = val_to_fpsp(ctx.ip.pop());
+    let a = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(a * b));
     InstructionResult::Continue
 }
 
-fn mul<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = val_to_fpsp(ip.pop());
-    let a = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(a * b));
+fn div<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = val_to_fpsp(ctx.ip.pop());
+    let a = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(a / b));
     InstructionResult::Continue
 }
 
-fn div<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = val_to_fpsp(ip.pop());
-    let a = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(a / b));
+fn pow<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = val_to_fpsp(ctx.ip.pop());
+    let a = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(a.powf(b)));
     InstructionResult::Continue
 }
 
-fn pow<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = val_to_fpsp(ip.pop());
-    let a = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(a.powf(b)));
+fn sin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let angle = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(angle.sin()));
     InstructionResult::Continue
 }
 
-fn sin<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let angle = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(angle.sin()));
+fn cos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let angle = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(angle.cos()));
     InstructionResult::Continue
 }
 
-fn cos<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let angle = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(angle.cos()));
+fn tan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let angle = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(angle.tan()));
     InstructionResult::Continue
 }
 
-fn tan<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let angle = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(angle.tan()));
+fn arcsin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.asin()));
     InstructionResult::Continue
 }
 
-fn arcsin<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.asin()));
+fn arccos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.acos()));
     InstructionResult::Continue
 }
 
-fn arccos<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.acos()));
+fn arctan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.atan()));
     InstructionResult::Continue
 }
 
-fn arctan<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.atan()));
+fn ln<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.ln()));
     InstructionResult::Continue
 }
 
-fn ln<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.ln()));
+fn log10<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.log10()));
     InstructionResult::Continue
 }
 
-fn log10<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.log10()));
+fn neg<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(-f));
     InstructionResult::Continue
 }
 
-fn neg<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(-f));
+fn sqrt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.sqrt()));
     InstructionResult::Continue
 }
 
-fn sqrt<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.sqrt()));
+fn exp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.exp()));
     InstructionResult::Continue
 }
 
-fn exp<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.exp()));
-    InstructionResult::Continue
-}
-
-fn abs<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let f = val_to_fpsp(ip.pop());
-    ip.push(fpsp2val(f.abs()));
+fn abs<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let f = val_to_fpsp(ctx.ip.pop());
+    ctx.ip.push(fpsp2val(f.abs()));
     InstructionResult::Continue
 }

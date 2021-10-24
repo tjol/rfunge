@@ -23,31 +23,25 @@ use std::rc::Rc;
 
 use super::instruction_set::InstructionSet;
 use super::motion::MotionCmds;
-use super::InterpreterEnv;
+use super::{Funge, InterpreterEnv};
 use crate::fungespace::index::{bfvec, BefungeVec};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 /// Struct encapsulating the state of the/an IP
 #[derive(Debug)]
-pub struct InstructionPointer<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub struct InstructionPointer<F: Funge + 'static> {
     /// Identifier of the IP
-    pub id: Space::Output,
+    pub id: F::Value,
     /// Location of the IP (initial: the origin)
-    pub location: Idx,
+    pub location: F::Idx,
     /// Current delta (initial: East)
-    pub delta: Idx,
+    pub delta: F::Idx,
     /// Current storage offset (initial: the origin)
-    pub storage_offset: Idx,
+    pub storage_offset: F::Idx,
     /// The stack stack
-    pub stack_stack: Vec<Vec<Space::Output>>,
+    pub stack_stack: Vec<Vec<F::Value>>,
     /// The currently available
-    pub instructions: InstructionSet<Idx, Space, Env>,
+    pub instructions: InstructionSet<F>,
     /// If instructions or fingerprints need to store additional data with the
     /// IP, put them here.
     pub private_data: HashMap<String, Rc<dyn Any>>,
@@ -55,13 +49,7 @@ where
 
 // Can't derive Clone by macro because it requires the type parameters to be
 // Clone...
-impl<Idx, Space, Env> Clone for InstructionPointer<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+impl<F: Funge + 'static> Clone for InstructionPointer<F> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -84,7 +72,7 @@ where
 {
     /// Create a new IP with the appropriate initial location, delta,
     /// storage offset, etc.
-    fn new_ip() -> InstructionPointer<Self, Space, Env>;
+    fn new_ip<F: Funge<Idx = Self>>() -> InstructionPointer<F>;
 }
 
 impl<T, Space, Env> CreateInstructionPointer<Space, Env> for T
@@ -93,7 +81,7 @@ where
     Space: FungeSpace<T> + Index<T, Output = T>,
     Env: InterpreterEnv,
 {
-    fn new_ip() -> InstructionPointer<T, Space, Env> {
+    fn new_ip<F: Funge<Idx = Self>>() -> InstructionPointer<F> {
         InstructionPointer {
             id: 0.into(),
             location: (-1).into(),
@@ -112,7 +100,7 @@ where
     Space: FungeSpace<BefungeVec<T>, Output = T>,
     Env: InterpreterEnv,
 {
-    fn new_ip() -> InstructionPointer<BefungeVec<T>, Space, Env> {
+    fn new_ip<F: Funge<Idx = Self>>() -> InstructionPointer<F> {
         InstructionPointer {
             id: 0.into(),
             location: bfvec(-1, 0),
@@ -125,58 +113,48 @@ where
     }
 }
 
-impl<Idx, Space, Env> Default for InstructionPointer<Idx, Space, Env>
+impl<F> Default for InstructionPointer<F>
 where
-    Idx: CreateInstructionPointer<Space, Env>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    F: Funge,
+    F::Idx: CreateInstructionPointer<F::Space, F::Env>,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<Idx, Space, Env> InstructionPointer<Idx, Space, Env>
+impl<F> InstructionPointer<F>
 where
-    Idx: CreateInstructionPointer<Space, Env>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    F: Funge,
+    F::Idx: CreateInstructionPointer<F::Space, F::Env>,
 {
     pub fn new() -> Self {
-        Idx::new_ip()
+        F::Idx::new_ip()
     }
 }
 
-impl<Idx, Space, Env> InstructionPointer<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+impl<F: Funge + 'static> InstructionPointer<F> {
     /// Get the top of the stack stack
     #[inline]
-    pub fn stack(&self) -> &Vec<Space::Output> {
+    pub fn stack(&self) -> &Vec<F::Value> {
         &self.stack_stack[0]
     }
 
     /// Get the top of the stack stack (mutable version)
     #[inline]
-    pub fn stack_mut(&mut self) -> &mut Vec<Space::Output> {
+    pub fn stack_mut(&mut self) -> &mut Vec<F::Value> {
         &mut self.stack_stack[0]
     }
 
     /// Pop one number from the stack and return it
     #[inline]
-    pub fn pop(&mut self) -> Space::Output {
+    pub fn pop(&mut self) -> F::Value {
         self.stack_mut().pop().unwrap_or_else(|| 0.into())
     }
 
     /// Push a number onto the stack
     #[inline]
-    pub fn push(&mut self, v: Space::Output) {
+    pub fn push(&mut self, v: F::Value) {
         self.stack_mut().push(v)
     }
 
@@ -208,17 +186,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::NoEnv;
+    use super::super::tests::TestFunge;
     use super::*;
-    use crate::fungespace::paged::PagedFungeSpace;
 
     #[test]
     fn test_stack() {
-        let mut ip = InstructionPointer::<
-            BefungeVec<i64>,
-            PagedFungeSpace<BefungeVec<i64>, i64>,
-            NoEnv,
-        >::new();
+        let mut ip = InstructionPointer::<TestFunge>::new();
 
         assert_eq!(ip.pop(), 0);
         ip.push(1);

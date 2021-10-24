@@ -18,10 +18,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::fs::File;
 use std::io;
-use std::io::{stderr, stdin, stdout, Read, Stdin, Stdout, Write};
+use std::io::{stderr, Read, Write};
 use std::process::Command;
 
+use async_std::io::{stdin, stdout, Stdin, Stdout};
 use clap::{App, Arg};
+use futures_lite::io::{AsyncRead, AsyncWrite};
 use regex::Regex;
 
 use rfunge::fungespace::SrcIO;
@@ -49,10 +51,10 @@ impl InterpreterEnv for CmdLineEnv {
     fn is_io_buffered(&self) -> bool {
         true
     }
-    fn output_writer(&mut self) -> &mut dyn Write {
+    fn output_writer(&mut self) -> &mut (dyn AsyncWrite + Unpin) {
         &mut self.stdout
     }
-    fn input_reader(&mut self) -> &mut dyn Read {
+    fn input_reader(&mut self) -> &mut (dyn AsyncRead + Unpin) {
         &mut self.stdin
     }
     fn warn(&mut self, msg: &str) {
@@ -318,9 +320,9 @@ where
 {
     if is_unicode {
         let src_str = String::from_utf8(src_bin).unwrap();
-        read_funge_src(&mut interpreter.space, &src_str);
+        read_funge_src(interpreter.space.as_mut().unwrap(), &src_str);
     } else {
-        read_funge_src_bin(&mut interpreter.space, &src_bin);
+        read_funge_src_bin(interpreter.space.as_mut().unwrap(), &src_bin);
     }
     interpreter.run(RunMode::Run)
 }

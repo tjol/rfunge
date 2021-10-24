@@ -23,12 +23,18 @@ pub mod ip;
 pub mod motion;
 
 use std::io;
-use std::io::{Read, Write};
+use std::marker::Unpin;
+
+use futures_lite::future::block_on;
+use futures_lite::io::{AsyncRead, AsyncWrite};
 
 use self::instruction_set::exec_instruction;
+use self::ip::CreateInstructionPointer;
 use super::fungespace::{FungeSpace, FungeValue, SrcIO};
 
-pub use self::instruction_set::{InstructionMode, InstructionResult, InstructionSet};
+pub use self::instruction_set::{
+    InstructionContext, InstructionMode, InstructionResult, InstructionSet,
+};
 pub use self::ip::InstructionPointer;
 pub use self::motion::MotionCmds;
 pub use fingerprints::{all_fingerprints, safe_fingerprints, string_to_fingerprint};
@@ -69,20 +75,40 @@ pub enum RunMode {
     Limited(u32),
 }
 
+pub trait Funge {
+    type Idx: MotionCmds<Self::Space, Self::Env> + SrcIO<Self::Space> + 'static;
+    type Space: FungeSpace<Self::Idx, Output = Self::Value> + 'static;
+    type Value: FungeValue + 'static;
+    type Env: InterpreterEnv + 'static;
+}
+
 /// State of an rfunge interpreter
 pub struct Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
     /// Currently active IPs
-    pub ips: Vec<InstructionPointer<Idx, Space, Env>>,
+    pub ips: Vec<Option<InstructionPointer<Self>>>,
     /// Funge-space
-    pub space: Space,
+    pub space: Option<Space>,
     /// User-supplied environment permitting access to the outside world
-    pub env: Env,
+    pub env: Option<Env>,
+}
+
+impl<Idx, Space, Env> Funge for Interpreter<Idx, Space, Env>
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
+{
+    type Idx = Idx;
+    type Space = Space;
+    type Value = Space::Output;
+    type Env = Env;
 }
 
 /// An interpreter environment provides things like IO and will be implemented
@@ -94,9 +120,9 @@ pub trait InterpreterEnv {
     /// Should sysinfo (`y`) say that IO is buffered?
     fn is_io_buffered(&self) -> bool;
     /// stdout or equivalent
-    fn output_writer(&mut self) -> &mut dyn Write;
+    fn output_writer(&mut self) -> &mut (dyn AsyncWrite + Unpin);
     /// stdin or equivalent
-    fn input_reader(&mut self) -> &mut dyn Read;
+    fn input_reader(&mut self) -> &mut (dyn AsyncRead + Unpin);
     /// Method called on warnings like "unknown instruction"
     fn warn(&mut self, msg: &str);
     /// What handprint should sysinfo (`y`) name? Default: 0x52464e47
@@ -146,12 +172,12 @@ pub trait InterpreterEnv {
 
 impl<Idx, Space, Env> Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    pub fn run(&mut self, mode: RunMode) -> ProgramResult {
+    pub async fn run_async(&mut self, mode: RunMode) -> ProgramResult {
         let mut stopped_ips = Vec::new();
         let mut new_ips = Vec::new();
         let mut location_log = Vec::new();
@@ -162,19 +188,31 @@ where
                 let mut go_again = true;
                 location_log.truncate(0);
                 while go_again {
-                    let ip = &mut self.ips[ip_idx];
-                    let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
+                    // Move everything to an instruction context
+                    let mut ctx = InstructionContext {
+                        ip: self.ips[ip_idx].take().unwrap(),
+                        space: self.space.take().unwrap(),
+                        env: self.env.take().unwrap(),
+                    };
+                    let (new_loc, new_val) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
                     // Check that this loop is not infinite
                     if location_log.iter().any(|l| *l == new_loc) {
                         return ProgramResult::Panic;
                     } else {
                         location_log.push(new_loc);
                     }
-                    ip.location = new_loc;
+                    ctx.ip.location = new_loc;
                     let instruction = *new_val;
 
                     go_again = false;
-                    match exec_instruction(instruction, ip, &mut self.space, &mut self.env) {
+                    // Hand context over to exec_instruction
+                    let (ctx, result) = exec_instruction(instruction, ctx).await;
+                    // Move everything from `ctx` back to `self`
+                    self.ips[ip_idx].replace(ctx.ip);
+                    self.space.replace(ctx.space);
+                    self.env.replace(ctx.env);
+                    // Continue
+                    match result {
                         InstructionResult::Continue => {}
                         InstructionResult::Skip => {
                             go_again = true;
@@ -190,10 +228,15 @@ where
                         }
                         InstructionResult::Fork(n_forks) => {
                             // Find an ID for the new IP
-                            let mut new_id =
-                                self.ips.iter().map(|ip| ip.id).max().unwrap() + 1.into();
+                            let mut new_id = self
+                                .ips
+                                .iter()
+                                .map(|ip| ip.as_ref().unwrap().id)
+                                .max()
+                                .unwrap()
+                                + 1.into();
                             for _ in 0..n_forks {
-                                let ip = &mut self.ips[ip_idx]; // re-borrow
+                                let ip = &mut self.ips[ip_idx].as_mut().unwrap(); // borrow
                                 let mut new_ip = ip.clone(); // Create the IP
                                 new_ip.id = new_id;
                                 new_id += 1.into();
@@ -207,7 +250,7 @@ where
 
             // handle forks
             for (ip_idx, new_ip) in new_ips.drain(0..).rev() {
-                self.ips.insert(ip_idx, new_ip);
+                self.ips.insert(ip_idx, Some(new_ip));
                 // Fix ip indices in stopped_ips
                 for idx in stopped_ips.iter_mut() {
                     if *idx >= ip_idx {
@@ -237,22 +280,39 @@ where
             }
         }
     }
+
+    pub fn run(&mut self, mode: RunMode) -> ProgramResult {
+        block_on(self.run_async(mode))
+    }
+}
+
+impl<Idx, Space, Env> Interpreter<Idx, Space, Env>
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + CreateInstructionPointer<Space, Env> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
+{
+    pub fn new(space: Space, env: Env) -> Self {
+        Self {
+            ips: vec![Some(InstructionPointer::<Self>::new())],
+            space: Some(space),
+            env: Some(env),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io;
+    use async_std::io::{Empty, Sink};
 
     use super::*;
+    use crate::fungespace::{BefungeVec, PagedFungeSpace};
 
     pub struct NoEnv {
-        input: io::Empty,
-        outout: io::Sink,
+        input: Empty,
+        outout: Sink,
     }
-
-    // impl NoEnv {
-    //     fn new() -> Self { Self { input: io::empty(), outout: io::sink() } }
-    // }
 
     impl InterpreterEnv for NoEnv {
         fn get_iomode(&self) -> IOMode {
@@ -261,12 +321,21 @@ mod tests {
         fn is_io_buffered(&self) -> bool {
             true
         }
-        fn output_writer(&mut self) -> &mut dyn Write {
+        fn output_writer(&mut self) -> &mut (dyn AsyncWrite + Unpin) {
             &mut self.outout
         }
-        fn input_reader(&mut self) -> &mut dyn Read {
+        fn input_reader(&mut self) -> &mut (dyn AsyncRead + Unpin) {
             &mut self.input
         }
         fn warn(&mut self, _msg: &str) {}
+    }
+
+    pub struct TestFunge {}
+
+    impl Funge for TestFunge {
+        type Idx = BefungeVec<i64>;
+        type Space = PagedFungeSpace<BefungeVec<i64>, i64>;
+        type Value = i64;
+        type Env = NoEnv;
     }
 }

@@ -19,10 +19,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use divrem::DivRem;
 use hashbrown::HashMap;
 
-use crate::fungespace::SrcIO;
-use crate::interpreter::instruction_set::{Instruction, InstructionResult, InstructionSet};
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::interpreter::instruction_set::{
+    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+};
+use crate::interpreter::Funge;
 
 /// From the catseye library
 ///
@@ -61,71 +61,39 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 /// `U` is interpreted as the Euclidian remainder: round *q* such that *r* > 0.
 /// This is what CCBI does; cfunge, pyfunge, and, again, rcfunge, do something
 /// mathematically unsound (they return the absolute value of the C remainder).
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
-    layer.insert('M', signed_rem);
-    layer.insert('U', unsigned_rem);
-    layer.insert('R', c_rem);
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
+    layer.insert('M', sync_instruction(signed_rem));
+    layer.insert('U', sync_instruction(unsigned_rem));
+    layer.insert('R', sync_instruction(c_rem));
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['M', 'U', 'R'])
 }
 
-fn signed_rem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = ip.pop();
-    let a = ip.pop();
+fn signed_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
     if b == 0.into() {
-        ip.push(0.into());
+        ctx.ip.push(0.into());
     } else {
         let (q, r) = a.div_rem(b); // truncating
-        ip.push(if q < 0.into() { r + b } else { r });
+        ctx.ip.push(if q < 0.into() { r + b } else { r });
     }
     InstructionResult::Continue
 }
 
-fn unsigned_rem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = ip.pop();
-    let a = ip.pop();
+fn unsigned_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
     if b == 0.into() {
-        ip.push(0.into());
+        ctx.ip.push(0.into());
     } else {
         let r = a % b; // truncating
-        ip.push(if r < 0.into() {
+        ctx.ip.push(if r < 0.into() {
             if b > 0.into() {
                 r + b
             } else {
@@ -138,23 +106,13 @@ where
     InstructionResult::Continue
 }
 
-fn c_rem<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let b = ip.pop();
-    let a = ip.pop();
+fn c_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+    let b = ctx.ip.pop();
+    let a = ctx.ip.pop();
     if b == 0.into() {
-        ip.push(0.into());
+        ctx.ip.push(0.into());
     } else {
-        ip.push(a % b); // default in Rust
+        ctx.ip.push(a % b); // default in Rust
     }
     InstructionResult::Continue
 }
