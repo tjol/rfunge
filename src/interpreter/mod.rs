@@ -274,7 +274,7 @@ where
                 RunMode::Limited(max_instructions) => {
                     counter += 1;
                     if counter >= max_instructions {
-                        return ProgramResult::Paused
+                        return ProgramResult::Paused;
                     }
                 }
             }

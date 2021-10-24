@@ -32,12 +32,12 @@ use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use wasm_bindgen::JsCast;
 
 use std::cmp::min;
-use std::task::{Poll, Context};
 use std::future::Future;
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use futures_lite::io::{AsyncRead, AsyncWrite};
 use futures_lite::io as f_io;
+use futures_lite::io::{AsyncRead, AsyncWrite};
 use wasm_bindgen_futures::JsFuture;
 
 #[wasm_bindgen]
@@ -60,11 +60,15 @@ extern "C" {
 pub struct JSEnv {
     inner: JSEnvInterface,
     input_promise: Option<JsFuture>,
-    input_buf: Vec<u8>
+    input_buf: Vec<u8>,
 }
 
 impl AsyncWrite for JSEnv {
-    fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<f_io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<f_io::Result<usize>> {
         if let Ok(s) = std::str::from_utf8(buf) {
             self.inner.write_output(s);
             Poll::Ready(Ok(s.len()))
@@ -84,8 +88,10 @@ impl AsyncWrite for JSEnv {
 
 impl AsyncRead for JSEnv {
     fn poll_read(
-        mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<f_io::Result<usize>> {
-
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<f_io::Result<usize>> {
         while self.input_buf.len() < buf.len() {
             if self.input_promise.is_none() {
                 // Call into JS
@@ -100,14 +106,18 @@ impl AsyncRead for JSEnv {
                 Poll::Ready(Err(_)) => {
                     self.input_promise = None;
                     return Poll::Ready(Err(f_io::Error::new(
-                        f_io::ErrorKind::Other, "JavaScript Error")))
+                        f_io::ErrorKind::Other,
+                        "JavaScript Error",
+                    )));
                 }
                 Poll::Ready(Ok(js_str)) => {
                     self.input_promise = None;
                     match js_str.as_string() {
                         None => {
                             return Poll::Ready(Err(f_io::Error::new(
-                                f_io::ErrorKind::Other, "JavaScript type Error")))
+                                f_io::ErrorKind::Other,
+                                "JavaScript type Error",
+                            )))
                         }
                         Some(s) => {
                             // got a string from JS
@@ -212,7 +222,11 @@ impl BefungeInterpreter {
     #[wasm_bindgen(constructor)]
     pub fn new(env: JSEnvInterface) -> Self {
         // console_error_panic_hook::set_once();
-        let real_env = JSEnv { inner: env, input_promise: None, input_buf: vec![] };
+        let real_env = JSEnv {
+            inner: env,
+            input_promise: None,
+            input_buf: vec![],
+        };
         Self {
             interpreter: new_befunge_interpreter::<i32, _>(real_env),
         }
@@ -251,12 +265,18 @@ impl BefungeInterpreter {
         let self_ptr: *mut Self = self;
         wasm_bindgen_futures::future_to_promise(async move {
             let this: &mut Self = unsafe { &mut *self_ptr };
-            let result = match this.interpreter.run_async(RunMode::Limited(loop_limit)).await {
+            let result = match this
+                .interpreter
+                .run_async(RunMode::Limited(loop_limit))
+                .await
+            {
                 ProgramResult::Done(returncode) => Some(returncode),
                 ProgramResult::Panic => Some(-1),
                 ProgramResult::Paused => None,
             };
-            Ok(result.map(|n| JsValue::from_f64(n as f64)).unwrap_or_else(JsValue::null))
+            Ok(result
+                .map(|n| JsValue::from_f64(n as f64))
+                .unwrap_or_else(JsValue::null))
         })
     }
 
@@ -270,7 +290,9 @@ impl BefungeInterpreter {
                 ProgramResult::Panic => Some(-1),
                 ProgramResult::Paused => None,
             };
-            Ok(result.map(|n| JsValue::from_f64(n as f64)).unwrap_or_else(JsValue::null))
+            Ok(result
+                .map(|n| JsValue::from_f64(n as f64))
+                .unwrap_or_else(JsValue::null))
         })
     }
 
@@ -294,7 +316,11 @@ impl BefungeInterpreter {
     #[wasm_bindgen(js_name = "projectedIpLocation")]
     pub fn projected_ip_location(&self, ip_idx: usize) -> Option<Vec<i32>> {
         let ip = self.interpreter.ips.get(ip_idx)?.as_ref()?;
-        let (next_loc, _) = self.interpreter.space.as_ref()?.move_by(ip.location, ip.delta);
+        let (next_loc, _) = self
+            .interpreter
+            .space
+            .as_ref()?
+            .move_by(ip.location, ip.delta);
         Some(vec![next_loc.x, next_loc.y])
     }
 
@@ -338,14 +364,7 @@ impl BefungeInterpreter {
         let line_len = end_incl.x - start.x + 1;
 
         (start.y..(end_incl.y + 1))
-            .map(|y| {
-                SrcIO::get_src_str(
-                    space,
-                    &bfvec(start.x, y),
-                    &bfvec(line_len, 1),
-                    false,
-                )
-            })
+            .map(|y| SrcIO::get_src_str(space, &bfvec(start.x, y), &bfvec(line_len, 1), false))
             .map(|s| JsValue::from_str(&s))
             .collect()
     }
