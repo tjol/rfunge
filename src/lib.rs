@@ -19,11 +19,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 pub mod fungespace;
 pub mod interpreter;
 
-#[cfg(not(target_arch = "wasm32"))]
-mod capi;
+// #[cfg(not(target_arch = "wasm32"))]
+// mod capi;
 
-#[cfg(target_arch = "wasm32")]
-mod wasm;
+// #[cfg(target_arch = "wasm32")]
+// mod wasm;
 
 use std::hash::Hash;
 
@@ -52,11 +52,7 @@ where
     T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
     Env: InterpreterEnv,
 {
-    Interpreter {
-        ips: vec![InstructionPointer::new()],
-        space: PagedFungeSpace::new_with_page_size(1000.into()),
-        env,
-    }
+    Interpreter::new(PagedFungeSpace::new_with_page_size(1000.into()), env)
 }
 
 /// Create a new Unefunge interpreter using the default implementation and
@@ -76,9 +72,5 @@ where
     T: FungeValue + RemEuclid + Hash + DivEuclid + DivRemEuclid,
     Env: InterpreterEnv,
 {
-    Interpreter {
-        ips: vec![InstructionPointer::new()],
-        space: PagedFungeSpace::new_with_page_size(bfvec(40, 20)),
-        env,
-    }
+    Interpreter::new(PagedFungeSpace::new_with_page_size(bfvec(40, 20)), env)
 }

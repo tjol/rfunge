@@ -25,10 +25,15 @@ pub mod motion;
 use std::io;
 use std::io::{Read, Write};
 
+use futures::executor::block_on;
+
 use self::instruction_set::exec_instruction;
+use self::ip::CreateInstructionPointer;
 use super::fungespace::{FungeSpace, FungeValue, SrcIO};
 
-pub use self::instruction_set::{InstructionMode, InstructionResult, InstructionSet};
+pub use self::instruction_set::{
+    InstructionContext, InstructionMode, InstructionResult, InstructionSet,
+};
 pub use self::ip::InstructionPointer;
 pub use self::motion::MotionCmds;
 pub use fingerprints::{all_fingerprints, safe_fingerprints, string_to_fingerprint};
@@ -70,17 +75,17 @@ pub enum RunMode {
 /// State of an rfunge interpreter
 pub struct Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
     /// Currently active IPs
-    pub ips: Vec<InstructionPointer<Idx, Space, Env>>,
+    pub ips: Vec<Option<InstructionPointer<Idx, Space, Env>>>,
     /// Funge-space
-    pub space: Space,
+    pub space: Option<Space>,
     /// User-supplied environment permitting access to the outside world
-    pub env: Env,
+    pub env: Option<Env>,
 }
 
 /// An interpreter environment provides things like IO and will be implemented
@@ -144,12 +149,12 @@ pub trait InterpreterEnv {
 
 impl<Idx, Space, Env> Interpreter<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    pub fn run(&mut self, mode: RunMode) -> ProgramResult {
+    pub async fn run_async(&mut self, mode: RunMode) -> ProgramResult {
         let mut stopped_ips = Vec::new();
         let mut new_ips = Vec::new();
         let mut location_log = Vec::new();
@@ -159,19 +164,31 @@ where
                 let mut go_again = true;
                 location_log.truncate(0);
                 while go_again {
-                    let ip = &mut self.ips[ip_idx];
-                    let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
+                    // Move everything to an instruction context
+                    let mut ctx = InstructionContext {
+                        ip: self.ips[ip_idx].take().unwrap(),
+                        space: self.space.take().unwrap(),
+                        env: self.env.take().unwrap(),
+                    };
+                    let (new_loc, new_val) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
                     // Check that this loop is not infinite
                     if location_log.iter().any(|l| *l == new_loc) {
                         return ProgramResult::Panic;
                     } else {
                         location_log.push(new_loc);
                     }
-                    ip.location = new_loc;
+                    ctx.ip.location = new_loc;
                     let instruction = *new_val;
 
                     go_again = false;
-                    match exec_instruction(instruction, ip, &mut self.space, &mut self.env) {
+                    // Hand context over to exec_instruction
+                    let (ctx, result) = exec_instruction(instruction, ctx).await;
+                    // Move everything from `ctx` back to `self`
+                    self.ips[ip_idx].replace(ctx.ip);
+                    self.space.replace(ctx.space);
+                    self.env.replace(ctx.env);
+                    // Continue
+                    match result {
                         InstructionResult::Continue => {}
                         InstructionResult::Skip => {
                             go_again = true;
@@ -187,10 +204,15 @@ where
                         }
                         InstructionResult::Fork(n_forks) => {
                             // Find an ID for the new IP
-                            let mut new_id =
-                                self.ips.iter().map(|ip| ip.id).max().unwrap() + 1.into();
+                            let mut new_id = self
+                                .ips
+                                .iter()
+                                .map(|ip| ip.as_ref().unwrap().id)
+                                .max()
+                                .unwrap()
+                                + 1.into();
                             for _ in 0..n_forks {
-                                let ip = &mut self.ips[ip_idx]; // re-borrow
+                                let ip = &mut self.ips[ip_idx].as_mut().unwrap(); // borrow
                                 let mut new_ip = ip.clone(); // Create the IP
                                 new_ip.id = new_id;
                                 new_id += 1.into();
@@ -204,7 +226,7 @@ where
 
             // handle forks
             for (ip_idx, new_ip) in new_ips.drain(0..).rev() {
-                self.ips.insert(ip_idx, new_ip);
+                self.ips.insert(ip_idx, Some(new_ip));
                 // Fix ip indices in stopped_ips
                 for idx in stopped_ips.iter_mut() {
                     if *idx >= ip_idx {
@@ -226,6 +248,26 @@ where
                 return ProgramResult::Paused;
             }
         }
+    }
+
+    pub fn run(&mut self, mode: RunMode) -> ProgramResult {
+        block_on(self.run_async(mode))
+    }
+}
+
+impl<Idx, Space, Env> Interpreter<Idx, Space, Env>
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + CreateInstructionPointer<Space, Env> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
+{
+    pub fn new(space: Space, env: Env) -> Self {
+        return Self {
+            ips: vec![Some(InstructionPointer::<Idx, Space, Env>::new())],
+            space: Some(space),
+            env: Some(env),
+        };
     }
 }
 

@@ -118,12 +118,12 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
             File::open(program_path)
                 .and_then(|mut f| f.read_to_end(&mut src))
                 .unwrap();
-            read_funge_src_bin(&mut interpreter.space, &src);
+            read_funge_src_bin(interpreter.space.as_mut().unwrap(), &src);
         }
 
         assert_eq!(interpreter.run(RunMode::Run), ProgramResult::Done(0));
 
-        interpreter.env.output
+        interpreter.env.unwrap().output
     };
     let mut ref_out = Vec::<u8>::new();
     File::open(output_path)

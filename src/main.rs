@@ -318,9 +318,9 @@ where
 {
     if is_unicode {
         let src_str = String::from_utf8(src_bin).unwrap();
-        read_funge_src(&mut interpreter.space, &src_str);
+        read_funge_src(interpreter.space.as_mut().unwrap(), &src_str);
     } else {
-        read_funge_src_bin(&mut interpreter.space, &src_bin);
+        read_funge_src_bin(interpreter.space.as_mut().unwrap(), &src_bin);
     }
     interpreter.run(RunMode::Run)
 }

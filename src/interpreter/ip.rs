@@ -31,10 +31,10 @@ use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 #[derive(Debug)]
 pub struct InstructionPointer<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
     /// Identifier of the IP
     pub id: Space::Output,
@@ -58,10 +58,10 @@ where
 // Clone...
 impl<Idx, Space, Env> Clone for InstructionPointer<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -152,10 +152,10 @@ where
 
 impl<Idx, Space, Env> InstructionPointer<Idx, Space, Env>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
     /// Get the top of the stack stack
     #[inline]

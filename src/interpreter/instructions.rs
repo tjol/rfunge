@@ -29,50 +29,50 @@ use num::ToPrimitive;
 use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
 
 use super::instruction_set::exec_instruction;
-use super::ip::InstructionPointer;
 use super::motion::MotionCmds;
 use super::{ExecMode, IOMode};
-use super::{InstructionResult, InterpreterEnv};
+use super::{InstructionContext, InstructionResult, InterpreterEnv};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
-pub fn iterate<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    env: &mut Env,
-) -> InstructionResult
+pub async fn iterate<Idx, Space, Env>(
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let n = ip.pop();
-    let (mut new_loc, new_val_ref) = space.move_by(ip.location, ip.delta);
+    let n = ctx.ip.pop();
+    let (mut new_loc, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
     let mut new_val = *new_val_ref;
     let mut loop_result = InstructionResult::Continue;
     let mut new_val_c = new_val.to_char();
     while new_val_c == ';' {
         // skip what must be skipped
         // fake-execute!
-        let old_loc = ip.location;
-        ip.location = new_loc;
-        exec_instruction(new_val, ip, space, env);
-        let (new_loc2, new_val_ref) = space.move_by(ip.location, ip.delta);
+        let old_loc = ctx.ip.location;
+        ctx.ip.location = new_loc;
+        let (ctx_, _) = exec_instruction(new_val, ctx).await;
+        ctx = ctx_;
+        let (new_loc2, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
         new_loc = new_loc2;
         new_val = *new_val_ref;
-        ip.location = old_loc;
+        ctx.ip.location = old_loc;
         new_val_c = new_val.to_char();
     }
     if let Some(n) = n.to_usize() {
         if n == 0 {
             // surprising behaviour! 1k leads to the next instruction
             // being executed twice, 0k to it being skipped
-            ip.location = new_loc;
+            ctx.ip.location = new_loc;
             loop_result = InstructionResult::Continue;
         } else {
             let mut forks = 0;
             for _ in 0..n {
-                match exec_instruction(new_val, ip, space, env) {
+                let (ctx_, result) = exec_instruction(new_val, ctx).await;
+                ctx = ctx_;
+                match result {
                     InstructionResult::Continue => {}
                     InstructionResult::Fork(n) => {
                         forks += n;
@@ -87,71 +87,68 @@ where
         }
     } else {
         // Reflect on over- or underflow
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    loop_result
+    (ctx, loop_result)
 }
 
 pub fn begin_block<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    if let Some(n) = ip.pop().to_isize() {
+    if let Some(n) = ctx.ip.pop().to_isize() {
         // take n items off the SOSS (old TOSS)
-        let n_to_take = max(0, min(n, ip.stack().len() as isize));
+        let n_to_take = max(0, min(n, ctx.ip.stack().len() as isize));
         let zeros_for_toss = max(0, n - n_to_take);
         let zeros_for_soss = max(0, -n);
 
-        let split_idx = ip.stack().len() - n_to_take as usize;
-        let mut transfer_elems = ip.stack_mut().split_off(split_idx);
+        let split_idx = ctx.ip.stack().len() - n_to_take as usize;
+        let mut transfer_elems = ctx.ip.stack_mut().split_off(split_idx);
 
         for _ in 0..zeros_for_soss {
-            ip.push(0.into());
+            ctx.ip.push(0.into());
         }
 
-        MotionCmds::push_vector(ip, ip.storage_offset); // onto SOSS / old TOSS
+        let offset = ctx.ip.storage_offset;
+        MotionCmds::push_vector(&mut ctx.ip, offset); // onto SOSS / old TOSS
 
         // create a new stack
-        ip.stack_stack.insert(0, Vec::new());
+        ctx.ip.stack_stack.insert(0, Vec::new());
 
         for _ in 0..zeros_for_toss {
-            ip.push(0.into());
+            ctx.ip.push(0.into());
         }
 
-        ip.stack_mut().append(&mut transfer_elems);
+        ctx.ip.stack_mut().append(&mut transfer_elems);
 
-        ip.storage_offset = ip.location + ip.delta;
+        ctx.ip.storage_offset = ctx.ip.location + ctx.ip.delta;
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 pub fn end_block<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    if ip.stack_stack.len() > 1 {
-        if let Some(n) = ip.pop().to_isize() {
-            let mut toss = ip.stack_stack.remove(0);
+    if ctx.ip.stack_stack.len() > 1 {
+        if let Some(n) = ctx.ip.pop().to_isize() {
+            let mut toss = ctx.ip.stack_stack.remove(0);
 
             // restore the storage offset
-            ip.storage_offset = MotionCmds::pop_vector(ip);
+            ctx.ip.storage_offset = MotionCmds::pop_vector(&mut ctx.ip);
 
             let n_to_take = max(0, min(n, toss.len() as isize));
             let zeros_for_soss = max(0, n - n_to_take);
@@ -159,101 +156,98 @@ where
 
             if n_to_pop > 0 {
                 for _ in 0..n_to_pop {
-                    ip.pop();
+                    ctx.ip.pop();
                 }
             } else {
                 for _ in 0..zeros_for_soss {
-                    ip.push(0.into());
+                    ctx.ip.push(0.into());
                 }
 
                 let split_idx = toss.len() - n_to_take as usize;
-                ip.stack_mut().append(&mut toss.split_off(split_idx));
+                ctx.ip.stack_mut().append(&mut toss.split_off(split_idx));
             }
         } else {
-            ip.reflect();
+            ctx.ip.reflect();
         }
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 pub fn stack_under_stack<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    _env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let nstacks = ip.stack_stack.len();
+    let nstacks = ctx.ip.stack_stack.len();
     if nstacks > 1 {
-        if let Some(n) = ip.pop().to_isize() {
+        if let Some(n) = ctx.ip.pop().to_isize() {
             match n.cmp(&0) {
                 Ordering::Greater => {
                     for _ in 0..n {
-                        let v = ip.stack_stack[1].pop().unwrap_or_else(|| 0.into());
-                        ip.push(v);
+                        let v = ctx.ip.stack_stack[1].pop().unwrap_or_else(|| 0.into());
+                        ctx.ip.push(v);
                     }
                 }
                 Ordering::Less => {
                     for _ in 0..(-n) {
-                        let v = ip.pop();
-                        ip.stack_stack[1].push(v);
+                        let v = ctx.ip.pop();
+                        ctx.ip.stack_stack[1].push(v);
                     }
                 }
                 Ordering::Equal => {}
             }
         } else {
-            ip.reflect();
+            ctx.ip.reflect();
         }
     } else {
-        ip.reflect();
+        ctx.ip.reflect();
     }
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 pub fn input_file<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let filename = ip.pop_0gnirts();
-    let flags = ip.pop();
-    let dest = MotionCmds::pop_vector(ip);
+    let filename = ctx.ip.pop_0gnirts();
+    let flags = ctx.ip.pop();
+    let dest = MotionCmds::pop_vector(&mut ctx.ip);
 
-    match env.get_iomode() {
+    match ctx.env.get_iomode() {
         IOMode::Binary => {
-            if let Ok(src) = env.read_file(&filename) {
+            if let Ok(src) = ctx.env.read_file(&filename) {
                 if flags & 1.into() == 1.into() {
                     // "binary mode" = linear mode
                     let mut dest = dest;
                     for b in src {
-                        space[dest] = (b as i32).into();
+                        ctx.space[dest] = (b as i32).into();
                         dest = dest.one_further();
                     }
                 } else {
                     // "text mode"
-                    let size = Idx::read_bin_at(space, &dest, &src);
-                    MotionCmds::push_vector(ip, size);
-                    MotionCmds::push_vector(ip, dest);
+                    let size = Idx::read_bin_at(&mut ctx.space, &dest, &src);
+                    MotionCmds::push_vector(&mut ctx.ip, size);
+                    MotionCmds::push_vector(&mut ctx.ip, dest);
                 }
             } else {
-                ip.reflect();
+                ctx.ip.reflect();
             }
         }
         IOMode::Text => {
-            if let Some(src) = env
+            if let Some(src) = ctx
+                .env
                 .read_file(&filename)
                 .ok()
                 .and_then(|v| String::from_utf8(v).ok())
@@ -262,107 +256,104 @@ where
                     // "binary mode" = linear mode
                     let mut dest = dest;
                     for c in src.chars() {
-                        space[dest] = (c as i32).into();
+                        ctx.space[dest] = (c as i32).into();
                         dest = dest.one_further();
                     }
                 } else {
                     // "text mode"
-                    let size = Idx::read_str_at(space, &dest, &src);
-                    MotionCmds::push_vector(ip, size);
-                    MotionCmds::push_vector(ip, dest);
+                    let size = Idx::read_str_at(&mut ctx.space, &dest, &src);
+                    MotionCmds::push_vector(&mut ctx.ip, size);
+                    MotionCmds::push_vector(&mut ctx.ip, dest);
                 }
             } else {
-                ip.reflect();
+                ctx.ip.reflect();
             }
         }
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 pub fn output_file<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    let filename = ip.pop_0gnirts();
-    let flags = ip.pop();
-    let start = MotionCmds::pop_vector(ip);
-    let size = MotionCmds::pop_vector(ip);
+    let filename = ctx.ip.pop_0gnirts();
+    let flags = ctx.ip.pop();
+    let start = MotionCmds::pop_vector(&mut ctx.ip);
+    let size = MotionCmds::pop_vector(&mut ctx.ip);
 
     let strip = (flags & 1.into()) == 1.into();
 
-    if match env.get_iomode() {
-        IOMode::Binary => env.write_file(&filename, &Idx::get_src_bin(space, &start, &size, strip)),
-        IOMode::Text => env.write_file(
+    if match ctx.env.get_iomode() {
+        IOMode::Binary => ctx.env.write_file(
             &filename,
-            Idx::get_src_str(space, &start, &size, strip).as_bytes(),
+            &Idx::get_src_bin(&ctx.space, &start, &size, strip),
+        ),
+        IOMode::Text => ctx.env.write_file(
+            &filename,
+            Idx::get_src_str(&ctx.space, &start, &size, strip).as_bytes(),
         ),
     }
     .is_err()
     {
-        ip.reflect();
+        ctx.ip.reflect();
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 pub fn execute<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    _space: &mut Space,
-    env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
-    if env.have_execute() == ExecMode::Disabled {
-        ip.reflect();
+    if ctx.env.have_execute() == ExecMode::Disabled {
+        ctx.ip.reflect();
     } else {
-        let cmd = ip.pop_0gnirts();
-        ip.push(env.execute_command(&cmd).into());
+        let cmd = ctx.ip.pop_0gnirts();
+        ctx.ip.push(ctx.env.execute_command(&cmd).into());
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }
 
 pub fn sysinfo<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
-    space: &mut Space,
-    env: &mut Env,
-) -> InstructionResult
+    mut ctx: InstructionContext<Idx, Space, Env>,
+) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
 {
     let mut sysinfo_cells = Vec::<Space::Output>::new();
     // what should we push?
-    let n = ip.pop();
-    let exec_flag = env.have_execute();
+    let n = ctx.ip.pop();
+    let exec_flag = ctx.env.have_execute();
     // Set everything up first
 
     // 1. flags
     let mut impl_flags = 0x1; // concurrent funge-98
-    if env.have_file_input() {
+    if ctx.env.have_file_input() {
         impl_flags |= 0x2
     }
-    if env.have_file_output() {
+    if ctx.env.have_file_output() {
         impl_flags |= 0x4
     }
     if exec_flag != ExecMode::Disabled {
         impl_flags |= 0x8
     }
-    if !env.is_io_buffered() {
+    if !ctx.env.is_io_buffered() {
         impl_flags |= 0x10
     }
     sysinfo_cells.push(impl_flags.into());
@@ -371,7 +362,7 @@ where
     sysinfo_cells.push((size_of::<Space::Output>() as i32).into());
 
     // 3. handprint
-    sysinfo_cells.push(env.handprint().into());
+    sysinfo_cells.push(ctx.env.handprint().into());
 
     // 4. version number
     sysinfo_cells.push(
@@ -397,24 +388,24 @@ where
     sysinfo_cells.push(Idx::rank().into());
 
     // 8. IP ID
-    sysinfo_cells.push(ip.id);
+    sysinfo_cells.push(ctx.ip.id);
 
     // 9. IP team number
     sysinfo_cells.push(0.into());
 
     // 10. Position
     let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(&mut tmp_vec, ip.location);
+    Idx::push_vector_onto(&mut tmp_vec, ctx.ip.location);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
     // 11. Delta
     let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(&mut tmp_vec, ip.delta);
+    Idx::push_vector_onto(&mut tmp_vec, ctx.ip.delta);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
     // 12. Storage offset
     let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(&mut tmp_vec, ip.storage_offset);
+    Idx::push_vector_onto(&mut tmp_vec, ctx.ip.storage_offset);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
     let idx: Space::Output = (sysinfo_cells.len() as i32).into();
@@ -423,7 +414,7 @@ where
         // 13. Least point
 
         let mut tmp_vec = Vec::new();
-        let least_idx = space.min_idx().unwrap_or_else(Idx::origin);
+        let least_idx = ctx.space.min_idx().unwrap_or_else(Idx::origin);
         Idx::push_vector_onto(&mut tmp_vec, least_idx);
         sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
@@ -432,7 +423,7 @@ where
         let mut tmp_vec = Vec::new();
         Idx::push_vector_onto(
             &mut tmp_vec,
-            space.max_idx().unwrap_or_else(Idx::origin) - least_idx,
+            ctx.space.max_idx().unwrap_or_else(Idx::origin) - least_idx,
         );
         sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
     } else {
@@ -460,15 +451,15 @@ where
     );
 
     // 17. size of stack stack
-    sysinfo_cells.push((ip.stack_stack.len() as i32).into());
+    sysinfo_cells.push((ctx.ip.stack_stack.len() as i32).into());
 
     // 18. sizes of stacks
-    for stack in ip.stack_stack.iter() {
+    for stack in ctx.ip.stack_stack.iter() {
         sysinfo_cells.push((stack.len() as i32).into());
     }
 
     // 19. command line args
-    for arg in env.argv().into_iter() {
+    for arg in ctx.env.argv().into_iter() {
         for c in arg.chars() {
             sysinfo_cells.push((c as i32).into());
         }
@@ -478,7 +469,7 @@ where
     sysinfo_cells.push(0.into());
 
     // 20. environment
-    for (key, value) in env.env_vars().into_iter() {
+    for (key, value) in ctx.env.env_vars().into_iter() {
         let s = format!("{}={}", key, value);
         for c in s.chars() {
             sysinfo_cells.push((c as i32).into());
@@ -491,19 +482,19 @@ where
     if n > (sysinfo_cells.len() as i32).into() {
         // pick one pre-sysinfo cell
         let pick_n = n - (sysinfo_cells.len() as i32).into();
-        let idx = ip.stack().len() as isize - pick_n.to_isize().unwrap();
+        let idx = ctx.ip.stack().len() as isize - pick_n.to_isize().unwrap();
         if idx >= 0 {
-            ip.push(ip.stack()[idx as usize]);
+            ctx.ip.push(ctx.ip.stack()[idx as usize]);
         }
     } else if n > 0.into() {
         // pick one cell from sysinfo
-        ip.push(sysinfo_cells[n.to_usize().unwrap() - 1]);
+        ctx.ip.push(sysinfo_cells[n.to_usize().unwrap() - 1]);
     } else {
         // push it all
         for cell in sysinfo_cells.into_iter().rev() {
-            ip.push(cell);
+            ctx.ip.push(cell);
         }
     }
 
-    InstructionResult::Continue
+    (ctx, InstructionResult::Continue)
 }

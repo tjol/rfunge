@@ -23,6 +23,7 @@ chrono = "0.4"
 rand = "0.8"
 hashbrown = "0.11.2"
 sprintf = "0.1"
+futures = "0.3"
 
 [dev-dependencies]
 colored = "2.0"
