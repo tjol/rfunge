@@ -19,12 +19,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::io::{BufRead, BufReader, Read};
 use std::pin::Pin;
 use std::rc::Rc;
+use std::str;
 
+use futures_lite::io::{AsyncReadExt, AsyncWriteExt};
 use num::ToPrimitive;
-use unicode_reader::CodePoints;
 
 use super::fingerprints;
 use super::instructions;
@@ -320,22 +320,18 @@ where
             ctx.ip.location = loc;
         }
         Some('.') => {
-            if write!(ctx.env.output_writer(), "{} ", ctx.ip.pop()).is_err() {
+            let s = format!("{} ", ctx.ip.pop());
+            if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
                 ctx.env.warn("IO Error");
             }
         }
         Some(',') => {
             let c = ctx.ip.pop();
-            if match ctx.env.get_iomode() {
-                IOMode::Text => write!(ctx.env.output_writer(), "{}", c.to_char()),
-                IOMode::Binary => ctx
-                    .env
-                    .output_writer()
-                    .write(&[(c & 0xff.into()).to_u8().unwrap()])
-                    .map(|_| ()),
-            }
-            .is_err()
-            {
+            let buf = match ctx.env.get_iomode() {
+                IOMode::Text => format!("{}", c.to_char()).into_bytes(),
+                IOMode::Binary => vec![(c & 0xff.into()).to_u8().unwrap()],
+            };
+            if ctx.env.output_writer().write(&buf).await.is_err() {
                 ctx.env.warn("IO Error");
             }
         }
@@ -343,28 +339,75 @@ where
             match ctx.env.get_iomode() {
                 IOMode::Binary => {
                     let mut buf = [0_u8; 1];
-                    if matches!(ctx.env.input_reader().read(&mut buf), Ok(1)) {
-                        ctx.ip.push((buf[0] as i32).into());
-                    } else {
-                        ctx.ip.reflect();
+                    match ctx.env.input_reader().read(&mut buf).await {
+                        Ok(1) => ctx.ip.push((buf[0] as i32).into()),
+                        _ => ctx.ip.reflect(),
                     }
                 }
                 IOMode::Text => {
-                    if let Some(Ok(c)) = CodePoints::from(ctx.env.input_reader().bytes()).next() {
-                        ctx.ip.push((c as i32).into());
-                    } else {
-                        ctx.ip.reflect();
+                    // Read bytes and decode
+                    let mut buf = Vec::new();
+                    let reader = ctx.env.input_reader();
+                    loop {
+                        let idx = buf.len();
+                        buf.push(0_u8);
+                        match reader.read(&mut buf[idx..]).await {
+                            Ok(1) => {
+                                // Try to decode
+                                match str::from_utf8(&buf) {
+                                    Ok(s) => {
+                                        // Good!
+                                        let c = s.chars().next().unwrap();
+                                        ctx.ip.push((c as i32).into());
+                                        break;
+                                    }
+                                    Err(err) => {
+                                        match err.error_len() {
+                                            None => {
+                                                // more to come
+                                            }
+                                            Some(_) => {
+                                                // Invalid
+                                                ctx.ip.reflect();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {
+                                // Read error
+                                ctx.ip.reflect();
+                                break;
+                            }
+                        }
                     }
                 }
             };
         }
         Some('&') => {
-            let mut s = String::new();
-            if BufReader::new(ctx.env.input_reader())
-                .read_line(&mut s)
-                .is_ok()
-            {
-                let maybe_i: Result<i32, _> = s.trim().parse();
+            let mut buf = Vec::new();
+            let reader = ctx.env.input_reader();
+            let mut maybe_line = None;
+            loop {
+                let idx = buf.len();
+                buf.push(0_u8);
+                match reader.read(&mut buf[idx..]).await {
+                    Ok(1) => {
+                        if buf[idx] == b'\n' {
+                            // End of line
+                            maybe_line = str::from_utf8(&buf).ok();
+                            break;
+                        }
+                    }
+                    _ => {
+                        // error
+                        break;
+                    }
+                }
+            }
+            if let Some(line) = maybe_line {
+                let maybe_i: Result<i32, _> = line.trim().parse();
                 if let Ok(i) = maybe_i {
                     ctx.ip.push(i.into());
                 } else {

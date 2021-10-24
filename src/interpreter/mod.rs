@@ -23,9 +23,10 @@ pub mod ip;
 pub mod motion;
 
 use std::io;
-use std::io::{Read, Write};
+use std::marker::Unpin;
 
-use futures::executor::block_on;
+use futures_lite::future::block_on;
+use futures_lite::io::{AsyncRead, AsyncWrite};
 
 use self::instruction_set::exec_instruction;
 use self::ip::CreateInstructionPointer;
@@ -97,9 +98,9 @@ pub trait InterpreterEnv {
     /// Should sysinfo (`y`) say that IO is buffered?
     fn is_io_buffered(&self) -> bool;
     /// stdout or equivalent
-    fn output_writer(&mut self) -> &mut dyn Write;
+    fn output_writer(&mut self) -> &mut (dyn AsyncWrite + Unpin);
     /// stdin or equivalent
-    fn input_reader(&mut self) -> &mut dyn Read;
+    fn input_reader(&mut self) -> &mut (dyn AsyncRead + Unpin);
     /// Method called on warnings like "unknown instruction"
     fn warn(&mut self, msg: &str);
     /// What handprint should sysinfo (`y`) name? Default: 0x52464e47
@@ -273,18 +274,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::io;
+    use async_std::io::{Empty, Sink};
 
     use super::*;
 
     pub struct NoEnv {
-        input: io::Empty,
-        outout: io::Sink,
+        input: Empty,
+        outout: Sink,
     }
-
-    // impl NoEnv {
-    //     fn new() -> Self { Self { input: io::empty(), outout: io::sink() } }
-    // }
 
     impl InterpreterEnv for NoEnv {
         fn get_iomode(&self) -> IOMode {
@@ -293,10 +290,10 @@ mod tests {
         fn is_io_buffered(&self) -> bool {
             true
         }
-        fn output_writer(&mut self) -> &mut dyn Write {
+        fn output_writer(&mut self) -> &mut (dyn AsyncWrite + Unpin) {
             &mut self.outout
         }
-        fn input_reader(&mut self) -> &mut dyn Read {
+        fn input_reader(&mut self) -> &mut (dyn AsyncRead + Unpin) {
             &mut self.input
         }
         fn warn(&mut self, _msg: &str) {}

@@ -16,12 +16,14 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use futures_lite::io::AsyncWriteExt;
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
+    InstructionSet,
 };
 use crate::interpreter::MotionCmds;
 use crate::{FungeSpace, FungeValue, InterpreterEnv};
@@ -73,7 +75,7 @@ where
     layer.insert('L', sync_instruction(log10));
     layer.insert('M', sync_instruction(mul));
     layer.insert('N', sync_instruction(neg));
-    layer.insert('P', sync_instruction(print_fpsp));
+    layer.insert('P', async_instruction(print_fpsp));
     layer.insert('Q', sync_instruction(sqrt));
     layer.insert('R', sync_instruction(conv_str2fpsp));
     layer.insert('S', sync_instruction(sub));
@@ -157,7 +159,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn print_fpsp<Idx, Space, Env>(
+async fn print_fpsp<Idx, Space, Env>(
     mut ctx: InstructionContext<Idx, Space, Env>,
 ) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
@@ -167,7 +169,8 @@ where
     Env: InterpreterEnv + 'static,
 {
     let f = val_to_fpsp(ctx.ip.pop());
-    if write!(ctx.env.output_writer(), "{:.6} ", f).is_err() {
+    let s = format!("{:.6} ", f);
+    if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
         ctx.ip.reflect();
     }
     (ctx, InstructionResult::Continue)

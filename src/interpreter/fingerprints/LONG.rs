@@ -18,11 +18,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::mem::size_of;
 
+use futures_lite::io::AsyncWriteExt;
 use hashbrown::HashMap;
 
 use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
+    InstructionSet,
 };
 use crate::interpreter::MotionCmds;
 use crate::{FungeSpace, FungeValue, InterpreterEnv};
@@ -61,7 +63,7 @@ where
     layer.insert('M', sync_instruction(mul));
     layer.insert('N', sync_instruction(neg));
     layer.insert('O', sync_instruction(rem));
-    layer.insert('P', sync_instruction(print_long));
+    layer.insert('P', async_instruction(print_long));
     layer.insert('R', sync_instruction(shift_right));
     layer.insert('S', sync_instruction(sub));
     layer.insert('Z', sync_instruction(parse_long));
@@ -119,7 +121,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn print_long<Idx, Space, Env>(
+async fn print_long<Idx, Space, Env>(
     mut ctx: InstructionContext<Idx, Space, Env>,
 ) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
 where
@@ -131,7 +133,8 @@ where
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
     let lng = vals_to_i128(hi, lo);
-    if write!(ctx.env.output_writer(), "{} ", lng).is_err() {
+    let s = format!("{} ", lng);
+    if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
         ctx.ip.reflect();
     }
     (ctx, InstructionResult::Continue)
