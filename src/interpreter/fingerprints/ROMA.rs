@@ -59,44 +59,44 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['I', 'V', 'X', 'L', 'C', 'D', 'M'])
 }
 
-fn unum<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn unum<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(1.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn quinque<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn quinque<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(5.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn decem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn decem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(10.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn quinquaginta<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn quinquaginta<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(50.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn centum<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn centum<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(100.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn quingenti<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn quingenti<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(500.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn mille<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn mille<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(1000.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

@@ -55,7 +55,7 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['D', 'F', 'I', 'L', 'S'][..])
 }
 
-fn sprintf_int<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sprintf_int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let arg = ctx.ip.pop().to_i64().unwrap_or_default();
     let fmt = ctx.ip.pop_0gnirts();
@@ -64,10 +64,10 @@ fn sprintf_int<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sprintf_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sprintf_long<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -78,10 +78,10 @@ fn sprintf_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sprintf_fpdp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sprintf_fpdp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -92,10 +92,10 @@ fn sprintf_fpdp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sprintf_fpsp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sprintf_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let i = ctx.ip.pop();
     let arg = val_to_fpsp(i); // sprintf does not support i128
@@ -105,10 +105,10 @@ fn sprintf_fpsp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sprintf_str<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sprintf_str<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let arg = ctx.ip.pop_0gnirts();
     let fmt = ctx.ip.pop_0gnirts();
@@ -117,5 +117,5 @@ fn sprintf_str<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

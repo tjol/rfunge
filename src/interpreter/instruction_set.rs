@@ -70,12 +70,14 @@ pub fn sync_instruction<F, Func>(func: Func) -> Instruction<F>
 where
     F: Funge + 'static,
     Func: Fn(
-            InstructionContext<F>,
-        ) -> (InstructionContext<F>, InstructionResult)
+            &mut InstructionContext<F>,
+        ) -> InstructionResult
         + Copy
         + 'static,
 {
-    Rc::new(move |ctx| Box::pin(async move { func(ctx) }))
+    Rc::new(move |mut ctx| Box::pin(async move {
+        let result = func(&mut ctx);
+        (ctx, result) }))
 }
 
 pub fn async_instruction<F, Func, Fut>(func: Func) -> Instruction<F>
@@ -527,7 +529,7 @@ mod tests {
         assert!(matches!(is.get_instruction('3' as i64), None));
     }
 
-    fn nop_for_test(ctx: TestCtx) -> (TestCtx, InstructionResult) {
-        (ctx, InstructionResult::Continue)
+    fn nop_for_test(_ctx: &mut TestCtx) -> InstructionResult {
+        InstructionResult::Continue
     }
 }

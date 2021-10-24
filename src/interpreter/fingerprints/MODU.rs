@@ -74,7 +74,7 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['M', 'U', 'R'])
 }
 
-fn signed_rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn signed_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
@@ -84,10 +84,10 @@ fn signed_rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F
         let (q, r) = a.div_rem(b); // truncating
         ctx.ip.push(if q < 0.into() { r + b } else { r });
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn unsigned_rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn unsigned_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
@@ -105,10 +105,10 @@ fn unsigned_rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext
             r
         });
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn c_rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn c_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
@@ -117,5 +117,5 @@ fn c_rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, In
     } else {
         ctx.ip.push(a % b); // default in Rust
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

@@ -92,13 +92,13 @@ pub fn i1282vals<T: FungeValue>(lng: i128) -> (T, T) {
     }
 }
 
-fn extend<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn extend<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let lng = val_to_i128(ctx.ip.pop());
     let (hi, lo) = i1282vals(lng);
     ctx.ip.push(hi);
     ctx.ip.push(lo);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
 async fn print_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
@@ -113,17 +113,17 @@ async fn print_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionCon
     (ctx, InstructionResult::Continue)
 }
 
-fn parse_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn parse_long<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let s = ctx.ip.pop_0gnirts();
     let lng: i128 = s.parse().unwrap_or_default();
     let (hi, lo) = i1282vals(lng);
     ctx.ip.push(hi);
     ctx.ip.push(lo);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn abs<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn abs<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -131,10 +131,10 @@ fn abs<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     let (hi, lo) = i1282vals(lng.abs());
     ctx.ip.push(hi);
     ctx.ip.push(lo);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn neg<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn neg<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -142,10 +142,10 @@ fn neg<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     let (hi, lo) = i1282vals(-lng);
     ctx.ip.push(hi);
     ctx.ip.push(lo);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn add<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn add<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -156,10 +156,10 @@ fn add<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     let (rh, rl) = i1282vals(a + b);
     ctx.ip.push(rh);
     ctx.ip.push(rl);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sub<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sub<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -170,10 +170,10 @@ fn sub<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     let (rh, rl) = i1282vals(a - b);
     ctx.ip.push(rh);
     ctx.ip.push(rl);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn mul<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn mul<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -184,10 +184,10 @@ fn mul<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     let (rh, rl) = i1282vals(a * b);
     ctx.ip.push(rh);
     ctx.ip.push(rl);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn div<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn div<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -198,10 +198,10 @@ fn div<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     let (rh, rl) = i1282vals(a / b);
     ctx.ip.push(rh);
     ctx.ip.push(rl);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -212,10 +212,10 @@ fn rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     let (rh, rl) = i1282vals(a % b);
     ctx.ip.push(rh);
     ctx.ip.push(rl);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn shift_left<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn shift_left<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = val_to_i128(ctx.ip.pop());
     let al = ctx.ip.pop();
@@ -224,10 +224,10 @@ fn shift_left<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F
     let (rh, rl) = i1282vals(a << n);
     ctx.ip.push(rh);
     ctx.ip.push(rl);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn shift_right<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn shift_right<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = val_to_i128(ctx.ip.pop());
     let al = ctx.ip.pop();
@@ -236,5 +236,5 @@ fn shift_right<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<
     let (rh, rl) = i1282vals(a >> n);
     ctx.ip.push(rh);
     ctx.ip.push(rl);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

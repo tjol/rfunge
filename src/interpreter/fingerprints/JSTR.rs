@@ -46,7 +46,7 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['P', 'G'][..])
 }
 
-fn put<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn put<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = ctx.ip.pop();
     let va = MotionCmds::pop_vector(&mut ctx.ip);
@@ -60,10 +60,10 @@ fn put<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
         remaining -= 1.into();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn get<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn get<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = ctx.ip.pop();
     let va = MotionCmds::pop_vector(&mut ctx.ip);
@@ -79,5 +79,5 @@ fn get<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
         remaining -= 1.into();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

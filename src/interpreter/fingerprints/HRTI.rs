@@ -48,27 +48,27 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
 
 /// `G` 'Granularity' pushes the smallest clock tick the underlying system
 /// can reliably handle, measured in microseconds.
-fn granularity<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn granularity<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.push(1.into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
 /// `M` 'Mark' designates the timer as having been read by the IP with this
 /// ID at this instance in time.
-fn mark<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn mark<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let ts_micros: i64 = Utc::now().timestamp_nanos() / 1000;
     ctx.ip
         .private_data
         .insert("HRTI.mark".to_owned(), Rc::new(ts_micros));
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
 /// `T` 'Timer' pushes the number of microseconds elapsed since the last
 /// time an IP with this ID marked the timer. If there is no previous mark,
 /// acts like `r`.
-fn timer<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn timer<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     if let Some(mark) = ctx.ip.private_data.get("HRTI.mark") {
         if let Some(ts_ref) = mark.downcast_ref::<i64>() {
@@ -81,22 +81,22 @@ fn timer<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, In
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
 /// `E` 'Erase mark' erases the last timer mark by this IP (such that `T`
 /// above will act like `r`)
-fn erase<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn erase<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.private_data.remove("HRTI.mark");
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
 /// `S` 'Second' pushes the number of microseconds elapsed since the last
 /// whole second.
-fn second<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn second<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip
         .push((Utc::now().timestamp_subsec_micros() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

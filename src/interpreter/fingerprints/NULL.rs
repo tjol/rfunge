@@ -42,8 +42,8 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect::<Vec<char>>())
 }
 
-fn reflect<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn reflect<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip.reflect();
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

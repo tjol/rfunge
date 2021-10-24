@@ -60,15 +60,15 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['D', 'L', 'O', 'P', 'R'][..])
 }
 
-fn depth<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn depth<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     ctx.ip
         .push(FromPrimitive::from_usize(ctx.ip.stack().len()).unwrap_or_else(Zero::zero));
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn roll<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn roll<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let stack = ctx.ip.stack_mut();
     let u = stack.pop().and_then(|v| v.to_isize()).unwrap_or_default();
@@ -95,10 +95,10 @@ fn roll<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Ins
         }
         _ => {}
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn over<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn over<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let stack = ctx.ip.stack();
     let v = if stack.len() >= 2 {
@@ -108,10 +108,10 @@ fn over<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Ins
     };
     ctx.ip.push(v);
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn pick<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn pick<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let u = ctx.ip.pop();
     if u < Zero::zero() {
@@ -128,10 +128,10 @@ fn pick<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Ins
         ctx.ip.push(v);
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn rot<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn rot<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let stack = ctx.ip.stack_mut();
     let l = stack.len();
@@ -142,5 +142,5 @@ fn rot<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     };
     ctx.ip.push(v);
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

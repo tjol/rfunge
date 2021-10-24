@@ -84,7 +84,7 @@ fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>>
         .unwrap()
 }
 
-fn reference<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn reference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let vec = MotionCmds::pop_vector(&mut ctx.ip);
     let ref_idx = {
@@ -98,10 +98,10 @@ fn reference<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>
         }
     };
     ctx.ip.push(ref_idx);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn dereference<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn dereference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     if let Some(vec) = ctx
         .ip
@@ -113,5 +113,5 @@ fn dereference<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

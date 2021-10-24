@@ -86,55 +86,55 @@ fn deg2rad(angle: f64) -> f64 {
     angle * PI / 180.
 }
 
-fn arccos<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn arccos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).acos();
     ctx.ip
         .push(((rad2deg(radians) * 10000.).round() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn cos<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn cos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
     ctx.ip
         .push(((radians.cos() * 10000.).round() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn arcsin<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn arcsin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).asin();
     ctx.ip
         .push(((rad2deg(radians) * 10000.).round() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sin<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
     ctx.ip
         .push(((radians.sin() * 10000.).round() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn arctan<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn arctan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).atan();
     ctx.ip
         .push(((rad2deg(radians) * 10000.).round() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn tan<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn tan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
     ctx.ip
         .push(((radians.tan() * 10000.).round() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn rnd<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn rnd<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let limit = ctx.ip.pop();
     let sgn = limit.signum();
@@ -147,48 +147,48 @@ fn rnd<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Inst
     };
 
     ctx.ip.push(number);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn neg<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn neg<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = ctx.ip.pop();
     ctx.ip.push(-n);
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn mulpi<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn mulpi<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = ctx.ip.pop().to_f64().unwrap_or_default() * PI;
     ctx.ip.push((n as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sqrt<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sqrt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = ctx.ip.pop().to_f64().unwrap_or_default().sqrt();
     ctx.ip.push((n as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn pow<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn pow<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let b = ctx.ip.pop().to_i32().unwrap_or_default();
     let a = ctx.ip.pop().to_f64().unwrap_or_default();
     ctx.ip.push((a.powi(b).round() as i32).into());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn sgn<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn sgn<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = ctx.ip.pop();
     ctx.ip.push(n.signum());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn abs<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn abs<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let n = ctx.ip.pop();
     ctx.ip.push(n * n.signum());
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

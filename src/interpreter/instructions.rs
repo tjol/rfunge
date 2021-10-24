@@ -85,7 +85,7 @@ pub async fn iterate<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionCo
     (ctx, loop_result)
 }
 
-pub fn begin_block<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+pub fn begin_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     if let Some(n) = ctx.ip.pop().to_isize() {
         // take n items off the SOSS (old TOSS)
@@ -117,10 +117,10 @@ pub fn begin_block<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionCont
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-pub fn end_block<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+pub fn end_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     if ctx.ip.stack_stack.len() > 1 {
         if let Some(n) = ctx.ip.pop().to_isize() {
@@ -152,10 +152,10 @@ pub fn end_block<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContex
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-pub fn stack_under_stack<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+pub fn stack_under_stack<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let nstacks = ctx.ip.stack_stack.len();
     if nstacks > 1 {
@@ -181,10 +181,10 @@ pub fn stack_under_stack<F: Funge>(mut ctx: InstructionContext<F>) -> (Instructi
     } else {
         ctx.ip.reflect();
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-pub fn input_file<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+pub fn input_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let filename = ctx.ip.pop_0gnirts();
     let flags = ctx.ip.pop();
@@ -236,10 +236,10 @@ pub fn input_file<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionConte
         }
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-pub fn output_file<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+pub fn output_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let filename = ctx.ip.pop_0gnirts();
     let flags = ctx.ip.pop();
@@ -263,10 +263,10 @@ pub fn output_file<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionCont
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-pub fn execute<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+pub fn execute<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     if ctx.env.have_execute() == ExecMode::Disabled {
         ctx.ip.reflect();
@@ -275,10 +275,10 @@ pub fn execute<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<
         ctx.ip.push(ctx.env.execute_command(&cmd).into());
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-pub fn sysinfo<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+pub fn sysinfo<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let mut sysinfo_cells = Vec::<F::Value>::new();
     // what should we push?
@@ -440,5 +440,5 @@ pub fn sysinfo<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<
         }
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }

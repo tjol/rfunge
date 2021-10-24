@@ -147,7 +147,7 @@ fn push_socket<F: Funge>(
     }
 }
 
-fn socket_create<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn socket_create<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let proto = ctx.ip.pop();
@@ -156,7 +156,7 @@ fn socket_create<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContex
     if pf != 2.into() {
         // only allow PF_INET
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     }
 
     let real_proto = match proto.to_i32().unwrap_or(-1) {
@@ -165,7 +165,7 @@ fn socket_create<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContex
         0 => None,
         _ => {
             ctx.ip.reflect();
-            return (ctx, InstructionResult::Continue);
+            return InstructionResult::Continue;
         }
     };
 
@@ -180,17 +180,17 @@ fn socket_create<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContex
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn kill<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn kill<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
 
     let success = {
@@ -210,17 +210,17 @@ fn kill<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Ins
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn setopt<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn setopt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
     let opt = ctx.ip.pop();
     let flag = ctx.ip.pop() != 0.into();
@@ -265,10 +265,10 @@ fn setopt<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, I
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn bind<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn bind<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let addr = ctx.ip.pop().to_i32().unwrap_or_default();
@@ -276,20 +276,20 @@ fn bind<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Ins
         prt16
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
     let ct = ctx.ip.pop();
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
 
     if ct != 2.into() {
         // must be AF_INET
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     }
 
     let addr = SocketAddrV4::new((addr as u32).into(), port);
@@ -309,10 +309,10 @@ fn bind<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Ins
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn connect<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn connect<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let addr = ctx.ip.pop().to_i32().unwrap_or_default();
@@ -320,20 +320,20 @@ fn connect<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, 
         prt16
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
     let ct = ctx.ip.pop();
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
 
     if ct != 2.into() {
         // must be AF_INET
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     }
 
     let addr = SocketAddrV4::new((addr as u32).into(), port);
@@ -353,17 +353,17 @@ fn connect<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, 
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn listen<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn listen<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
 
     let backlog = ctx.ip.pop().to_i32().unwrap_or(1) as c_int;
@@ -383,17 +383,17 @@ fn listen<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, I
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn accept<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn accept<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
 
     let mut success = false;
@@ -418,17 +418,17 @@ fn accept<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, I
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn recv<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
     let max_count = ctx.ip.pop();
     let mut loc = MotionCmds::pop_vector(&mut ctx.ip);
@@ -450,17 +450,17 @@ fn recv<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, Ins
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn write<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn write<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
     } else {
         ctx.ip.reflect();
-        return (ctx, InstructionResult::Continue);
+        return InstructionResult::Continue;
     };
     let count = ctx.ip.pop().to_usize().unwrap_or_default();
     let mut loc = MotionCmds::pop_vector(&mut ctx.ip);
@@ -483,10 +483,10 @@ fn write<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, In
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
-fn ipaddr<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
+fn ipaddr<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
 {
     let ip_string = ctx.ip.pop_0gnirts();
 
@@ -497,5 +497,5 @@ fn ipaddr<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, I
         ctx.ip.reflect();
     }
 
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
