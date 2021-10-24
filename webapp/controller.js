@@ -8,7 +8,7 @@ export class RFungeController {
   constructor (host) {
     this._host = host
     this._stopRequest = null
-    this._inputBuffer = ""
+    this._inputBuffer = ''
     this._onInput = []
   }
 
@@ -46,22 +46,25 @@ export class RFungeController {
   }
 
   readInput () {
-    return new Promise(resolve => {
-      if (this._inputBuffer !== "") {
+    return new Promise((resolve, reject) => {
+      if (this._stopRequest != null) {
+        reject(new InterpreterStopped())
+      }
+      if (this._inputBuffer !== '') {
         const result = this._inputBuffer
-        this._inputBuffer = ""
+        this._inputBuffer = ''
         resolve(result)
       } else {
         const idx = this._onInput.length
         const inputCallback = () => {
           const result = this._inputBuffer
-          this._inputBuffer = ""
+          this._inputBuffer = ''
           this._onInput.splice(idx, 1) // remove callback from array
           resolve(result)
         }
         this._onInput.push(inputCallback)
       }
-    });
+    })
   }
 
   /******************************************************
@@ -114,12 +117,13 @@ export class RFungeController {
     })
   }
 
-  async step() {
+  async step () {
     return await this._interpreter.stepAsync()
   }
 
   stop () {
     return new Promise(resolve => {
+      this.writeInput('') // EOF
       this._stopRequest = resolve
     })
   }
