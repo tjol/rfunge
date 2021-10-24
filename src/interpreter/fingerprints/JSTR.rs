@@ -18,12 +18,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use hashbrown::HashMap;
 
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InterpreterEnv};
+use crate::interpreter::Funge;
 
 /// From https://web.archive.org/web/20070525220700/http://www.jess2.net:80/code/funge/myexts.txt
 ///
@@ -35,38 +34,19 @@ use crate::{FungeSpace, FungeValue, InterpreterEnv};
 ///
 /// NOTE: The rcFunge docs swap `G` and `P`, but rcFunge still implements the
 /// fingerprint as documented here!
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('P', sync_instruction(put));
     layer.insert('G', sync_instruction(get));
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['P', 'G'][..])
 }
 
-fn put<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn put<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop();
     let va = MotionCmds::pop_vector(&mut ctx.ip);
@@ -83,14 +63,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn get<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn get<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop();
     let va = MotionCmds::pop_vector(&mut ctx.ip);

@@ -21,13 +21,12 @@ use std::mem::size_of;
 use futures_lite::io::AsyncWriteExt;
 use hashbrown::HashMap;
 
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
     InstructionSet,
 };
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InterpreterEnv};
+use crate::interpreter::Funge;
+use crate::{FungeValue, InterpreterEnv};
 
 /// From the rcFunge docs:
 ///
@@ -47,14 +46,8 @@ use crate::{FungeSpace, FungeValue, InterpreterEnv};
 ///
 ///  * long integers are 2 cell integers, if the interpreter's cell size is 32, then long integers are 64-bits.
 ///  * Division by zero results in zero, not error
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(add));
     layer.insert('B', sync_instruction(abs));
     layer.insert('D', sync_instruction(div));
@@ -71,13 +64,7 @@ where
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&"ABDELMNOPRSZ".chars().collect::<Vec<char>>())
 }
 
@@ -105,14 +92,7 @@ pub fn i1282vals<T: FungeValue>(lng: i128) -> (T, T) {
     }
 }
 
-fn extend<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn extend<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let lng = val_to_i128(ctx.ip.pop());
     let (hi, lo) = i1282vals(lng);
@@ -121,14 +101,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-async fn print_long<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+async fn print_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -140,14 +113,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn parse_long<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn parse_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let s = ctx.ip.pop_0gnirts();
     let lng: i128 = s.parse().unwrap_or_default();
@@ -157,14 +123,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn abs<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn abs<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -175,14 +134,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn neg<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn neg<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -193,14 +145,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn add<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn add<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -214,14 +159,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn sub<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sub<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -235,14 +173,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn mul<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn mul<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -256,14 +187,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn div<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn div<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -277,14 +201,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn rem<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn rem<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let bl = ctx.ip.pop();
     let bh = ctx.ip.pop();
@@ -298,14 +215,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn shift_left<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn shift_left<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = val_to_i128(ctx.ip.pop());
     let al = ctx.ip.pop();
@@ -317,14 +227,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn shift_right<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn shift_right<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = val_to_i128(ctx.ip.pop());
     let al = ctx.ip.pop();

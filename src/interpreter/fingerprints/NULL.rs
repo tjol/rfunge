@@ -18,26 +18,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use hashbrown::HashMap;
 
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InterpreterEnv};
+use crate::interpreter::Funge;
 
 /// After successfully loading fingerprint 0x4e554c4c, all 26 instructions
 /// `A` to `Z` take on the semantics of `r`.
 ///
 /// This can be loaded before loading a regular transparent fingerprint to
 /// make it act opaquely.
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
         layer.insert(c, sync_instruction(reflect));
     }
@@ -45,25 +37,12 @@ where
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     // Check that this fingerprint is on top
     instructionset.pop_layer(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect::<Vec<char>>())
 }
 
-fn reflect<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn reflect<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     ctx.ip.reflect();
     (ctx, InstructionResult::Continue)

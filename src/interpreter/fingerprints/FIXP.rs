@@ -22,12 +22,10 @@ use hashbrown::HashMap;
 use num::{Signed, ToPrimitive};
 
 use super::BOOL;
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InterpreterEnv};
+use crate::interpreter::Funge;
 
 /// From the rcFunge docs:
 ///
@@ -54,14 +52,8 @@ use crate::{FungeSpace, FungeValue, InterpreterEnv};
 /// thereby giving 4 digits of decimal precision.
 ///
 /// Trigonometric functions work in degrees. not radians.
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(BOOL::and));
     layer.insert('B', sync_instruction(arccos));
     layer.insert('C', sync_instruction(cos));
@@ -82,13 +74,7 @@ where
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&"ABCDIJNOPQRSTUVX".chars().collect::<Vec<char>>())
 }
 
@@ -100,14 +86,7 @@ fn deg2rad(angle: f64) -> f64 {
     angle * PI / 180.
 }
 
-fn arccos<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn arccos<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).acos();
     ctx.ip
@@ -115,14 +94,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn cos<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn cos<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
     ctx.ip
@@ -130,14 +102,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn arcsin<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn arcsin<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).asin();
     ctx.ip
@@ -145,14 +110,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn sin<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sin<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
     ctx.ip
@@ -160,14 +118,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn arctan<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn arctan<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).atan();
     ctx.ip
@@ -175,14 +126,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn tan<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn tan<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
     ctx.ip
@@ -190,14 +134,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn rnd<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn rnd<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let limit = ctx.ip.pop();
     let sgn = limit.signum();
@@ -206,63 +143,35 @@ where
         0.into()
     } else {
         let rndnum = rand::random::<f64>() * (abs_limit as f64);
-        Space::Output::from(rndnum as i32) * sgn
+        F::Value::from(rndnum as i32) * sgn
     };
 
     ctx.ip.push(number);
     (ctx, InstructionResult::Continue)
 }
 
-fn neg<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn neg<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop();
     ctx.ip.push(-n);
     (ctx, InstructionResult::Continue)
 }
 
-fn mulpi<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn mulpi<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop().to_f64().unwrap_or_default() * PI;
     ctx.ip.push((n as i32).into());
     (ctx, InstructionResult::Continue)
 }
 
-fn sqrt<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sqrt<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop().to_f64().unwrap_or_default().sqrt();
     ctx.ip.push((n as i32).into());
     (ctx, InstructionResult::Continue)
 }
 
-fn pow<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn pow<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let b = ctx.ip.pop().to_i32().unwrap_or_default();
     let a = ctx.ip.pop().to_f64().unwrap_or_default();
@@ -270,28 +179,14 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn sgn<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sgn<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop();
     ctx.ip.push(n.signum());
     (ctx, InstructionResult::Continue)
 }
 
-fn abs<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn abs<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop();
     ctx.ip.push(n * n.signum());

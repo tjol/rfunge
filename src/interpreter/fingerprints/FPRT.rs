@@ -24,12 +24,10 @@ use super::FPDP::vals_to_fpdp;
 use super::FPSP::val_to_fpsp;
 use super::LONG::vals_to_i128;
 
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InterpreterEnv};
+use crate::interpreter::Funge;
 
 /// From the rcFunge docs:
 ///
@@ -42,14 +40,8 @@ use crate::{FungeSpace, FungeValue, InterpreterEnv};
 ///
 /// Formats are printf style
 /// Error in any function reflects
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('D', sync_instruction(sprintf_fpdp));
     layer.insert('F', sync_instruction(sprintf_fpsp));
     layer.insert('I', sync_instruction(sprintf_int));
@@ -59,24 +51,11 @@ where
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['D', 'F', 'I', 'L', 'S'][..])
 }
 
-fn sprintf_int<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sprintf_int<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let arg = ctx.ip.pop().to_i64().unwrap_or_default();
     let fmt = ctx.ip.pop_0gnirts();
@@ -88,14 +67,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn sprintf_long<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sprintf_long<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -109,14 +81,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn sprintf_fpdp<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sprintf_fpdp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
@@ -130,14 +95,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn sprintf_fpsp<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sprintf_fpsp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let i = ctx.ip.pop();
     let arg = val_to_fpsp(i); // sprintf does not support i128
@@ -150,14 +108,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn sprintf_str<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn sprintf_str<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let arg = ctx.ip.pop_0gnirts();
     let fmt = ctx.ip.pop_0gnirts();

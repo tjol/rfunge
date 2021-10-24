@@ -20,7 +20,7 @@ use std::cmp::Ordering;
 use std::ops::{Add, Mul, Sub};
 
 use super::ip::InstructionPointer;
-use super::InterpreterEnv;
+use super::{Funge, InterpreterEnv};
 use crate::fungespace::index::{bfvec, BefungeVec};
 use crate::fungespace::{FungeIndex, FungeSpace, FungeValue, SrcIO};
 
@@ -35,13 +35,23 @@ where
     Space::Output: FungeValue,
     Env: InterpreterEnv,
 {
-    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool;
+    fn apply_delta<F>(instruction: char, ip: &mut InstructionPointer<F>) -> bool
+    where
+        F: Funge<Idx = Self, Space = Space, Value = Space::Output, Env = Env> + 'static;
     fn pop_vector_from(stack: &mut Vec<Space::Output>) -> Self;
     fn push_vector_onto(stack: &mut Vec<Space::Output>, v: Self);
-    fn pop_vector(ip: &mut InstructionPointer<Self, Space, Env>) -> Self {
+
+    fn pop_vector<F>(ip: &mut InstructionPointer<F>) -> Self
+    where
+        F: Funge<Idx = Self, Space = Space, Value = Space::Output, Env = Env> + 'static,
+    {
         Self::pop_vector_from(ip.stack_mut())
     }
-    fn push_vector(ip: &mut InstructionPointer<Self, Space, Env>, v: Self) {
+
+    fn push_vector<F>(ip: &mut InstructionPointer<F>, v: Self)
+    where
+        F: Funge<Idx = Self, Space = Space, Value = Space::Output, Env = Env> + 'static,
+    {
         Self::push_vector_onto(ip.stack_mut(), v)
     }
     fn one_further(&self) -> Self;
@@ -54,7 +64,10 @@ where
     Space: FungeSpace<Self, Output = T>,
     Env: InterpreterEnv,
 {
-    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool {
+    fn apply_delta<F>(instruction: char, ip: &mut InstructionPointer<F>) -> bool
+    where
+        F: Funge<Idx = Self, Space = Space, Value = Space::Output, Env = Env> + 'static,
+    {
         match instruction {
             '>' => {
                 ip.delta = T::from(1);
@@ -105,7 +118,10 @@ where
     T: FungeValue,
     Env: InterpreterEnv,
 {
-    fn apply_delta(instruction: char, ip: &mut InstructionPointer<Self, Space, Env>) -> bool {
+    fn apply_delta<F>(instruction: char, ip: &mut InstructionPointer<F>) -> bool
+    where
+        F: Funge<Idx = Self, Space = Space, Value = Space::Output, Env = Env> + 'static,
+    {
         match instruction {
             '>' => {
                 ip.delta = bfvec(1, 0);

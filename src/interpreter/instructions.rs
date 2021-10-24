@@ -31,17 +31,10 @@ use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
 use super::instruction_set::exec_instruction;
 use super::motion::MotionCmds;
 use super::{ExecMode, IOMode};
-use super::{InstructionContext, InstructionResult, InterpreterEnv};
-use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
+use super::{InstructionContext, InstructionResult, InterpreterEnv, Funge};
+use crate::fungespace::{FungeSpace, FungeValue, SrcIO, FungeIndex};
 
-pub async fn iterate<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub async fn iterate<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let n = ctx.ip.pop();
     let (mut new_loc, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
@@ -92,14 +85,7 @@ where
     (ctx, loop_result)
 }
 
-pub fn begin_block<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn begin_block<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     if let Some(n) = ctx.ip.pop().to_isize() {
         // take n items off the SOSS (old TOSS)
@@ -134,14 +120,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-pub fn end_block<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn end_block<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     if ctx.ip.stack_stack.len() > 1 {
         if let Some(n) = ctx.ip.pop().to_isize() {
@@ -176,14 +155,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-pub fn stack_under_stack<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn stack_under_stack<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let nstacks = ctx.ip.stack_stack.len();
     if nstacks > 1 {
@@ -212,14 +184,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-pub fn input_file<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn input_file<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let filename = ctx.ip.pop_0gnirts();
     let flags = ctx.ip.pop();
@@ -237,7 +202,7 @@ where
                     }
                 } else {
                     // "text mode"
-                    let size = Idx::read_bin_at(&mut ctx.space, &dest, &src);
+                    let size = F::Idx::read_bin_at(&mut ctx.space, &dest, &src);
                     MotionCmds::push_vector(&mut ctx.ip, size);
                     MotionCmds::push_vector(&mut ctx.ip, dest);
                 }
@@ -261,7 +226,7 @@ where
                     }
                 } else {
                     // "text mode"
-                    let size = Idx::read_str_at(&mut ctx.space, &dest, &src);
+                    let size = F::Idx::read_str_at(&mut ctx.space, &dest, &src);
                     MotionCmds::push_vector(&mut ctx.ip, size);
                     MotionCmds::push_vector(&mut ctx.ip, dest);
                 }
@@ -274,14 +239,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-pub fn output_file<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn output_file<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let filename = ctx.ip.pop_0gnirts();
     let flags = ctx.ip.pop();
@@ -293,11 +251,11 @@ where
     if match ctx.env.get_iomode() {
         IOMode::Binary => ctx.env.write_file(
             &filename,
-            &Idx::get_src_bin(&ctx.space, &start, &size, strip),
+            &F::Idx::get_src_bin(&ctx.space, &start, &size, strip),
         ),
         IOMode::Text => ctx.env.write_file(
             &filename,
-            Idx::get_src_str(&ctx.space, &start, &size, strip).as_bytes(),
+            F::Idx::get_src_str(&ctx.space, &start, &size, strip).as_bytes(),
         ),
     }
     .is_err()
@@ -308,14 +266,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-pub fn execute<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn execute<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     if ctx.env.have_execute() == ExecMode::Disabled {
         ctx.ip.reflect();
@@ -327,16 +278,9 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-pub fn sysinfo<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn sysinfo<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
-    let mut sysinfo_cells = Vec::<Space::Output>::new();
+    let mut sysinfo_cells = Vec::<F::Value>::new();
     // what should we push?
     let n = ctx.ip.pop();
     let exec_flag = ctx.env.have_execute();
@@ -359,7 +303,7 @@ where
     sysinfo_cells.push(impl_flags.into());
 
     // 2. size of cell
-    sysinfo_cells.push((size_of::<Space::Output>() as i32).into());
+    sysinfo_cells.push((size_of::<F::Value>() as i32).into());
 
     // 3. handprint
     sysinfo_cells.push(ctx.env.handprint().into());
@@ -385,7 +329,7 @@ where
     sysinfo_cells.push((std::path::MAIN_SEPARATOR as i32).into());
 
     // 7. numer of scalars per vector
-    sysinfo_cells.push(Idx::rank().into());
+    sysinfo_cells.push(F::Idx::rank().into());
 
     // 8. IP ID
     sysinfo_cells.push(ctx.ip.id);
@@ -395,40 +339,40 @@ where
 
     // 10. Position
     let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(&mut tmp_vec, ctx.ip.location);
+    F::Idx::push_vector_onto(&mut tmp_vec, ctx.ip.location);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
     // 11. Delta
     let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(&mut tmp_vec, ctx.ip.delta);
+    F::Idx::push_vector_onto(&mut tmp_vec, ctx.ip.delta);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
     // 12. Storage offset
     let mut tmp_vec = Vec::new();
-    Idx::push_vector_onto(&mut tmp_vec, ctx.ip.storage_offset);
+    F::Idx::push_vector_onto(&mut tmp_vec, ctx.ip.storage_offset);
     sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
-    let idx: Space::Output = (sysinfo_cells.len() as i32).into();
+    let idx: F::Value = (sysinfo_cells.len() as i32).into();
     // Only calculate the next bit if we need it as it's quite expensive
-    if n <= 0.into() || (n > idx && n <= idx + (2 * Idx::rank()).into()) {
+    if n <= 0.into() || (n > idx && n <= idx + (2 * F::Idx::rank()).into()) {
         // 13. Least point
 
         let mut tmp_vec = Vec::new();
-        let least_idx = ctx.space.min_idx().unwrap_or_else(Idx::origin);
-        Idx::push_vector_onto(&mut tmp_vec, least_idx);
+        let least_idx = ctx.space.min_idx().unwrap_or_else(F::Idx::origin);
+        F::Idx::push_vector_onto(&mut tmp_vec, least_idx);
         sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
 
         // 14. Greatest point
 
         let mut tmp_vec = Vec::new();
-        Idx::push_vector_onto(
+        F::Idx::push_vector_onto(
             &mut tmp_vec,
-            ctx.space.max_idx().unwrap_or_else(Idx::origin) - least_idx,
+            ctx.space.max_idx().unwrap_or_else(F::Idx::origin) - least_idx,
         );
         sysinfo_cells.append(&mut tmp_vec.into_iter().rev().collect());
     } else {
-        Idx::push_vector_onto(&mut sysinfo_cells, Idx::origin());
-        Idx::push_vector_onto(&mut sysinfo_cells, Idx::origin());
+        F::Idx::push_vector_onto(&mut sysinfo_cells, F::Idx::origin());
+        F::Idx::push_vector_onto(&mut sysinfo_cells, F::Idx::origin());
     }
 
     // 15 & 16: Time

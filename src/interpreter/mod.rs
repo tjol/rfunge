@@ -73,6 +73,13 @@ pub enum RunMode {
     Step,
 }
 
+pub trait Funge {
+    type Idx: MotionCmds<Self::Space, Self::Env> + SrcIO<Self::Space> + 'static;
+    type Space: FungeSpace<Self::Idx, Output = Self::Value> + 'static;
+    type Value: FungeValue + 'static;
+    type Env: InterpreterEnv + 'static;
+}
+
 /// State of an rfunge interpreter
 pub struct Interpreter<Idx, Space, Env>
 where
@@ -82,11 +89,24 @@ where
     Env: InterpreterEnv + 'static,
 {
     /// Currently active IPs
-    pub ips: Vec<Option<InstructionPointer<Idx, Space, Env>>>,
+    pub ips: Vec<Option<InstructionPointer<Self>>>,
     /// Funge-space
     pub space: Option<Space>,
     /// User-supplied environment permitting access to the outside world
     pub env: Option<Env>,
+}
+
+impl<Idx, Space, Env> Funge for Interpreter<Idx, Space, Env>
+where
+    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
+    Space: FungeSpace<Idx> + 'static,
+    Space::Output: FungeValue + 'static,
+    Env: InterpreterEnv + 'static,
+{
+    type Idx = Idx;
+    type Space = Space;
+    type Value = Space::Output;
+    type Env = Env;
 }
 
 /// An interpreter environment provides things like IO and will be implemented
@@ -265,7 +285,7 @@ where
 {
     pub fn new(space: Space, env: Env) -> Self {
         Self {
-            ips: vec![Some(InstructionPointer::<Idx, Space, Env>::new())],
+            ips: vec![Some(InstructionPointer::<Self>::new())],
             space: Some(space),
             env: Some(env),
         }
@@ -277,6 +297,7 @@ mod tests {
     use async_std::io::{Empty, Sink};
 
     use super::*;
+    use crate::fungespace::{PagedFungeSpace, BefungeVec};
 
     pub struct NoEnv {
         input: Empty,
@@ -297,5 +318,14 @@ mod tests {
             &mut self.input
         }
         fn warn(&mut self, _msg: &str) {}
+    }
+
+    pub struct TestFunge {}
+
+    impl Funge for TestFunge {
+        type Idx = BefungeVec<i64>;
+        type Space = PagedFungeSpace<BefungeVec<i64>, i64>;
+        type Value = i64;
+        type Env = NoEnv;
     }
 }

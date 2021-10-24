@@ -21,12 +21,10 @@ use std::cmp::Ordering;
 use hashbrown::HashMap;
 use num::{FromPrimitive, ToPrimitive, Zero};
 
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InterpreterEnv};
+use crate::interpreter::Funge;
 
 /// From the rcFunge docs
 ///
@@ -47,14 +45,8 @@ use crate::{FungeSpace, FungeValue, InterpreterEnv};
 ///    zeroes will be created in order to fulfill the request. Example:
 ///    n543210a-L will leave a stack of: 2 3 4 5 0 0 0 0 0 0 1
 ///  * L,P the top of stack is position 0
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('D', sync_instruction(depth));
     layer.insert('L', sync_instruction(roll));
     layer.insert('O', sync_instruction(over));
@@ -64,24 +56,11 @@ where
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['D', 'L', 'O', 'P', 'R'][..])
 }
 
-fn depth<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn depth<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     ctx.ip
         .push(FromPrimitive::from_usize(ctx.ip.stack().len()).unwrap_or_else(Zero::zero));
@@ -89,14 +68,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn roll<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn roll<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let stack = ctx.ip.stack_mut();
     let u = stack.pop().and_then(|v| v.to_isize()).unwrap_or_default();
@@ -126,14 +98,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn over<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn over<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let stack = ctx.ip.stack();
     let v = if stack.len() >= 2 {
@@ -146,14 +111,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn pick<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn pick<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let u = ctx.ip.pop();
     if u < Zero::zero() {
@@ -173,14 +131,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn rot<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn rot<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let stack = ctx.ip.stack_mut();
     let l = stack.len();

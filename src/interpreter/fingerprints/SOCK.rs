@@ -28,12 +28,11 @@ use hashbrown::HashMap;
 use num::{FromPrimitive, ToPrimitive};
 use socket2::{Domain, Protocol, Socket, Type};
 
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
-use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::interpreter::{MotionCmds, Funge};
+use crate::{ InstructionPointer};
 
 /// From the rcFunge docs:
 ///
@@ -85,14 +84,9 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 ///
 /// ct=1 and pf=1 are a broken spec and should not be implemented. Usage of
 /// either of these should reflect.
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool
 {
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(accept));
     layer.insert('B', sync_instruction(bind));
     layer.insert('C', sync_instruction(connect));
@@ -107,25 +101,15 @@ where
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool
 {
     // Check that this fingerprint is on top
     instructionset.pop_layer(&"ABCIKLORSW".chars().collect::<Vec<char>>())
 }
 
-fn get_socketlist<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
+fn get_socketlist<F: Funge>(
+    ip: &mut InstructionPointer<F>,
 ) -> RefMut<Vec<Option<Socket>>>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
 {
     if !ip.private_data.contains_key("SOCK.sockets") {
         ip.private_data.insert(
@@ -140,15 +124,10 @@ where
         .unwrap()
 }
 
-fn push_socket<Idx, Space, Env>(
-    ip: &mut InstructionPointer<Idx, Space, Env>,
+fn push_socket<F: Funge>(
+    ip: &mut InstructionPointer<F>,
     socket: Socket,
 ) -> usize
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
 {
     let mut sock_idx = None;
     // scope to limit the lifetime of sl
@@ -168,14 +147,7 @@ where
     }
 }
 
-fn socket_create<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn socket_create<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let proto = ctx.ip.pop();
@@ -211,14 +183,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn kill<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn kill<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
@@ -248,14 +213,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn setopt<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn setopt<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
@@ -310,14 +268,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn bind<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn bind<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let addr = ctx.ip.pop().to_i32().unwrap_or_default();
@@ -361,14 +312,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn connect<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn connect<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let addr = ctx.ip.pop().to_i32().unwrap_or_default();
@@ -412,14 +356,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn listen<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn listen<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
@@ -449,14 +386,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn accept<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn accept<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
@@ -491,14 +421,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn recv<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn recv<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
@@ -530,14 +453,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn write<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn write<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
@@ -570,14 +486,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn ipaddr<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn ipaddr<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let ip_string = ctx.ip.pop_0gnirts();
 

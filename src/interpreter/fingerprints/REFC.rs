@@ -22,12 +22,12 @@ use std::rc::Rc;
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
-use crate::fungespace::SrcIO;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
 use crate::interpreter::MotionCmds;
-use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
+use crate::InstructionPointer;
+use crate::interpreter::Funge;
 
 /// From the catseye library
 ///
@@ -57,58 +57,34 @@ use crate::{FungeSpace, FungeValue, InstructionPointer, InterpreterEnv};
 /// fingerprint is loaded twice, independently, by two IPs, the IPs get
 /// separate ref lists. (But the ref list is shared between IPs forked off after
 /// loading).
-pub fn load<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
-    let mut layer = HashMap::<char, Instruction<Idx, Space, Env>>::new();
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+    let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('R', sync_instruction(reference));
     layer.insert('D', sync_instruction(dereference));
     instructionset.add_layer(layer);
     true
 }
 
-pub fn unload<Idx, Space, Env>(instructionset: &mut InstructionSet<Idx, Space, Env>) -> bool
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['R', 'D'])
 }
 
-fn get_reflist<Idx, Space, Env>(ip: &mut InstructionPointer<Idx, Space, Env>) -> RefMut<Vec<Idx>>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
-    Space::Output: FungeValue,
-    Env: InterpreterEnv,
+fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>>
 {
     if !ip.private_data.contains_key("REFC.reflist") {
         ip.private_data.insert(
             "REFC.reflist".to_owned(),
-            Rc::new(RefCell::new(Vec::<Idx>::new())),
+            Rc::new(RefCell::new(Vec::<F::Idx>::new())),
         );
     }
     ip.private_data
         .get("REFC.reflist")
-        .and_then(|any_ref| any_ref.downcast_ref::<RefCell<Vec<Idx>>>())
+        .and_then(|any_ref| any_ref.downcast_ref::<RefCell<Vec<F::Idx>>>())
         .map(|refcell| refcell.borrow_mut())
         .unwrap()
 }
 
-fn reference<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn reference<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     let vec = MotionCmds::pop_vector(&mut ctx.ip);
     let ref_idx = {
@@ -125,14 +101,7 @@ where
     (ctx, InstructionResult::Continue)
 }
 
-fn dereference<Idx, Space, Env>(
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+fn dereference<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
 {
     if let Some(vec) = ctx
         .ip

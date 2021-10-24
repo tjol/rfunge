@@ -30,8 +30,8 @@ use super::fingerprints;
 use super::instructions;
 use super::ip::InstructionPointer;
 use super::motion::MotionCmds;
-use super::{IOMode, InterpreterEnv};
-use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
+use super::{IOMode, InterpreterEnv, Funge};
+use crate::fungespace::{FungeSpace, FungeValue};
 
 /// Result of a single instruction. Most instructions return
 /// [InstructionResult::Continue].
@@ -51,49 +51,38 @@ pub enum InstructionResult {
     Panic,
 }
 
-pub struct InstructionContext<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub struct InstructionContext<F: Funge + 'static>
 {
-    pub ip: InstructionPointer<Idx, Space, Env>,
-    pub space: Space,
-    pub env: Env,
+    pub ip: InstructionPointer<F>,
+    pub space: F::Space,
+    pub env: F::Env,
 }
 
-pub type Instruction<Idx, Space, Env> = Rc<
+pub type Instruction<F> = Rc<
     dyn Fn(
-        InstructionContext<Idx, Space, Env>,
+        InstructionContext<F>,
     ) -> Pin<
-        Box<dyn Future<Output = (InstructionContext<Idx, Space, Env>, InstructionResult)>>,
+        Box<dyn Future<Output = (InstructionContext<F>, InstructionResult)>>,
     >,
 >;
 
-pub fn sync_instruction<Idx, Space, Env, Func>(func: Func) -> Instruction<Idx, Space, Env>
+pub fn sync_instruction<F, Func>(func: Func) -> Instruction<F>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+    F: Funge + 'static,
     Func: Fn(
-            InstructionContext<Idx, Space, Env>,
-        ) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
+            InstructionContext<F>,
+        ) -> (InstructionContext<F>, InstructionResult)
         + Copy
         + 'static,
 {
     Rc::new(move |ctx| Box::pin(async move { func(ctx) }))
 }
 
-pub fn async_instruction<Idx, Space, Env, Func, Fut>(func: Func) -> Instruction<Idx, Space, Env>
+pub fn async_instruction<F, Func, Fut>(func: Func) -> Instruction<F>
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
-    Func: Fn(InstructionContext<Idx, Space, Env>) -> Fut + Copy + 'static,
-    Fut: Future<Output = (InstructionContext<Idx, Space, Env>, InstructionResult)>,
+    F: Funge + 'static,
+    Func: Fn(InstructionContext<F>) -> Fut + Copy + 'static,
+    Fut: Future<Output = (InstructionContext<F>, InstructionResult)>,
 {
     Rc::new(move |ctx| Box::pin(async move { func(ctx).await }))
 }
@@ -107,25 +96,15 @@ pub enum InstructionMode {
 /// Struct encapulating the dynamic instructions loaded for an IP
 /// It has multiple layers, and fingerprints are able to add a new
 /// layer to the instruction set (which can later be popped)
-pub struct InstructionSet<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub struct InstructionSet<F: Funge + 'static>
 {
     pub mode: InstructionMode,
-    instructions: Vec<Vec<Instruction<Idx, Space, Env>>>,
+    instructions: Vec<Vec<Instruction<F>>>,
 }
 
 // Can't derive Clone by macro because it requires the type parameters to be
 // Clone...
-impl<Idx, Space, Env> Clone for InstructionSet<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+impl<F: Funge + 'static> Clone for InstructionSet<F>
 {
     fn clone(&self) -> Self {
         Self {
@@ -136,12 +115,7 @@ where
 }
 
 // Can't derive Debug by macro because of the function pointers
-impl<Idx, Space, Env> Debug for InstructionSet<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+impl<F: Funge + 'static> Debug for InstructionSet<F>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // Function pointers don't implement Debug, so we need a work around
@@ -149,28 +123,18 @@ where
     }
 }
 
-impl<Idx, Space, Env> Default for InstructionSet<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+impl<F: Funge + 'static> Default for InstructionSet<F>
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<Idx, Space, Env> InstructionSet<Idx, Space, Env>
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+impl<F: Funge + 'static> InstructionSet<F>
 {
     /// Create a new [InstructionSet] with the default commands
     pub fn new() -> Self {
-        let mut instruction_vec: Vec<Vec<Instruction<Idx, Space, Env>>> = Vec::new();
+        let mut instruction_vec: Vec<Vec<Instruction<F>>> = Vec::new();
         instruction_vec.resize_with(128, Vec::new);
 
         // Add standard instructions (other than those implemented directly
@@ -193,8 +157,8 @@ where
     /// Get the function associated with a given character, if any
     pub fn get_instruction(
         &self,
-        instruction: Space::Output,
-    ) -> Option<Instruction<Idx, Space, Env>> {
+        instruction: F::Value,
+    ) -> Option<Instruction<F>> {
         let instr_stack = self.instructions.get(instruction.to_usize()?)?;
         if !instr_stack.is_empty() {
             Some(instr_stack[instr_stack.len() - 1].clone())
@@ -204,7 +168,7 @@ where
     }
 
     /// Add a set of instructions as a new layer
-    pub fn add_layer(&mut self, instructions: HashMap<char, Instruction<Idx, Space, Env>>) {
+    pub fn add_layer(&mut self, instructions: HashMap<char, Instruction<F>>) {
         for (&i, f) in instructions.iter() {
             if i as usize >= self.instructions.len() {
                 self.instructions.resize_with((i as usize) + 1, Vec::new);
@@ -228,15 +192,10 @@ where
 }
 
 #[inline]
-pub(super) async fn exec_instruction<Idx, Space, Env>(
-    raw_instruction: Space::Output,
-    ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+pub(super) async fn exec_instruction<F: Funge + 'static>(
+    raw_instruction: F::Value,
+    ctx: InstructionContext<F>,
+) -> (InstructionContext<F>, InstructionResult)
 {
     match ctx.ip.instructions.mode {
         InstructionMode::Normal => exec_normal_instruction(raw_instruction, ctx).await,
@@ -245,15 +204,10 @@ where
 }
 
 #[inline]
-async fn exec_normal_instruction<Idx, Space, Env>(
-    raw_instruction: Space::Output,
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+async fn exec_normal_instruction<F: Funge + 'static>(
+    raw_instruction: F::Value,
+    mut ctx: InstructionContext<F>,
+) -> (InstructionContext<F>, InstructionResult)
 {
     match raw_instruction.try_to_char() {
         Some(' ') => {
@@ -524,15 +478,10 @@ where
 }
 
 #[inline]
-async fn exec_string_instruction<Idx, Space, Env>(
-    raw_instruction: Space::Output,
-    mut ctx: InstructionContext<Idx, Space, Env>,
-) -> (InstructionContext<Idx, Space, Env>, InstructionResult)
-where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space> + 'static,
-    Space: FungeSpace<Idx> + 'static,
-    Space::Output: FungeValue + 'static,
-    Env: InterpreterEnv + 'static,
+async fn exec_string_instruction<F: Funge + 'static>(
+    raw_instruction: F::Value,
+    mut ctx: InstructionContext<F>,
+) -> (InstructionContext<F>, InstructionResult)
 {
     // did we just skip over a space?
     let prev_loc = ctx.ip.location - ctx.ip.delta;
@@ -554,17 +503,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::NoEnv;
+    use super::super::tests::TestFunge;
     use super::*;
-    use crate::fungespace::index::BefungeVec;
-    use crate::fungespace::paged::PagedFungeSpace;
 
-    type TestSpace = PagedFungeSpace<BefungeVec<i64>, i64>;
-    type TestCtx = InstructionContext<BefungeVec<i64>, TestSpace, NoEnv>;
+    type TestCtx = InstructionContext<TestFunge>;
 
     #[test]
     fn test_instruction_layers() {
-        let mut is = InstructionSet::<BefungeVec<i64>, TestSpace, NoEnv>::new();
+        let mut is = InstructionSet::<TestFunge>::new();
         assert!(matches!(is.get_instruction('1' as i64), None));
         assert!(matches!(is.get_instruction('2' as i64), None));
         assert!(matches!(is.get_instruction('3' as i64), None));
