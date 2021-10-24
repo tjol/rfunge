@@ -31,11 +31,12 @@ use pkg_version::{pkg_version_major, pkg_version_minor, pkg_version_patch};
 use super::instruction_set::exec_instruction;
 use super::motion::MotionCmds;
 use super::{ExecMode, IOMode};
-use super::{InstructionContext, InstructionResult, InterpreterEnv, Funge};
-use crate::fungespace::{FungeSpace, FungeValue, SrcIO, FungeIndex};
+use super::{Funge, InstructionContext, InstructionResult, InterpreterEnv};
+use crate::fungespace::{FungeIndex, FungeSpace, FungeValue, SrcIO};
 
-pub async fn iterate<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
-{
+pub async fn iterate<F: Funge>(
+    mut ctx: InstructionContext<F>,
+) -> (InstructionContext<F>, InstructionResult) {
     let n = ctx.ip.pop();
     let (mut new_loc, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
     let mut new_val = *new_val_ref;
@@ -85,8 +86,7 @@ pub async fn iterate<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionCo
     (ctx, loop_result)
 }
 
-pub fn begin_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub fn begin_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     if let Some(n) = ctx.ip.pop().to_isize() {
         // take n items off the SOSS (old TOSS)
         let n_to_take = max(0, min(n, ctx.ip.stack().len() as isize));
@@ -120,8 +120,7 @@ pub fn begin_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResu
     InstructionResult::Continue
 }
 
-pub fn end_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub fn end_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     if ctx.ip.stack_stack.len() > 1 {
         if let Some(n) = ctx.ip.pop().to_isize() {
             let mut toss = ctx.ip.stack_stack.remove(0);
@@ -155,8 +154,7 @@ pub fn end_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-pub fn stack_under_stack<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub fn stack_under_stack<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let nstacks = ctx.ip.stack_stack.len();
     if nstacks > 1 {
         if let Some(n) = ctx.ip.pop().to_isize() {
@@ -184,8 +182,7 @@ pub fn stack_under_stack<F: Funge>(ctx: &mut InstructionContext<F>) -> Instructi
     InstructionResult::Continue
 }
 
-pub fn input_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub fn input_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let filename = ctx.ip.pop_0gnirts();
     let flags = ctx.ip.pop();
     let dest = MotionCmds::pop_vector(&mut ctx.ip);
@@ -239,8 +236,7 @@ pub fn input_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResul
     InstructionResult::Continue
 }
 
-pub fn output_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub fn output_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let filename = ctx.ip.pop_0gnirts();
     let flags = ctx.ip.pop();
     let start = MotionCmds::pop_vector(&mut ctx.ip);
@@ -266,8 +262,7 @@ pub fn output_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResu
     InstructionResult::Continue
 }
 
-pub fn execute<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub fn execute<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     if ctx.env.have_execute() == ExecMode::Disabled {
         ctx.ip.reflect();
     } else {
@@ -278,8 +273,7 @@ pub fn execute<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-pub fn sysinfo<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub fn sysinfo<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let mut sysinfo_cells = Vec::<F::Value>::new();
     // what should we push?
     let n = ctx.ip.pop();

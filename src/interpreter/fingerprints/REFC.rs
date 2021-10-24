@@ -25,9 +25,9 @@ use num::ToPrimitive;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
+use crate::interpreter::Funge;
 use crate::interpreter::MotionCmds;
 use crate::InstructionPointer;
-use crate::interpreter::Funge;
 
 /// From the catseye library
 ///
@@ -69,8 +69,7 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['R', 'D'])
 }
 
-fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>>
-{
+fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>> {
     if !ip.private_data.contains_key("REFC.reflist") {
         ip.private_data.insert(
             "REFC.reflist".to_owned(),
@@ -84,8 +83,7 @@ fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>>
         .unwrap()
 }
 
-fn reference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn reference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let vec = MotionCmds::pop_vector(&mut ctx.ip);
     let ref_idx = {
         let mut rl = get_reflist(&mut ctx.ip);
@@ -101,8 +99,7 @@ fn reference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn dereference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn dereference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     if let Some(vec) = ctx
         .ip
         .pop()

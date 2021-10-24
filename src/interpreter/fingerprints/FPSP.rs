@@ -24,8 +24,8 @@ use crate::interpreter::instruction_set::{
     async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
     InstructionSet,
 };
-use crate::{FungeValue, InterpreterEnv};
 use crate::interpreter::Funge;
+use crate::{FungeValue, InterpreterEnv};
 
 /// From the rcFunge docs:
 ///
@@ -100,22 +100,19 @@ pub fn fpsp2val<T: FungeValue>(f: f32) -> T {
     fpsp2int(f).into()
 }
 
-fn conv_int_to_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn conv_int_to_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let i = ctx.ip.pop();
     ctx.ip.push(fpsp2val(i.to_f32().unwrap_or_default()));
     InstructionResult::Continue
 }
 
-fn conv_fpsp2int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn conv_fpsp2int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push((f.round() as i32).into());
     InstructionResult::Continue
 }
 
-fn conv_str2fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn conv_str2fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let s = ctx.ip.pop_0gnirts();
     if let Ok(f) = s.parse() {
         ctx.ip.push(fpsp2val(f));
@@ -125,8 +122,9 @@ fn conv_str2fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-async fn print_fpsp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionContext<F>, InstructionResult)
-{
+async fn print_fpsp<F: Funge>(
+    mut ctx: InstructionContext<F>,
+) -> (InstructionContext<F>, InstructionResult) {
     let f = val_to_fpsp(ctx.ip.pop());
     let s = format!("{:.6} ", f);
     if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
@@ -135,125 +133,108 @@ async fn print_fpsp<F: Funge>(mut ctx: InstructionContext<F>) -> (InstructionCon
     (ctx, InstructionResult::Continue)
 }
 
-fn add<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn add<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = val_to_fpsp(ctx.ip.pop());
     let a = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(a + b));
     InstructionResult::Continue
 }
 
-fn sub<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sub<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = val_to_fpsp(ctx.ip.pop());
     let a = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(a - b));
     InstructionResult::Continue
 }
 
-fn mul<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn mul<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = val_to_fpsp(ctx.ip.pop());
     let a = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(a * b));
     InstructionResult::Continue
 }
 
-fn div<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn div<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = val_to_fpsp(ctx.ip.pop());
     let a = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(a / b));
     InstructionResult::Continue
 }
 
-fn pow<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn pow<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = val_to_fpsp(ctx.ip.pop());
     let a = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(a.powf(b)));
     InstructionResult::Continue
 }
 
-fn sin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let angle = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(angle.sin()));
     InstructionResult::Continue
 }
 
-fn cos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn cos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let angle = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(angle.cos()));
     InstructionResult::Continue
 }
 
-fn tan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn tan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let angle = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(angle.tan()));
     InstructionResult::Continue
 }
 
-fn arcsin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn arcsin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.asin()));
     InstructionResult::Continue
 }
 
-fn arccos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn arccos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.acos()));
     InstructionResult::Continue
 }
 
-fn arctan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn arctan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.atan()));
     InstructionResult::Continue
 }
 
-fn ln<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn ln<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.ln()));
     InstructionResult::Continue
 }
 
-fn log10<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn log10<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.log10()));
     InstructionResult::Continue
 }
 
-fn neg<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn neg<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(-f));
     InstructionResult::Continue
 }
 
-fn sqrt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sqrt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.sqrt()));
     InstructionResult::Continue
 }
 
-fn exp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn exp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.exp()));
     InstructionResult::Continue
 }
 
-fn abs<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn abs<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let f = val_to_fpsp(ctx.ip.pop());
     ctx.ip.push(fpsp2val(f.abs()));
     InstructionResult::Continue

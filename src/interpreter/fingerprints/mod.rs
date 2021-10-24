@@ -35,7 +35,7 @@ mod ROMA;
 #[cfg(not(target_arch = "wasm32"))]
 mod SOCK;
 
-use super::{InstructionSet, Funge};
+use super::{Funge, InstructionSet};
 
 /// Convert a fingerprint string to a numeric fingerprint
 pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
@@ -76,8 +76,7 @@ pub fn all_fingerprints() -> Vec<i32> {
     fprts
 }
 
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool
-{
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("NULL") {
         NULL::load(instructionset)
     } else if fpr == string_to_fingerprint("BOOL") {
@@ -110,11 +109,7 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_platform_specific<F: Funge>(
-    instructionset: &mut InstructionSet<F>,
-    fpr: i32,
-) -> bool
-{
+pub fn load_platform_specific<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
         SOCK::load(instructionset)
     } else {
@@ -126,16 +121,11 @@ pub fn load_platform_specific<F: Funge>(
 pub fn load_platform_specific<F: Funge>(
     _instructionset: &mut InstructionSet<F>,
     _fpr: i32,
-) -> bool
-{
+) -> bool {
     false
 }
 
-pub fn unload<F: Funge>(
-    instructionset: &mut InstructionSet<F>,
-    fpr: i32,
-) -> bool
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("NULL") {
         NULL::unload(instructionset)
     } else if fpr == string_to_fingerprint("BOOL") {
@@ -171,8 +161,7 @@ pub fn unload<F: Funge>(
 pub fn unload_platform_specific<F: Funge>(
     instructionset: &mut InstructionSet<F>,
     fpr: i32,
-) -> bool
-{
+) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
         SOCK::unload(instructionset)
     } else {
@@ -184,7 +173,6 @@ pub fn unload_platform_specific<F: Funge>(
 pub fn unload_platform_specific<F: Funge>(
     _instructionset: &mut InstructionSet<F>,
     _fpr: i32,
-) -> bool
-{
+) -> bool {
     false
 }

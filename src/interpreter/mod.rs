@@ -297,7 +297,7 @@ mod tests {
     use async_std::io::{Empty, Sink};
 
     use super::*;
-    use crate::fungespace::{PagedFungeSpace, BefungeVec};
+    use crate::fungespace::{BefungeVec, PagedFungeSpace};
 
     pub struct NoEnv {
         input: Empty,

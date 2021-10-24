@@ -37,31 +37,27 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['A', 'O', 'N', 'X'])
 }
 
-pub(super) fn and<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub(super) fn and<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
     ctx.ip.push(a & b);
     InstructionResult::Continue
 }
 
-pub(super) fn or<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub(super) fn or<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
     ctx.ip.push(a | b);
     InstructionResult::Continue
 }
 
-fn not<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn not<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let n = ctx.ip.pop();
     ctx.ip.push(!n);
     InstructionResult::Continue
 }
 
-pub(super) fn xor<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+pub(super) fn xor<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
     ctx.ip.push(a ^ b);

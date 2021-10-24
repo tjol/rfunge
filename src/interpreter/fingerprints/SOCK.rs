@@ -31,8 +31,8 @@ use socket2::{Domain, Protocol, Socket, Type};
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
-use crate::interpreter::{MotionCmds, Funge};
-use crate::{ InstructionPointer};
+use crate::interpreter::{Funge, MotionCmds};
+use crate::InstructionPointer;
 
 /// From the rcFunge docs:
 ///
@@ -84,8 +84,7 @@ use crate::{ InstructionPointer};
 ///
 /// ct=1 and pf=1 are a broken spec and should not be implemented. Usage of
 /// either of these should reflect.
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool
-{
+pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(accept));
     layer.insert('B', sync_instruction(bind));
@@ -101,16 +100,12 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool
-{
+pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     // Check that this fingerprint is on top
     instructionset.pop_layer(&"ABCIKLORSW".chars().collect::<Vec<char>>())
 }
 
-fn get_socketlist<F: Funge>(
-    ip: &mut InstructionPointer<F>,
-) -> RefMut<Vec<Option<Socket>>>
-{
+fn get_socketlist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<Option<Socket>>> {
     if !ip.private_data.contains_key("SOCK.sockets") {
         ip.private_data.insert(
             "SOCK.sockets".to_owned(),
@@ -124,11 +119,7 @@ fn get_socketlist<F: Funge>(
         .unwrap()
 }
 
-fn push_socket<F: Funge>(
-    ip: &mut InstructionPointer<F>,
-    socket: Socket,
-) -> usize
-{
+fn push_socket<F: Funge>(ip: &mut InstructionPointer<F>, socket: Socket) -> usize {
     let mut sock_idx = None;
     // scope to limit the lifetime of sl
     let mut sl = get_socketlist(ip);
@@ -147,8 +138,7 @@ fn push_socket<F: Funge>(
     }
 }
 
-fn socket_create<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn socket_create<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let proto = ctx.ip.pop();
     let typ = ctx.ip.pop();
@@ -183,8 +173,7 @@ fn socket_create<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn kill<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn kill<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
@@ -213,8 +202,7 @@ fn kill<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn setopt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn setopt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
@@ -268,8 +256,7 @@ fn setopt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn bind<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn bind<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let addr = ctx.ip.pop().to_i32().unwrap_or_default();
     let port = if let Some(prt16) = ctx.ip.pop().to_u16() {
@@ -312,8 +299,7 @@ fn bind<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn connect<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn connect<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let addr = ctx.ip.pop().to_i32().unwrap_or_default();
     let port = if let Some(prt16) = ctx.ip.pop().to_u16() {
@@ -356,8 +342,7 @@ fn connect<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn listen<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn listen<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
@@ -386,8 +371,7 @@ fn listen<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn accept<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn accept<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
@@ -421,8 +405,7 @@ fn accept<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
@@ -453,8 +436,7 @@ fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn write<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn write<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     // get the parameters
     let sock_id = if let Some(sock_id_usize) = ctx.ip.pop().to_usize() {
         sock_id_usize
@@ -486,8 +468,7 @@ fn write<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn ipaddr<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn ipaddr<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let ip_string = ctx.ip.pop_0gnirts();
 
     if let Ok(addr) = ip_string.parse::<Ipv4Addr>() {

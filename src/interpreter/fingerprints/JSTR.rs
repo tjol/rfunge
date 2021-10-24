@@ -21,8 +21,8 @@ use hashbrown::HashMap;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
 };
-use crate::interpreter::MotionCmds;
 use crate::interpreter::Funge;
+use crate::interpreter::MotionCmds;
 
 /// From https://web.archive.org/web/20070525220700/http://www.jess2.net:80/code/funge/myexts.txt
 ///
@@ -46,8 +46,7 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['P', 'G'][..])
 }
 
-fn put<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn put<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let n = ctx.ip.pop();
     let va = MotionCmds::pop_vector(&mut ctx.ip);
     let vd = MotionCmds::pop_vector(&mut ctx.ip);
@@ -63,8 +62,7 @@ fn put<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn get<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn get<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let n = ctx.ip.pop();
     let va = MotionCmds::pop_vector(&mut ctx.ip);
     let vd = MotionCmds::pop_vector(&mut ctx.ip);

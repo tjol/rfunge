@@ -23,14 +23,13 @@ use std::rc::Rc;
 
 use super::instruction_set::InstructionSet;
 use super::motion::MotionCmds;
-use super::{InterpreterEnv, Funge};
+use super::{Funge, InterpreterEnv};
 use crate::fungespace::index::{bfvec, BefungeVec};
 use crate::fungespace::{FungeSpace, FungeValue, SrcIO};
 
 /// Struct encapsulating the state of the/an IP
 #[derive(Debug)]
-pub struct InstructionPointer<F: Funge + 'static>
-{
+pub struct InstructionPointer<F: Funge + 'static> {
     /// Identifier of the IP
     pub id: F::Value,
     /// Location of the IP (initial: the origin)
@@ -51,8 +50,7 @@ pub struct InstructionPointer<F: Funge + 'static>
 
 // Can't derive Clone by macro because it requires the type parameters to be
 // Clone...
-impl<F: Funge + 'static> Clone for InstructionPointer<F>
-{
+impl<F: Funge + 'static> Clone for InstructionPointer<F> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -119,7 +117,7 @@ where
 impl<F> Default for InstructionPointer<F>
 where
     F: Funge,
-    F::Idx: CreateInstructionPointer<F::Space, F::Env>
+    F::Idx: CreateInstructionPointer<F::Space, F::Env>,
 {
     fn default() -> Self {
         Self::new()
@@ -129,15 +127,14 @@ where
 impl<F> InstructionPointer<F>
 where
     F: Funge,
-    F::Idx: CreateInstructionPointer<F::Space, F::Env>
+    F::Idx: CreateInstructionPointer<F::Space, F::Env>,
 {
     pub fn new() -> Self {
         F::Idx::new_ip()
     }
 }
 
-impl<F: Funge + 'static> InstructionPointer<F>
-{
+impl<F: Funge + 'static> InstructionPointer<F> {
     /// Get the top of the stack stack
     #[inline]
     pub fn stack(&self) -> &Vec<F::Value> {

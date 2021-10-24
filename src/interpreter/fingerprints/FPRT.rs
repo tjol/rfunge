@@ -55,8 +55,7 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['D', 'F', 'I', 'L', 'S'][..])
 }
 
-fn sprintf_int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sprintf_int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let arg = ctx.ip.pop().to_i64().unwrap_or_default();
     let fmt = ctx.ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
@@ -67,8 +66,7 @@ fn sprintf_int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn sprintf_long<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sprintf_long<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
     let arg = vals_to_i128(hi, lo) as i64; // sprintf does not support i128
@@ -81,8 +79,7 @@ fn sprintf_long<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn sprintf_fpdp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sprintf_fpdp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let lo = ctx.ip.pop();
     let hi = ctx.ip.pop();
     let arg = vals_to_fpdp(hi, lo);
@@ -95,8 +92,7 @@ fn sprintf_fpdp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn sprintf_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sprintf_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let i = ctx.ip.pop();
     let arg = val_to_fpsp(i); // sprintf does not support i128
     let fmt = ctx.ip.pop_0gnirts();
@@ -108,8 +104,7 @@ fn sprintf_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn sprintf_str<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn sprintf_str<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let arg = ctx.ip.pop_0gnirts();
     let fmt = ctx.ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {

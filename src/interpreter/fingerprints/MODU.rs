@@ -74,8 +74,7 @@ pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     instructionset.pop_layer(&['M', 'U', 'R'])
 }
 
-fn signed_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn signed_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
     if b == 0.into() {
@@ -87,8 +86,7 @@ fn signed_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn unsigned_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn unsigned_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
     if b == 0.into() {
@@ -108,8 +106,7 @@ fn unsigned_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn c_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
-{
+fn c_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     let b = ctx.ip.pop();
     let a = ctx.ip.pop();
     if b == 0.into() {
