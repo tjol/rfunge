@@ -19,9 +19,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 pub mod fungespace;
 pub mod interpreter;
 
-// #[cfg(not(target_arch = "wasm32"))]
-// mod capi;
-
 // #[cfg(target_arch = "wasm32")]
 // mod wasm;
 
