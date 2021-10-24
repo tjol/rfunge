@@ -263,11 +263,11 @@ where
     Env: InterpreterEnv + 'static,
 {
     pub fn new(space: Space, env: Env) -> Self {
-        return Self {
+        Self {
             ips: vec![Some(InstructionPointer::<Idx, Space, Env>::new())],
             space: Some(space),
             env: Some(env),
-        };
+        }
     }
 }
 
