@@ -19,8 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 pub mod fungespace;
 pub mod interpreter;
 
-// #[cfg(target_arch = "wasm32")]
-// mod wasm;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 
 use std::hash::Hash;
 

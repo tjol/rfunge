@@ -151,8 +151,8 @@ export class RFungeGui extends LitElement {
     }
   }
 
-  _step () {
-    let result = this._controller.step()
+  async _step () {
+    let result = await this._controller.step()
     if (result != null) {
       // process ended
       this._done(result)

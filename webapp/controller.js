@@ -9,6 +9,7 @@ export class RFungeController {
     this._host = host
     this._stopRequest = null
     this._inputBuffer = ""
+    this._onInput = []
   }
 
   async init () {
@@ -45,9 +46,22 @@ export class RFungeController {
   }
 
   readInput () {
-    const result = this._inputBuffer
-    this._inputBuffer = ""
-    return result
+    return new Promise(resolve => {
+      if (this._inputBuffer !== "") {
+        const result = this._inputBuffer
+        this._inputBuffer = ""
+        resolve(result)
+      } else {
+        const idx = this._onInput.length
+        const inputCallback = () => {
+          const result = this._inputBuffer
+          this._inputBuffer = ""
+          this._onInput.splice(idx, 1) // remove callback from array
+          resolve(result)
+        }
+        this._onInput.push(inputCallback)
+      }
+    });
   }
 
   /******************************************************
@@ -56,7 +70,7 @@ export class RFungeController {
 
   run () {
     return new Promise((resolve, reject) => {
-      const continueRunning = () => {
+      const continueRunning = async () => {
         if (this._stopRequest != null) {
           let callback = this._stopRequest
           this._stopRequest = null
@@ -66,7 +80,7 @@ export class RFungeController {
         }
         // Execute tickPerCall instructions and meausure how long it took
         const t0 = performance.now()
-        const result = this._interpreter.run_limited(ticksPerCall)
+        const result = await this._interpreter.runLimitedAsync(ticksPerCall)
         const t1 = performance.now()
         const dt = t1 - t0
 
@@ -100,12 +114,12 @@ export class RFungeController {
     })
   }
 
-  step() {
-    return this._interpreter.step()
+  async step() {
+    return await this._interpreter.stepAsync()
   }
 
   stop () {
-    return new Promise((resolve, _) => {
+    return new Promise(resolve => {
       this._stopRequest = resolve
     })
   }
@@ -156,6 +170,9 @@ export class RFungeController {
 
   writeInput (s) {
     this._inputBuffer += s
+    for (const callback of this._onInput) {
+      callback()
+    }
   }
 }
 
