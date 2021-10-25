@@ -63,6 +63,7 @@ export class RFungeController {
           resolve(result)
         }
         this._onInput.push(inputCallback)
+        this._inputStamp = true
       }
     })
   }
@@ -81,6 +82,7 @@ export class RFungeController {
           callback()
           return
         }
+        this._inputStamp = false
         // Execute tickPerCall instructions and meausure how long it took
         const t0 = performance.now()
         const result = await this._interpreter.runLimitedAsync(ticksPerCall)
@@ -93,26 +95,30 @@ export class RFungeController {
           return
         } else {
           // Continue running
-          // target 100ms per step
-          const timeFactor = (dt + 1) / 100
-          if (timeFactor > 2) {
-            // too slow
-            ticksPerCall = Math.floor(ticksPerCall / timeFactor)
-            console.log(`adjusting to ${ticksPerCall} ticks per iteration`)
-          } else if (timeFactor < 0.5) {
-            // too fast
-            ticksPerCall = Math.floor(ticksPerCall / timeFactor)
+          if (!this._inputStamp) {
+            // only time iterations that did NOT wait for input
+            // target 100ms per step
+            const timeFactor = (dt + 1) / 100
+            if (timeFactor > 2) {
+              // too slow
+              ticksPerCall = Math.floor(ticksPerCall / timeFactor)
+              console.log(`adjusting to ${ticksPerCall} ticks per iteration`)
+            } else if (timeFactor < 0.5) {
+              // too fast
+              ticksPerCall = Math.floor(ticksPerCall / timeFactor)
 
-            // prevent overflow on supercomputers (or with buggy WASM...)
-            if (ticksPerCall > 1 << 30) ticksPerCall = 1 << 30
+              // prevent overflow on supercomputers (or with buggy WASM...)
+              if (ticksPerCall > 1 << 30) ticksPerCall = 1 << 30
 
-            console.log(`adjusting to ${ticksPerCall} ticks per iteration`)
+              console.log(`adjusting to ${ticksPerCall} ticks per iteration`)
+            }
           }
-          // go again
+          // go again - after returning control to the UI
           setTimeout(continueRunning, 0)
         }
       }
       this._mustStop = false
+      // Need to use a setTimeout() pseudo-loop to avoid blocking the event loop
       continueRunning()
     })
   }
