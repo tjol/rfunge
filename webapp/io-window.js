@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit'
 import { createRef, ref } from 'lit/directives/ref.js'
+import { COMMON_STYLES } from './rfunge-common'
 
 export class IOWindow extends LitElement {
   inputRef = createRef()
@@ -50,10 +51,17 @@ export class IOWindow extends LitElement {
     return true
   }
 
-  static styles = css`
+  static styles = css`${COMMON_STYLES}
     p {
       font-family: monospace;
+      font-family: var(--code-font);
       white-space: pre-wrap;
+    }
+
+    input[type="text"] {
+        font-family: var(--code-font);
+        width: 20em;
+        max-width: calc(100vw - 6.5rem);
     }
   `
 }

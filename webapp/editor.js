@@ -98,14 +98,23 @@ export class RFungeEditor extends LitElement {
   }
 
   static styles = css`
-    textarea {
+    textarea, .debug-src {
       font-size: 1.1rem;
-      width: 80%;
+      font-family: monospace;
+      font-family: var(--code-font);
+      width: 100%;
+      box-sizing: border-box;
+      margin: 1rem 0;
+      padding: 0.5rem;
+      border: 1px solid #aaa;
       min-height: 25rem;
+      background-color: inherit;
+      color: inherit;
+    }
+    textarea {
+      letter-spacing: 0.5em;
     }
     .debug-src {
-      font-family: monospace;
-      font-size: 1.1rem;
       overflow-x: auto;
     }
     .debug-src p {
@@ -123,10 +132,14 @@ export class RFungeEditor extends LitElement {
       word-break: break-all;
     }
     .ip-next-location {
-      background: pink;
+      background-color: pink;
+      background-color: var(--projected-cursor-background);
+      color: var(--projected-cursor-color);
     }
     .ip-location {
-      background: lavenderblush;
+      background-color: lavenderblush;
+      background-color: var(--last-cursor-background);
+      color: var(--last-cursor-color);
     }
   `
 }

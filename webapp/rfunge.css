@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito&family=Share+Tech+Mono&display=swap');
+
+:root {
+    --code-font: "Share Tech Mono", monospace;
+    --background-color: #ddd;
+    --text-color: navy;
+    
+    --other-background-color: navy;
+    --other-text-color: #ddd;
+
+    --projected-cursor-background: black;
+    --projected-cursor-color: white;
+    --last-cursor-background: #aaa;
+    
+    --btn-border-color: #000;
+    --btn-background: #333;
+    --btn-color: #eee;
+
+    --input-border-color: #333;
+
+    font-size: 1.1em;
+}
+
+html {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+body {
+    font-family: "Nunito", sans-serif;
+    color: var(--text-color);
+    background-color: var(--background-color);
+    /* padding: 1em; */
+    margin: 0;
+    border: none;
+    box-sizing: border-box;
+    min-height: 100vh;
+    width: 100vw;
+    overflow-x: hidden;
+}
+
+rfunge-app {
+    min-height: 100vh;
+}

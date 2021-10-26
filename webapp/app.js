@@ -4,7 +4,7 @@ import { createRef, ref } from 'lit/directives/ref.js'
 
 // project (js)
 import { InterpreterStopped, RFungeController } from './controller.js'
-import { RFungeMode } from './rfunge-common.js'
+import { RFungeMode, COMMON_STYLES } from './rfunge-common.js'
 
 // project (web components)
 import { RFungeEditor } from './editor.js'
@@ -17,7 +17,8 @@ export class RFungeGui extends LitElement {
   stackWindowRef = createRef()
 
   static properties = {
-    mode: { type: Number }
+    mode: { type: Number },
+    heading: { type: String }
   }
 
   constructor () {
@@ -90,16 +91,50 @@ export class RFungeGui extends LitElement {
         @rfunge-input="${this._onInput}"
       ></rfunge-io-window>
     `
-    let stackWindow = html`
+    let stackWindow = this.mode == RFungeMode.DEBUG ? html`
       <rfunge-stack-window
         ${ref(this.stackWindowRef)}
         mode="${this.mode}"
       ></rfunge-stack-window>
-    `
+    ` : ""
+
     return html`
-      ${editor}${buttonbar}${outputArea}${stackWindow}
+      <div id="core">
+      ${this.heading !== "" ? html`<h1>${this.heading}</h1>` : ""}
+      ${editor}${buttonbar}${outputArea}
+      </div>
+      ${stackWindow}
     `
   }
+
+  static styles = css` ${COMMON_STYLES}
+    nav {
+      margin: 0;
+    }
+    :host {
+      display: flex;
+      flex-direction: column;
+    }
+    :host > * {
+      padding: 0 1rem;
+    }
+    rfunge-stack-window {
+      flex-grow: 1;
+    }
+
+    @media only screen and (min-width: 1280px) {
+      :host {
+        flex-direction: row;
+      }
+      div#core {
+        flex-grow: 1;
+      }
+      rfunge-stack-window {
+        flex-grow: 0;
+        width: 400px;
+      }
+    }
+  `
 
   async _run () {
     this.mode = RFungeMode.RUN
