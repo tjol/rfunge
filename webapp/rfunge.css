@@ -20,19 +20,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 :root {
   --code-font: 'Share Tech Mono', monospace;
-  --background-color: #eee;
-  --text-color: #333;
+  --background-color: #fafafa;
+  --text-color: #300;
 
-  --other-background-color: #333;
-  --other-text-color: #ddd;
+  --other-background-color: #300;
+  --other-text-color: #fafafa;
 
   --projected-cursor-background: black;
   --projected-cursor-color: white;
   --last-cursor-background: #aaa;
 
   --btn-border-color: #000;
-  --btn-background: #333;
-  --btn-color: #eee;
+  --btn-background: #300;
+  --btn-color: #fafafa;
 
   --input-border-color: #333;
 

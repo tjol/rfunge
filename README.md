@@ -65,9 +65,25 @@ from a local checkout, or, aternatively
 
     cargo install --git https://github.com/tjol/rfunge
 
+## How to build the WebAssembly version
+
+You will need [wasm-pack] to build the WASM package. If `wasm-pack` is installed,
+you can run `./build_wasm.sh` to build; the WASM binary, and a wrapper script will
+be placed in `webapp/rfunge_wasm/`.
+
+To try the actual web UI, navigate into `webapp` and run the `dev` script with your
+favourite JavaScript package manager
+
+```
+cd webapp
+npm install
+npm run dev
+```
+
 
 [Funge-98]: https://esolangs.org/wiki/Funge-98
 [spec]: https://github.com/catseye/Funge-98/blob/master/doc/funge98.markdown
 [Mycology]: https://github.com/Deewiant/Mycology
 [cfunge]: https://github.com/VorpalBlade/cfunge
 [CCBI]: https://github.com/Deewiant/CCBI
+[wasm-pack]: https://rustwasm.github.io/wasm-pack/

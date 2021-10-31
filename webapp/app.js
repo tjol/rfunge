@@ -129,9 +129,10 @@ export class RFungeGui extends LitElement {
           @rfunge-input="${this._onInput}"
         ></rfunge-io-window>
         <p class="info">
-          RFunge is an implementation of the Befunge-98 ‘programming’ language.
-          It is free software, published under the terms of the GNU AGPLv3 or
-          later. You can get the source code
+          RFunge is an implementation of the Befunge-98 ‘programming’ language
+          written in Rust. It runs in the browser through the magic of
+          WebAssembly. RFunge is free software, published under the terms of the
+          GNU AGPLv3 or later. You can get the source code
           <a href="https://github.com/tjol/rfunge">on GitHub</a>.
           ${import.meta.env.VITE_RFUNGE_GIT_HASH != undefined
             ? `This is revision ${import.meta.env.VITE_RFUNGE_GIT_HASH}.`
