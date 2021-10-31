@@ -1,45 +1,63 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito&family=Share+Tech+Mono&display=swap');
+/*
+rfunge – a Funge-98 interpreter
+Copyright © 2021 Thomas Jollans
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;1,200&family=Share+Tech+Mono&display=swap');
 
 :root {
-    --code-font: "Share Tech Mono", monospace;
-    --background-color: #ddd;
-    --text-color: navy;
-    
-    --other-background-color: navy;
-    --other-text-color: #ddd;
+  --code-font: 'Share Tech Mono', monospace;
+  --background-color: #eee;
+  --text-color: #333;
 
-    --projected-cursor-background: black;
-    --projected-cursor-color: white;
-    --last-cursor-background: #aaa;
-    
-    --btn-border-color: #000;
-    --btn-background: #333;
-    --btn-color: #eee;
+  --other-background-color: #333;
+  --other-text-color: #ddd;
 
-    --input-border-color: #333;
+  --projected-cursor-background: black;
+  --projected-cursor-color: white;
+  --last-cursor-background: #aaa;
 
-    font-size: 1.1em;
+  --btn-border-color: #000;
+  --btn-background: #333;
+  --btn-color: #eee;
+
+  --input-border-color: #333;
+
+  font-size: 1.1em;
 }
 
 html {
-    margin: 0;
-    padding: 0;
-    border: none;
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 
 body {
-    font-family: "Nunito", sans-serif;
-    color: var(--text-color);
-    background-color: var(--background-color);
-    /* padding: 1em; */
-    margin: 0;
-    border: none;
-    box-sizing: border-box;
-    min-height: 100vh;
-    width: 100vw;
-    overflow-x: hidden;
+  font-family: 'Nunito', sans-serif;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  /* padding: 1em; */
+  margin: 0;
+  border: none;
+  box-sizing: border-box;
+  min-height: 100vh;
+  width: 100vw;
+  overflow-x: hidden;
 }
 
 rfunge-app {
-    min-height: 100vh;
+  min-height: 100vh;
 }

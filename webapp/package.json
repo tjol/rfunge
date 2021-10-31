@@ -8,6 +8,7 @@
   },
   "devDependencies": {
     "prettier": "^2.4.1",
+    "prettier-standard": "^16.4.1",
     "vite": "^2.6.4"
   },
   "dependencies": {

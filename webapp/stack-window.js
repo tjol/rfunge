@@ -1,3 +1,21 @@
+/*
+rfunge – a Funge-98 interpreter
+Copyright © 2021 Thomas Jollans
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import { html, css, LitElement } from 'lit'
 import { COMMON_STYLES, RFungeMode } from './rfunge-common'
 
@@ -16,6 +34,7 @@ export class StackWindow extends LitElement {
   render () {
     if (this.mode === RFungeMode.DEBUG) {
       return html`
+        <h2>Stack</h2>
         <ul class="ip-list">
           ${this.stacks.map(
             (stackStack, ipIndex) =>
@@ -28,11 +47,13 @@ export class StackWindow extends LitElement {
                         html`
                           <li>
                             <ul class="stack">
-                              ${Array.from(stack).reverse().map(
-                                stackElem => html`
-                                  <li>${stackElem}</li>
-                                `
-                              )}
+                              ${Array.from(stack)
+                                .reverse()
+                                .map(
+                                  stackElem => html`
+                                    <li>${stackElem}</li>
+                                  `
+                                )}
                             </ul>
                           </li>
                         `
@@ -60,6 +81,15 @@ export class StackWindow extends LitElement {
       padding: 0 1em;
     }
 
+    h2 {
+      font-size: 1.4em;
+      text-transform: uppercase;
+    }
+
+    h5 {
+      font-size: 1em;
+    }
+
     * {
       background-color: inherit;
       color: inherit;
@@ -74,6 +104,8 @@ export class StackWindow extends LitElement {
     ul.stack-stack {
       margin: 0;
       padding: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     ul.stack {
@@ -95,6 +127,9 @@ export class StackWindow extends LitElement {
       }
       ul.stack > li {
         display: block;
+      }
+      ul.stack-stack {
+        flex-direction: row;
       }
     }
   `

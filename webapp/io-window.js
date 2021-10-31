@@ -1,3 +1,21 @@
+/*
+rfunge – a Funge-98 interpreter
+Copyright © 2021 Thomas Jollans
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import { LitElement, html, css } from 'lit'
 import { createRef, ref } from 'lit/directives/ref.js'
 import { COMMON_STYLES } from './rfunge-common'
@@ -51,17 +69,18 @@ export class IOWindow extends LitElement {
     return true
   }
 
-  static styles = css`${COMMON_STYLES}
+  static styles = css`
+    ${COMMON_STYLES}
     p {
       font-family: monospace;
       font-family: var(--code-font);
       white-space: pre-wrap;
     }
 
-    input[type="text"] {
-        font-family: var(--code-font);
-        width: 20em;
-        max-width: calc(100vw - 6.5rem);
+    input[type='text'] {
+      font-family: var(--code-font);
+      width: 20em;
+      max-width: calc(100vw - 6.5rem);
     }
   `
 }

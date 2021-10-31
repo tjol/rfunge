@@ -1,3 +1,21 @@
+/*
+rfunge – a Funge-98 interpreter
+Copyright © 2021 Thomas Jollans
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import { html, css, LitElement } from 'lit'
 import { ref, createRef } from 'lit/directives/ref.js'
 import { RFungeMode } from './rfunge-common.js'
@@ -63,22 +81,24 @@ export class RFungeEditor extends LitElement {
             html`
               <p>
                 ${Array.from(line).map((c, x) => {
-                  let classes = ["cell"]
-                  const pos = [x,y]
+                  let classes = ['cell']
+                  const pos = [x, y]
                   if (pos in ipPositionClasses) {
                     classes.push(...ipPositionClasses[pos])
                   }
                   if (c == ' ')
                     return html`
-                      <span class="${classes.join(" ")} space"> </span>
+                      <span class="${classes.join(' ')} space"> </span>
                     `
                   else if (c.match(/\p{Z}|\p{C}/u))
                     return html`
-                      <span class="${classes.join(" ")} as-number">${c.codePointAt(0)}</span>
+                      <span class="${classes.join(' ')} as-number"
+                        >${c.codePointAt(0)}</span
+                      >
                     `
                   else
                     return html`
-                      <span class="${classes.join(" ")}">${c}</span>
+                      <span class="${classes.join(' ')}">${c}</span>
                     `
                 })}
               </p>
@@ -98,7 +118,8 @@ export class RFungeEditor extends LitElement {
   }
 
   static styles = css`
-    textarea, .debug-src {
+    textarea,
+    .debug-src {
       font-size: 1.1rem;
       font-family: monospace;
       font-family: var(--code-font);
