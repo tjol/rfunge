@@ -51,18 +51,23 @@ pub enum InstructionResult {
     Panic,
 }
 
+/// State of the interpreter. An (async) instruction takes ownership of this
+/// while it is being executed.
 pub struct InstructionContext<F: Funge + 'static> {
     pub ip: InstructionPointer<F>,
     pub space: F::Space,
     pub env: F::Env,
 }
 
+/// Type for a generic instruction (`F: Funge`) that can be stored and called
+/// at will
 pub type Instruction<F> = Rc<
     dyn Fn(
         InstructionContext<F>,
     ) -> Pin<Box<dyn Future<Output = (InstructionContext<F>, InstructionResult)>>>,
 >;
 
+/// Turn a regular fuction into an `Instruction`
 pub fn sync_instruction<F, Func>(func: Func) -> Instruction<F>
 where
     F: Funge + 'static,
@@ -76,6 +81,7 @@ where
     })
 }
 
+/// Turn a regular async function into an `Instruction`
 pub fn async_instruction<F, Func, Fut>(func: Func) -> Instruction<F>
 where
     F: Funge + 'static,
