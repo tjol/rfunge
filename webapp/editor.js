@@ -136,12 +136,14 @@ export class RFungeEditor extends LitElement {
       letter-spacing: 0.5em;
     }
     .debug-src {
-      overflow-x: auto;
+      overflow-x: scroll;
     }
     .debug-src p {
       margin: 0;
       padding: 0;
       margin-bottom: 0.2rem;
+      white-space: nowrap;
+      width: 0;
     }
     .cell {
       display: inline-block;
