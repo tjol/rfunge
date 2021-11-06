@@ -64,8 +64,10 @@ export class TurtleState {
     this._y = 0
     this._penDown = false
     this._lines = []
+    this._dots = []
     this._colour = new RGB(0, 0, 0)
     this._backgroundColour = null
+    this._haveDrawn = false
   }
 
   turnLeft (degrees) {
@@ -78,7 +80,17 @@ export class TurtleState {
     return this._heading
   }
   setPen (down) {
+    if (this._penDown && !down) {
+      // Pen going up, was down
+      if (!this._haveDrawn) {
+        // Add a dot
+        this._dots.push({pos: [this._x, this._y], colour: this._colour});
+      }
+    }
     this._penDown = down
+    if (!this._penDown) {
+      this._haveDrawn = false
+    }
   }
   isPenDown () {
     return this._penDown
@@ -94,6 +106,7 @@ export class TurtleState {
         to: [destX, destY],
         colour: this._colour
       })
+      this._haveDrawn = true
       this._redraw()
     }
     this._x = destX
@@ -119,7 +132,7 @@ export class TurtleState {
     return [this._x, this._y]
   }
   bounds () {
-    if (this._lines.length == 0) {
+    if (this._lines.length === 0 && this._dots.length === 0) {
       return [0, 0, 0, 0]
     }
     let top = null
@@ -135,6 +148,12 @@ export class TurtleState {
       left = left == null ? minX : Math.min(minX, left)
       bottom = bottom == null ? maxY : Math.max(maxY, bottom)
       right = right == null ? maxX : Math.max(maxX, right)
+    }
+    for (const d of this._dots) {
+      top = top == null ? d.pos[1] : Math.min(d.pos[1], top)
+      left = left == null ? d.pos[0] : Math.min(d.pos[0], left)
+      bottom = bottom == null ? d.pos[1] : Math.max(d.pos[1], bottom)
+      right = right == null ? d.pos[0] : Math.max(d.pos[0], right)
     }
     return [left, top, right, bottom]
   }
@@ -161,8 +180,8 @@ export class TurtleState {
     const [left, top, right, bottom] = this.bounds()
     let { width, height } = canvas
     // Do have have to scale to fit?
-    const imageWidth = right - left + 6
-    const imageHeight = bottom - top + 6
+    const imageWidth = right - left + 8
+    const imageHeight = bottom - top + 8
     let scale = 1
     if (imageWidth > width) {
       if (rescale) {
@@ -171,14 +190,18 @@ export class TurtleState {
         width = imageWidth
         canvas.width = width
       }
+    } else if (rescale) {
+      while (imageWidth * scale < width / 10 && scale < 16) {
+        scale *= 2
+      }
     }
     // Make sure we have enough vertical space
     height = Math.max(height, scale * imageHeight)
     canvas.height = height
     // centre the image
-    const offsetX = width / 2 - (scale * (right + left)) / 2 + 3
+    const offsetX = width / 2 - (scale * (right + left)) / 2 + 4 + 0.5
     // align it to the top
-    const offsetY = -scale * top + 3
+    const offsetY = -scale * top + 4 + 0.5
     // Draw
     const ctx = canvas.getContext('2d')
     // Step 1: fill in the background
@@ -192,10 +215,26 @@ export class TurtleState {
     for (const line of this._lines) {
       ctx.beginPath()
       ctx.strokeStyle = line.colour.cssColour
-      ctx.moveTo(offsetX + scale * line.from[0], offsetY + scale * line.from[1])
+      ctx.moveTo(offsetX +  scale * line.from[0], offsetY + scale * line.from[1])
       ctx.lineTo(offsetX + scale * line.to[0], offsetY + scale * line.to[1])
-      ctx.closePath()
+      ctx.lineWidth = scale
+      ctx.lineCap = "square"
       ctx.stroke()
+    }
+    // Step 3: draw all the dots
+    for (const dot of this._dots) {
+      ctx.fillStyle = dot.colour.cssColour
+      ctx.fillRect(offsetX + scale * (dot.pos[0] - 0.5),
+                   offsetY + scale * (dot.pos[1] - 0.5),
+                   scale, scale)
+    }
+    // Step 4: if the pen is down, maybe draw a dot
+    if (this._penDown && !this._haveDrawn)
+    {
+      ctx.fillStyle = this._colour.cssColour
+      ctx.fillRect(offsetX + scale * (this._x - 0.5),
+                   offsetY + scale * (this._y - 0.5),
+                   scale, scale)
     }
   }
 
