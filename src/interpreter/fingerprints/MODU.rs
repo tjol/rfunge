@@ -20,7 +20,7 @@ use divrem::DivRem;
 use hashbrown::HashMap;
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 
@@ -61,17 +61,17 @@ use crate::interpreter::Funge;
 /// `U` is interpreted as the Euclidian remainder: round *q* such that *r* > 0.
 /// This is what CCBI does; cfunge, pyfunge, and, again, rcfunge, do something
 /// mathematically unsound (they return the absolute value of the C remainder).
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('M', sync_instruction(signed_rem));
     layer.insert('U', sync_instruction(unsigned_rem));
     layer.insert('R', sync_instruction(c_rem));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&['M', 'U', 'R'])
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip.instructions.pop_layer(&['M', 'U', 'R'])
 }
 
 fn signed_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {

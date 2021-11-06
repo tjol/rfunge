@@ -29,7 +29,7 @@ use num::{FromPrimitive, ToPrimitive};
 use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::{Funge, MotionCmds};
 use crate::InstructionPointer;
@@ -84,7 +84,7 @@ use crate::InstructionPointer;
 ///
 /// ct=1 and pf=1 are a broken spec and should not be implemented. Usage of
 /// either of these should reflect.
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(accept));
     layer.insert('B', sync_instruction(bind));
@@ -96,13 +96,14 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     layer.insert('R', sync_instruction(recv));
     layer.insert('S', sync_instruction(socket_create));
     layer.insert('W', sync_instruction(write));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    // Check that this fingerprint is on top
-    instructionset.pop_layer(&"ABCIKLORSW".chars().collect::<Vec<char>>())
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&"ABCIKLORSW".chars().collect::<Vec<char>>())
 }
 
 fn get_socketlist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<Option<Socket>>> {

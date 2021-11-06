@@ -19,7 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 use crate::interpreter::MotionCmds;
@@ -34,16 +34,16 @@ use crate::interpreter::MotionCmds;
 ///
 /// NOTE: The rcFunge docs swap `G` and `P`, but rcFunge still implements the
 /// fingerprint as documented here!
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('P', sync_instruction(put));
     layer.insert('G', sync_instruction(get));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&['P', 'G'][..])
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip.instructions.pop_layer(&['P', 'G'][..])
 }
 
 fn put<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {

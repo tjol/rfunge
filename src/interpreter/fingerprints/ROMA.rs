@@ -19,7 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use hashbrown::HashMap;
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 
@@ -41,7 +41,7 @@ use crate::interpreter::Funge;
 /// Note that these are just digits, you still have to do the arithmetic
 /// yourself. Executing `MCMLXXXIV` will not leave 1984 on the stack. But
 /// executing `MCM\-+LXXX+++IV\-++` should.
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('I', sync_instruction(unum));
     layer.insert('V', sync_instruction(quinque));
@@ -51,12 +51,14 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     layer.insert('D', sync_instruction(quingenti));
     layer.insert('M', sync_instruction(mille));
 
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&['I', 'V', 'X', 'L', 'C', 'D', 'M'])
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&['I', 'V', 'X', 'L', 'C', 'D', 'M'])
 }
 
 fn unum<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {

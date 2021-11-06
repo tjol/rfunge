@@ -25,7 +25,7 @@ use super::FPSP::val_to_fpsp;
 use super::LONG::vals_to_i128;
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 
@@ -40,19 +40,21 @@ use crate::interpreter::Funge;
 ///
 /// Formats are printf style
 /// Error in any function reflects
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('D', sync_instruction(sprintf_fpdp));
     layer.insert('F', sync_instruction(sprintf_fpsp));
     layer.insert('I', sync_instruction(sprintf_int));
     layer.insert('L', sync_instruction(sprintf_long));
     layer.insert('S', sync_instruction(sprintf_str));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&['D', 'F', 'I', 'L', 'S'][..])
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&['D', 'F', 'I', 'L', 'S'][..])
 }
 
 fn sprintf_int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {

@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 import initRFunge, { BefungeInterpreter } from './rfunge_wasm/rfunge.js'
+import { TurtleState } from './turtle.js'
 
 let wasmInitialized = false
 
@@ -28,6 +29,7 @@ export class RFungeController {
     this._stopRequest = null
     this._inputBuffer = ''
     this._onInput = []
+    this._turtle = null
   }
 
   async init () {
@@ -84,6 +86,13 @@ export class RFungeController {
         this._inputStamp = true
       }
     })
+  }
+
+  get turtle () {
+    if (this._turtle == null) {
+      this._turtle = new TurtleState(this._host)
+    }
+    return this._turtle
   }
 
   /******************************************************
@@ -155,6 +164,7 @@ export class RFungeController {
   reset () {
     this._interpreter.close()
     this._interpreter = new BefungeInterpreter(this)
+    this._turtle = null
   }
 
   setSrc (src) {

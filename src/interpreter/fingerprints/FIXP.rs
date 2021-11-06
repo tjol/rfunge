@@ -23,7 +23,7 @@ use num::{Signed, ToPrimitive};
 
 use super::BOOL;
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 
@@ -52,7 +52,7 @@ use crate::interpreter::Funge;
 /// thereby giving 4 digits of decimal precision.
 ///
 /// Trigonometric functions work in degrees. not radians.
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(BOOL::and));
     layer.insert('B', sync_instruction(arccos));
@@ -70,12 +70,14 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     layer.insert('U', sync_instruction(arctan));
     layer.insert('V', sync_instruction(abs));
     layer.insert('X', sync_instruction(BOOL::xor));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&"ABCDIJNOPQRSTUVX".chars().collect::<Vec<char>>())
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&"ABCDIJNOPQRSTUVX".chars().collect::<Vec<char>>())
 }
 
 fn rad2deg(angle: f64) -> f64 {

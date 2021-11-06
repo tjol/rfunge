@@ -22,7 +22,6 @@ use num::ToPrimitive;
 
 use crate::interpreter::instruction_set::{
     async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
-    InstructionSet,
 };
 use crate::interpreter::Funge;
 use crate::{FungeValue, InterpreterEnv};
@@ -55,7 +54,7 @@ use crate::{FungeValue, InterpreterEnv};
 /// The docs do not mention whether these instructions operator on one or two
 /// stack cells per double. We're using two cells even in 64 bit mode for
 /// compatibility (following the behaviour of the other implementations).
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(add));
     layer.insert('B', sync_instruction(sin));
@@ -78,12 +77,14 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     layer.insert('V', sync_instruction(abs));
     layer.insert('X', sync_instruction(exp));
     layer.insert('Y', sync_instruction(pow));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
 }
 
 pub fn ints_to_fpdp(ih: i32, il: i32) -> f64 {

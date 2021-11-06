@@ -31,11 +31,12 @@ mod MODU;
 mod NULL;
 mod REFC;
 mod ROMA;
+pub mod TURT;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod SOCK;
 
-use super::{Funge, InstructionSet};
+use super::{Funge, InstructionContext};
 
 /// Convert a fingerprint string to a numeric fingerprint
 pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
@@ -70,109 +71,105 @@ pub fn safe_fingerprints() -> Vec<i32> {
 /// Get a list of all available fingerprints
 pub fn all_fingerprints() -> Vec<i32> {
     let mut fprts = safe_fingerprints();
+    fprts.push(string_to_fingerprint("TURT"));
     if cfg!(not(target_arch = "wasm32")) {
         fprts.push(string_to_fingerprint("SOCK"));
     }
     fprts
 }
 
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("NULL") {
-        NULL::load(instructionset)
+        NULL::load(ctx)
     } else if fpr == string_to_fingerprint("BOOL") {
-        BOOL::load(instructionset)
+        BOOL::load(ctx)
     } else if fpr == string_to_fingerprint("HRTI") {
-        HRTI::load(instructionset)
+        HRTI::load(ctx)
     } else if fpr == string_to_fingerprint("FIXP") {
-        FIXP::load(instructionset)
+        FIXP::load(ctx)
     } else if fpr == string_to_fingerprint("ROMA") {
-        ROMA::load(instructionset)
+        ROMA::load(ctx)
     } else if fpr == string_to_fingerprint("MODU") {
-        MODU::load(instructionset)
+        MODU::load(ctx)
     } else if fpr == string_to_fingerprint("REFC") {
-        REFC::load(instructionset)
+        REFC::load(ctx)
     } else if fpr == string_to_fingerprint("FPSP") {
-        FPSP::load(instructionset)
+        FPSP::load(ctx)
     } else if fpr == string_to_fingerprint("FPDP") {
-        FPDP::load(instructionset)
+        FPDP::load(ctx)
     } else if fpr == string_to_fingerprint("LONG") {
-        LONG::load(instructionset)
+        LONG::load(ctx)
     } else if fpr == string_to_fingerprint("FPRT") {
-        FPRT::load(instructionset)
+        FPRT::load(ctx)
     } else if fpr == string_to_fingerprint("JSTR") {
-        JSTR::load(instructionset)
+        JSTR::load(ctx)
     } else if fpr == string_to_fingerprint("FRTH") {
-        FRTH::load(instructionset)
+        FRTH::load(ctx)
+    } else if fpr == string_to_fingerprint("TURT") {
+        TURT::load(ctx)
     } else {
-        load_platform_specific(instructionset, fpr)
+        load_platform_specific(ctx, fpr)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_platform_specific<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool {
+pub fn load_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
-        SOCK::load(instructionset)
+        SOCK::load(ctx)
     } else {
         false
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn load_platform_specific<F: Funge>(
-    _instructionset: &mut InstructionSet<F>,
-    _fpr: i32,
-) -> bool {
+pub fn load_platform_specific<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
     false
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>, fpr: i32) -> bool {
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("NULL") {
-        NULL::unload(instructionset)
+        NULL::unload(ctx)
     } else if fpr == string_to_fingerprint("BOOL") {
-        BOOL::unload(instructionset)
+        BOOL::unload(ctx)
     } else if fpr == string_to_fingerprint("HRTI") {
-        HRTI::unload(instructionset)
+        HRTI::unload(ctx)
     } else if fpr == string_to_fingerprint("FIXP") {
-        FIXP::unload(instructionset)
+        FIXP::unload(ctx)
     } else if fpr == string_to_fingerprint("ROMA") {
-        ROMA::unload(instructionset)
+        ROMA::unload(ctx)
     } else if fpr == string_to_fingerprint("MODU") {
-        MODU::unload(instructionset)
+        MODU::unload(ctx)
     } else if fpr == string_to_fingerprint("REFC") {
-        REFC::unload(instructionset)
+        REFC::unload(ctx)
     } else if fpr == string_to_fingerprint("FPSP") {
-        FPSP::unload(instructionset)
+        FPSP::unload(ctx)
     } else if fpr == string_to_fingerprint("FPDP") {
-        FPDP::unload(instructionset)
+        FPDP::unload(ctx)
     } else if fpr == string_to_fingerprint("LONG") {
-        LONG::unload(instructionset)
+        LONG::unload(ctx)
     } else if fpr == string_to_fingerprint("FPRT") {
-        FPRT::unload(instructionset)
+        FPRT::unload(ctx)
     } else if fpr == string_to_fingerprint("JSTR") {
-        JSTR::unload(instructionset)
+        JSTR::unload(ctx)
     } else if fpr == string_to_fingerprint("FRTH") {
-        FRTH::unload(instructionset)
+        FRTH::unload(ctx)
+    } else if fpr == string_to_fingerprint("TURT") {
+        TURT::unload(ctx)
     } else {
-        unload_platform_specific(instructionset, fpr)
+        unload_platform_specific(ctx, fpr)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn unload_platform_specific<F: Funge>(
-    instructionset: &mut InstructionSet<F>,
-    fpr: i32,
-) -> bool {
+pub fn unload_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
-        SOCK::unload(instructionset)
+        SOCK::unload(ctx)
     } else {
         false
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn unload_platform_specific<F: Funge>(
-    _instructionset: &mut InstructionSet<F>,
-    _fpr: i32,
-) -> bool {
+pub fn unload_platform_specific<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
     false
 }

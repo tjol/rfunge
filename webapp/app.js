@@ -33,16 +33,19 @@ export class RFungeGui extends LitElement {
   editorRef = createRef()
   ioRef = createRef()
   stackWindowRef = createRef()
+  turtWindowRef = createRef()
 
   static properties = {
     mode: { type: Number },
     heading: { type: String },
-    subtitle: { type: String }
+    subtitle: { type: String },
+    turtActive: { type: Boolean }
   }
 
   constructor () {
     super()
     this.mode = RFungeMode.INACTIVE
+    this.turtActive = false
     this._controller = new RFungeController(this)
     this._controller.init().then(
       () => {
@@ -138,6 +141,13 @@ export class RFungeGui extends LitElement {
             ? `This is revision ${import.meta.env.VITE_RFUNGE_GIT_HASH}.`
             : ''}
         </p>
+        ${this.turtActive
+          ? html`
+              <rfunge-turt-window
+                ${ref(this.turtWindowRef)}
+              ></rfunge-turt-window>
+            `
+          : ''}
       </div>
       ${[RFungeMode.DEBUG, RFungeMode.DEBUG_FINISHED].includes(this.mode)
         ? html`
@@ -214,6 +224,7 @@ export class RFungeGui extends LitElement {
 
   async _run () {
     this.mode = RFungeMode.RUN
+    this.turtActive = false
     this._controller.reset()
     let src = this.editorRef.value.getSrc()
     this._controller.setSrc(src)
@@ -239,6 +250,7 @@ export class RFungeGui extends LitElement {
 
   _startDebugger () {
     this.mode = RFungeMode.DEBUG
+    this.turtActive = false
     this._controller.reset()
     let src = this.editorRef.value.getSrc()
     this._origSrc = src

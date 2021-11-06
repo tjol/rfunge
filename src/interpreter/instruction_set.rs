@@ -421,7 +421,7 @@ async fn exec_normal_instruction<F: Funge + 'static>(
                 fpr += ctx.ip.pop().to_i32().unwrap_or(0);
             }
             if fpr != 0 && ctx.env.is_fingerprint_enabled(fpr) {
-                if fingerprints::load(&mut ctx.ip.instructions, fpr) {
+                if fingerprints::load(&mut ctx, fpr) {
                     ctx.ip.push(fpr.into());
                     ctx.ip.push(1.into());
                 } else {
@@ -439,7 +439,7 @@ async fn exec_normal_instruction<F: Funge + 'static>(
                 fpr += ctx.ip.pop().to_i32().unwrap_or(0);
             }
             if fpr != 0 {
-                if fingerprints::unload(&mut ctx.ip.instructions, fpr) {
+                if fingerprints::unload(&mut ctx, fpr) {
                     ctx.ip.push(fpr.into());
                     ctx.ip.push(1.into());
                 } else {

@@ -22,7 +22,6 @@ use num::ToPrimitive;
 
 use crate::interpreter::instruction_set::{
     async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
-    InstructionSet,
 };
 use crate::interpreter::Funge;
 use crate::{FungeValue, InterpreterEnv};
@@ -53,7 +52,7 @@ use crate::{FungeValue, InterpreterEnv};
 /// Y    (x y -- n)     Raise x to the power of y
 ///
 /// Trig functions work in radians
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(add));
     layer.insert('B', sync_instruction(sin));
@@ -76,12 +75,14 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     layer.insert('V', sync_instruction(abs));
     layer.insert('X', sync_instruction(exp));
     layer.insert('Y', sync_instruction(pow));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&"ABCDEFGHIKLMNPQRSTVXY".chars().collect::<Vec<char>>())
 }
 
 pub fn int_to_fpsp(i: i32) -> f32 {

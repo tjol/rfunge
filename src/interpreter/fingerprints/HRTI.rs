@@ -22,7 +22,7 @@ use chrono::prelude::Utc;
 use hashbrown::HashMap;
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 
@@ -31,19 +31,19 @@ use crate::interpreter::Funge;
 ///
 /// After successfully loading HRTI, the instructions `E`, `G`, `M`, `S`,
 /// and `T` take on new semantics.
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('G', sync_instruction(granularity));
     layer.insert('M', sync_instruction(mark));
     layer.insert('T', sync_instruction(timer));
     layer.insert('E', sync_instruction(erase));
     layer.insert('S', sync_instruction(second));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&['G', 'M', 'T', 'E', 'S'])
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip.instructions.pop_layer(&['G', 'M', 'T', 'E', 'S'])
 }
 
 /// `G` 'Granularity' pushes the smallest clock tick the underlying system

@@ -23,7 +23,7 @@ use hashbrown::HashMap;
 use num::ToPrimitive;
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 use crate::interpreter::MotionCmds;
@@ -57,16 +57,16 @@ use crate::InstructionPointer;
 /// fingerprint is loaded twice, independently, by two IPs, the IPs get
 /// separate ref lists. (But the ref list is shared between IPs forked off after
 /// loading).
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('R', sync_instruction(reference));
     layer.insert('D', sync_instruction(dereference));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&['R', 'D'])
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip.instructions.pop_layer(&['R', 'D'])
 }
 
 fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>> {

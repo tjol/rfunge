@@ -23,7 +23,6 @@ use hashbrown::HashMap;
 
 use crate::interpreter::instruction_set::{
     async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
-    InstructionSet,
 };
 use crate::interpreter::Funge;
 use crate::{FungeValue, InterpreterEnv};
@@ -46,7 +45,7 @@ use crate::{FungeValue, InterpreterEnv};
 ///
 ///  * long integers are 2 cell integers, if the interpreter's cell size is 32, then long integers are 64-bits.
 ///  * Division by zero results in zero, not error
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(add));
     layer.insert('B', sync_instruction(abs));
@@ -60,12 +59,14 @@ pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
     layer.insert('R', sync_instruction(shift_right));
     layer.insert('S', sync_instruction(sub));
     layer.insert('Z', sync_instruction(parse_long));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&"ABDELMNOPRSZ".chars().collect::<Vec<char>>())
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&"ABDELMNOPRSZ".chars().collect::<Vec<char>>())
 }
 
 pub fn val_to_i128<T: FungeValue>(v: T) -> i128 {

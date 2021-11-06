@@ -16,12 +16,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-mod fingerprints;
+pub(crate) mod fingerprints;
 pub mod instruction_set;
 mod instructions;
 pub mod ip;
 pub mod motion;
 
+use std::any::Any;
 use std::io;
 use std::marker::Unpin;
 
@@ -32,9 +33,7 @@ use self::instruction_set::exec_instruction;
 use self::ip::CreateInstructionPointer;
 use super::fungespace::{FungeSpace, FungeValue, SrcIO};
 
-pub use self::instruction_set::{
-    InstructionContext, InstructionMode, InstructionResult, InstructionSet,
-};
+pub use self::instruction_set::{InstructionContext, InstructionMode, InstructionResult};
 pub use self::ip::InstructionPointer;
 pub use self::motion::MotionCmds;
 pub use fingerprints::{all_fingerprints, safe_fingerprints, string_to_fingerprint};
@@ -167,6 +166,11 @@ pub trait InterpreterEnv {
     /// [safe_fingerprints])
     fn is_fingerprint_enabled(&self, _fpr: i32) -> bool {
         false
+    }
+    /// Get the support library for a particular fingerprint that needs
+    /// environment support, if available.
+    fn fingerprint_support_library(&mut self, _fpr: i32) -> Option<&mut dyn Any> {
+        None
     }
 }
 

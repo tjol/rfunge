@@ -22,7 +22,7 @@ use hashbrown::HashMap;
 use num::{FromPrimitive, ToPrimitive, Zero};
 
 use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult, InstructionSet,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 
@@ -45,19 +45,21 @@ use crate::interpreter::Funge;
 ///    zeroes will be created in order to fulfill the request. Example:
 ///    n543210a-L will leave a stack of: 2 3 4 5 0 0 0 0 0 0 1
 ///  * L,P the top of stack is position 0
-pub fn load<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
+pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('D', sync_instruction(depth));
     layer.insert('L', sync_instruction(roll));
     layer.insert('O', sync_instruction(over));
     layer.insert('P', sync_instruction(pick));
     layer.insert('R', sync_instruction(rot));
-    instructionset.add_layer(layer);
+    ctx.ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(instructionset: &mut InstructionSet<F>) -> bool {
-    instructionset.pop_layer(&['D', 'L', 'O', 'P', 'R'][..])
+pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+    ctx.ip
+        .instructions
+        .pop_layer(&['D', 'L', 'O', 'P', 'R'][..])
 }
 
 fn depth<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
