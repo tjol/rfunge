@@ -125,10 +125,10 @@ export class RFungeEditor extends LitElement {
       font-family: var(--code-font);
       width: 100%;
       box-sizing: border-box;
-      margin: 1rem 0;
+      margin: 0;
       padding: 0.5rem;
       border: 1px solid #aaa;
-      min-height: 25rem;
+      min-height: min(25rem, 40vh);
       background-color: inherit;
       color: inherit;
     }

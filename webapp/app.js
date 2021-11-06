@@ -163,7 +163,7 @@ export class RFungeGui extends LitElement {
   static styles = css`
     ${COMMON_STYLES}
     nav {
-      margin: 0;
+      margin: 1rem 0 0 0;
     }
     :host {
       display: flex;
@@ -180,18 +180,39 @@ export class RFungeGui extends LitElement {
       font-size: 2.5em;
       letter-spacing: 0.2em;
       font-weight: bold;
+      margin: 0;
     }
 
     h2.subtitle {
       font-size: 1.75em;
       font-weight: normal;
       font-style: italic;
-      margin-top: -1em;
+      margin: 0 0 1rem 0;
+    }
+
+    header {
+      margin: 0;
     }
 
     p.info {
       font-size: 0.9rem;
       max-width: 40rem;
+    }
+
+    @media only screen and (min-width: 800px) {
+      header {
+        display: flex;
+        margin-top: 1rem;
+        margin-left: 2rem;
+        align-items: baseline;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      h2.subtitle {
+        margin-top: 0em;
+        margin-left: 1.5em;
+      }
     }
 
     @media only screen and (min-width: 1280px) {
@@ -204,20 +225,6 @@ export class RFungeGui extends LitElement {
       rfunge-stack-window {
         flex-grow: 0;
         width: 400px;
-      }
-
-      header {
-        display: flex;
-        margin-top: 2rem;
-        margin-left: 2rem;
-        align-items: baseline;
-      }
-      h1 {
-        margin-top: 0;
-      }
-      h2.subtitle {
-        margin-top: 0em;
-        margin-left: 1.5em;
       }
     }
   `
