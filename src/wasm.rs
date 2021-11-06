@@ -124,7 +124,7 @@ impl TurtleRobot for TurtleRobotWrapper {
     }
     fn bounds(&self) -> ((i32, i32), (i32, i32)) {
         let bound_vec = self.robot.bounds();
-        ((bound_vec[0], bound_vec[1]), (bound_vec[3], bound_vec[4]))
+        ((bound_vec[0], bound_vec[1]), (bound_vec[2], bound_vec[3]))
     }
     fn print(&mut self) {
         self.robot.print()

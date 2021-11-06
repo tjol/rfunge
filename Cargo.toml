@@ -2,7 +2,7 @@
 name = "rfunge"
 version = "0.1.0"
 authors = ["Thomas Jollans <tjol@tjol.eu>"]
-edition = "2018"
+edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "Funge-98 interpreter"
 repository = "https://github.com/tjol/rfunge"
