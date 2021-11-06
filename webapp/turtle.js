@@ -186,7 +186,7 @@ export class TurtleState {
       ctx.clearRect(0, 0, width, height)
     } else {
       ctx.fillStyle = this._backgroundColour.cssColour
-      ctx.fillRect(0, 0)
+      ctx.fillRect(0, 0, width, height)
     }
     // Step 2: draw all the lines
     for (const line of this._lines) {
