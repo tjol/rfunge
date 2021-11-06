@@ -192,21 +192,23 @@ where
                 let mut go_again = true;
                 location_log.truncate(0);
                 while go_again {
-                    // Move everything to an instruction context
-                    let mut ctx = InstructionContext {
-                        ip: self.ips[ip_idx].take().unwrap(),
-                        space: self.space.take().unwrap(),
-                        env: self.env.take().unwrap(),
-                    };
-                    let (new_loc, new_val) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
+                    let ip = self.ips[ip_idx].as_ref().unwrap();
+                    let (new_loc, new_val) =
+                        self.space.as_mut().unwrap().move_by(ip.location, ip.delta);
+                    let instruction = *new_val;
                     // Check that this loop is not infinite
                     if location_log.iter().any(|l| *l == new_loc) {
                         return ProgramResult::Panic;
                     } else {
                         location_log.push(new_loc);
                     }
+                    // Move everything to an instruction context
+                    let mut ctx = InstructionContext {
+                        ip: self.ips[ip_idx].take().unwrap(),
+                        space: self.space.take().unwrap(),
+                        env: self.env.take().unwrap(),
+                    };
                     ctx.ip.location = new_loc;
-                    let instruction = *new_val;
 
                     go_again = false;
                     // Hand context over to exec_instruction
