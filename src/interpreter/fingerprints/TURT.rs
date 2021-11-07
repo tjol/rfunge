@@ -160,29 +160,22 @@ pub fn calc_bounds_from_points<I>(points: I) -> (Point, Point)
 where
     I: Iterator<Item = Point>,
 {
-    let mut min_x = None;
-    let mut max_x = None;
-    let mut min_y = None;
-    let mut max_y = None;
+    let mut any = false;
+    let mut min_x = 0;
+    let mut max_x = 0;
+    let mut min_y = 0;
+    let mut max_y = 0;
     for p in points {
-        min_x = Some(std::cmp::min(min_x.unwrap_or(p.x), p.x));
-        max_x = Some(std::cmp::max(max_x.unwrap_or(p.x), p.x));
-        min_y = Some(std::cmp::min(min_y.unwrap_or(p.y), p.y));
-        max_y = Some(std::cmp::max(max_y.unwrap_or(p.y), p.y));
+        min_x = if any { std::cmp::min(min_x, p.x) } else { p.x };
+        max_x = if any { std::cmp::max(max_x, p.x) } else { p.x };
+        min_y = if any { std::cmp::min(min_y, p.y) } else { p.y };
+        max_y = if any { std::cmp::max(max_y, p.y) } else { p.y };
+        any = true;
     }
-    if min_x.is_none() {
-        (Point { x: 0, y: 0 }, Point { x: 0, y: 0 })
+    if any {
+        (Point { x: min_x, y: min_y }, Point { x: max_x, y: max_y })
     } else {
-        (
-            Point {
-                x: min_x.unwrap(),
-                y: min_y.unwrap(),
-            },
-            Point {
-                x: max_x.unwrap(),
-                y: max_y.unwrap(),
-            },
-        )
+        (Point { x: 0, y: 0 }, Point { x: 0, y: 0 })
     }
 }
 

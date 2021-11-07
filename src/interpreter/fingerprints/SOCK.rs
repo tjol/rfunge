@@ -430,7 +430,8 @@ fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
             ctx.space[loc] = (*b as i32).into();
             loc = loc.one_further();
         }
-        ctx.ip.push(F::Value::from_usize(count).unwrap_or(0.into()));
+        ctx.ip
+            .push(F::Value::from_usize(count).unwrap_or_else(|| 0.into()));
     } else {
         ctx.ip.reflect();
     }

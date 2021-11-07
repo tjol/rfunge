@@ -96,7 +96,7 @@ impl TurtleDisplay for LocalTurtDisplay {
                     match e.kind() {
                         ErrorKind::AlreadyExists => {
                             // Try another filename
-                            fn_idx = fn_idx + 1;
+                            fn_idx += 1;
                             fname = format!("rfunge_TURT_image-{}.svg", fn_idx);
                             continue;
                         }
