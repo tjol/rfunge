@@ -60,6 +60,10 @@ impl CmdLineEnv {
             turt_helper: None,
         }
     }
+
+    pub fn init_turt(&mut self, disp: LocalTurtDisplay) {
+        self.turt_helper = Some(SimpleRobot::new_in_box(disp));
+    }
 }
 
 impl InterpreterEnv for CmdLineEnv {
@@ -155,7 +159,7 @@ impl InterpreterEnv for CmdLineEnv {
     fn fingerprint_support_library(&mut self, fpr: i32) -> Option<&mut dyn Any> {
         if fpr == string_to_fingerprint("TURT") {
             if self.turt_helper.is_none() {
-                self.turt_helper = Some(SimpleRobot::new_in_box(LocalTurtDisplay {}));
+                self.turt_helper = Some(SimpleRobot::new_in_box(LocalTurtDisplay::new()));
             }
             self.turt_helper.as_mut().map(|x| x as &mut dyn Any)
         } else {

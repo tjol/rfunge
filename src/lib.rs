@@ -30,7 +30,7 @@ pub use crate::fungespace::{
     bfvec, read_funge_src, read_funge_src_bin, BefungeVec, FungeSpace, FungeValue, PagedFungeSpace,
 };
 pub use crate::interpreter::{
-    all_fingerprints, safe_fingerprints, string_to_fingerprint, ExecMode, IOMode,
+    all_fingerprints, safe_fingerprints, string_to_fingerprint, ExecMode, Funge, IOMode,
     InstructionPointer, InstructionResult, Interpreter, InterpreterEnv, ProgramResult, RunMode,
 };
 

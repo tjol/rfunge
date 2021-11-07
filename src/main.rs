@@ -26,12 +26,17 @@ use regex::Regex;
 
 use rfunge::fungespace::SrcIO;
 use rfunge::interpreter::MotionCmds;
+#[cfg(not(feature = "turt-gui"))]
+use rfunge::RunMode;
 use rfunge::{
-    new_befunge_interpreter, new_unefunge_interpreter, read_funge_src, read_funge_src_bin,
-    FungeSpace, FungeValue, IOMode, Interpreter, InterpreterEnv, ProgramResult, RunMode,
+    new_befunge_interpreter, new_unefunge_interpreter, read_funge_src, read_funge_src_bin, Funge,
+    FungeSpace, FungeValue, IOMode, Interpreter, ProgramResult,
 };
 
 use app::env::CmdLineEnv;
+
+#[cfg(feature = "turt-gui")]
+use app::turt::run_with_turt;
 
 fn main() {
     let arg_matches = App::new(env!("CARGO_BIN_NAME"))
@@ -146,29 +151,34 @@ fn main() {
     let mut argv = vec![filename.to_owned()];
     argv.append(&mut arg_matches.values_of_lossy("ARGS").unwrap_or_default());
     let sandbox = arg_matches.is_present("sandbox");
-    let env = CmdLineEnv::new(
-        if is_unicode {
-            IOMode::Text
-        } else {
-            IOMode::Binary
-        },
-        arg_matches.is_present("warn"),
-        sandbox,
-        argv,
-    );
+    let show_warnings = arg_matches.is_present("warn");
+
+    let make_env = move || {
+        CmdLineEnv::new(
+            if is_unicode {
+                IOMode::Text
+            } else {
+                IOMode::Binary
+            },
+            show_warnings,
+            sandbox,
+            argv,
+        )
+    };
 
     let is_32bit = arg_matches.is_present("32bit");
+
     let result = if dim == 1 {
         // unefunge
         if is_32bit {
             read_and_run(
-                &mut new_unefunge_interpreter::<i32, _>(env),
+                move || new_unefunge_interpreter::<i32, _>(make_env()),
                 src_bin,
                 is_unicode,
             )
         } else {
             read_and_run(
-                &mut new_unefunge_interpreter::<i64, _>(env),
+                move || new_unefunge_interpreter::<i64, _>(make_env()),
                 src_bin,
                 is_unicode,
             )
@@ -177,13 +187,13 @@ fn main() {
         // befunge
         if is_32bit {
             read_and_run(
-                &mut new_befunge_interpreter::<i32, _>(env),
+                move || new_befunge_interpreter::<i32, _>(make_env()),
                 src_bin,
                 is_unicode,
             )
         } else {
             read_and_run(
-                &mut new_befunge_interpreter::<i64, _>(env),
+                move || new_befunge_interpreter::<i64, _>(make_env()),
                 src_bin,
                 is_unicode,
             )
@@ -198,22 +208,44 @@ fn main() {
     });
 }
 
-fn read_and_run<Idx, Space, Env>(
-    interpreter: &mut Interpreter<Idx, Space, Env>,
+fn read_and_run<Idx, Space, InitFn>(
+    make_interpreter: InitFn,
     src_bin: Vec<u8>,
     is_unicode: bool,
 ) -> ProgramResult
 where
-    Idx: MotionCmds<Space, Env> + SrcIO<Space>,
-    Space: FungeSpace<Idx>,
+    Idx: MotionCmds<Space, CmdLineEnv> + SrcIO<Space>,
+    Space: FungeSpace<Idx> + 'static,
     Space::Output: FungeValue,
-    Env: InterpreterEnv,
+    InitFn: FnOnce() -> Interpreter<Idx, Space, CmdLineEnv> + Send + 'static,
 {
-    if is_unicode {
-        let src_str = String::from_utf8(src_bin).unwrap();
-        read_funge_src(interpreter.space.as_mut().unwrap(), &src_str);
-    } else {
-        read_funge_src_bin(interpreter.space.as_mut().unwrap(), &src_bin);
-    }
+    run::<_, Interpreter<Idx, Space, CmdLineEnv>>(move || {
+        let mut interpreter = make_interpreter();
+        if is_unicode {
+            let src_str = String::from_utf8(src_bin).unwrap();
+            read_funge_src(interpreter.space.as_mut().unwrap(), &src_str);
+        } else {
+            read_funge_src_bin(interpreter.space.as_mut().unwrap(), &src_bin);
+        }
+        interpreter
+    })
+}
+
+#[cfg(not(feature = "turt-gui"))]
+pub fn run<InitFn, Interp>(make_interpreter: InitFn) -> ProgramResult
+where
+    InitFn: FnOnce() -> Interpreter<Interp::Idx, Interp::Space, Interp::Env> + Send + 'static,
+    Interp: Funge<Env = CmdLineEnv> + 'static,
+{
+    let mut interpreter = make_interpreter();
     interpreter.run(RunMode::Run)
+}
+
+#[cfg(feature = "turt-gui")]
+pub fn run<InitFn, Interp>(make_interpreter: InitFn) -> ProgramResult
+where
+    InitFn: FnOnce() -> Interpreter<Interp::Idx, Interp::Space, Interp::Env> + Send + 'static,
+    Interp: Funge<Env = CmdLineEnv> + 'static,
+{
+    run_with_turt::<InitFn, Interp>(make_interpreter)
 }
