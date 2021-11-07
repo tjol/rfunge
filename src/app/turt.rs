@@ -43,7 +43,7 @@ impl TurtleDisplay for LocalTurtDisplay {
         let height = bottomright.y - topleft.y + 1;
         let mut svg = r#"<?xml version="1.0" encoding="UTF-8"?>"#.to_owned();
         svg.push_str(&format!(
-            r#"<svg viewBox="{} {} {} {}" xmlns="http://www.w3.org/2000/svg" stroke-linecap="square" stroke-width="1">"#,
+            r#"<svg viewBox="{} {} {} {}" xmlns="http://www.w3.org/2000/svg" stroke-linecap="round" stroke-width="1">"#,
             x0, y0, width, height));
         // Add the background
         if let Some(clr) = background {

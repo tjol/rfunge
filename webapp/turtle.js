@@ -130,7 +130,7 @@ export class TurtleDisplay {
     height = Math.max(height, scale * imageHeight)
     canvas.height = height
     // centre the image
-    const offsetX = width / 2 - (scale * (right + left)) / 2 + 4 + 0.5
+    const offsetX = width / 2 - (scale * (right + left)) / 2 + 0.5
     // align it to the top
     const offsetY = -scale * top + 4 + 0.5
     // Draw
@@ -149,7 +149,7 @@ export class TurtleDisplay {
       ctx.moveTo(offsetX + scale * line.from.x, offsetY + scale * line.from.y)
       ctx.lineTo(offsetX + scale * line.to.x, offsetY + scale * line.to.y)
       ctx.lineWidth = scale
-      ctx.lineCap = 'square'
+      ctx.lineCap = 'round'
       ctx.stroke()
     }
     // Step 3: draw all the dots
