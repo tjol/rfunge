@@ -415,7 +415,7 @@ fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
         return InstructionResult::Continue;
     };
     let max_count = ctx.ip.pop();
-    let mut loc = MotionCmds::pop_vector(&mut ctx.ip);
+    let mut loc = MotionCmds::pop_vector(&mut ctx.ip) + ctx.ip.storage_offset;
     let mut buf = vec![0_u8; max_count.to_usize().unwrap_or_default()];
 
     let read_result = get_socketlist(&mut ctx.ip)
@@ -430,6 +430,7 @@ fn recv<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
             ctx.space[loc] = (*b as i32).into();
             loc = loc.one_further();
         }
+        ctx.ip.push(F::Value::from_usize(count).unwrap_or(0.into()));
     } else {
         ctx.ip.reflect();
     }
@@ -446,7 +447,7 @@ fn write<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
         return InstructionResult::Continue;
     };
     let count = ctx.ip.pop().to_usize().unwrap_or_default();
-    let mut loc = MotionCmds::pop_vector(&mut ctx.ip);
+    let mut loc = MotionCmds::pop_vector(&mut ctx.ip) + ctx.ip.storage_offset;
     let mut buf = vec![0_u8; count];
     for elem in buf.iter_mut().take(count) {
         *elem = (ctx.space[loc] & 0xff.into()).to_u8().unwrap_or_default();
