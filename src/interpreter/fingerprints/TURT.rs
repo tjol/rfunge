@@ -32,16 +32,16 @@ use crate::interpreter::{Funge, InstructionPointer, InterpreterEnv};
 #[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy)]
 pub struct Colour {
-    r: u8,
-    g: u8,
-    b: u8,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
 }
 
 #[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 #[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
@@ -119,7 +119,7 @@ impl<D: TurtleDisplay> SimpleRobot<D> {
     }
 
     fn redraw(&mut self, print: bool) {
-        if self.display.display_visible() {
+        if print || self.display.display_visible() {
             let mut all_dots;
             let mut dots: &[Dot] = &self.dots;
             if self.pen_down && !self.have_drawn {
@@ -142,6 +142,47 @@ impl<D: TurtleDisplay> SimpleRobot<D> {
 impl<D: TurtleDisplay + 'static> SimpleRobot<D> {
     pub fn new_in_box(display: D) -> TurtleRobotBox {
         Box::new(Self::new(display))
+    }
+}
+
+pub fn calc_bounds<'a, LI, DI>(lines: LI, dots: DI) -> (Point, Point)
+where
+    LI: Iterator<Item = &'a Line>,
+    DI: Iterator<Item = &'a Dot>,
+{
+    let points = lines
+        .flat_map(|l| [l.from, l.to])
+        .chain(dots.map(|d| d.pos));
+    calc_bounds_from_points(points)
+}
+
+pub fn calc_bounds_from_points<I>(points: I) -> (Point, Point)
+where
+    I: Iterator<Item = Point>,
+{
+    let mut min_x = None;
+    let mut max_x = None;
+    let mut min_y = None;
+    let mut max_y = None;
+    for p in points {
+        min_x = Some(std::cmp::min(min_x.unwrap_or(p.x), p.x));
+        max_x = Some(std::cmp::max(max_x.unwrap_or(p.x), p.x));
+        min_y = Some(std::cmp::min(min_y.unwrap_or(p.y), p.y));
+        max_y = Some(std::cmp::max(max_y.unwrap_or(p.y), p.y));
+    }
+    if min_x.is_none() {
+        (Point { x: 0, y: 0 }, Point { x: 0, y: 0 })
+    } else {
+        (
+            Point {
+                x: min_x.unwrap(),
+                y: min_y.unwrap(),
+            },
+            Point {
+                x: max_x.unwrap(),
+                y: max_y.unwrap(),
+            },
+        )
     }
 }
 
@@ -217,35 +258,7 @@ impl<D: TurtleDisplay> TurtleRobot for SimpleRobot<D> {
         self.position
     }
     fn bounds(&self) -> (Point, Point) {
-        let points = self
-            .lines
-            .iter()
-            .flat_map(|l| [l.from, l.to])
-            .chain(self.dots.iter().map(|d| d.pos));
-        let mut min_x = None;
-        let mut max_x = None;
-        let mut min_y = None;
-        let mut max_y = None;
-        for p in points {
-            min_x = Some(std::cmp::min(min_x.unwrap_or(p.x), p.x));
-            max_x = Some(std::cmp::max(max_x.unwrap_or(p.x), p.x));
-            min_y = Some(std::cmp::min(min_y.unwrap_or(p.y), p.y));
-            max_y = Some(std::cmp::max(max_y.unwrap_or(p.y), p.y));
-        }
-        if min_x.is_none() {
-            return (Point { x: 0, y: 0 }, Point { x: 0, y: 0 });
-        } else {
-            return (
-                Point {
-                    x: min_x.unwrap(),
-                    y: min_y.unwrap(),
-                },
-                Point {
-                    x: max_x.unwrap(),
-                    y: max_y.unwrap(),
-                },
-            );
-        }
+        calc_bounds(self.lines.iter(), self.dots.iter())
     }
     fn print(&mut self) {
         self.redraw(true);
