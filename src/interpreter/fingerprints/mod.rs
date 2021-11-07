@@ -33,7 +33,7 @@ mod REFC;
 mod ROMA;
 pub mod TURT;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 mod SOCK;
 
 use super::{Funge, InstructionContext};
@@ -72,13 +72,13 @@ pub fn safe_fingerprints() -> Vec<i32> {
 pub fn all_fingerprints() -> Vec<i32> {
     let mut fprts = safe_fingerprints();
     fprts.push(string_to_fingerprint("TURT"));
-    if cfg!(not(target_arch = "wasm32")) {
+    if cfg!(not(target_family = "wasm")) {
         fprts.push(string_to_fingerprint("SOCK"));
     }
     fprts
 }
 
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+pub(crate) fn load<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("NULL") {
         NULL::load(ctx)
     } else if fpr == string_to_fingerprint("BOOL") {
@@ -112,8 +112,8 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn load_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+#[cfg(not(target_family = "wasm"))]
+pub(crate) fn load_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
         SOCK::load(ctx)
     } else {
@@ -121,12 +121,15 @@ pub fn load_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i3
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-pub fn load_platform_specific<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
+#[cfg(target_family = "wasm")]
+pub(crate) fn load_platform_specific<F: Funge>(
+    _ctx: &mut InstructionContext<F>,
+    _fpr: i32,
+) -> bool {
     false
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+pub(crate) fn unload<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("NULL") {
         NULL::unload(ctx)
     } else if fpr == string_to_fingerprint("BOOL") {
@@ -160,8 +163,11 @@ pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn unload_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+#[cfg(not(target_family = "wasm"))]
+pub(crate) fn unload_platform_specific<F: Funge>(
+    ctx: &mut InstructionContext<F>,
+    fpr: i32,
+) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
         SOCK::unload(ctx)
     } else {
@@ -169,7 +175,10 @@ pub fn unload_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: 
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-pub fn unload_platform_specific<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
+#[cfg(target_family = "wasm")]
+pub(crate) fn unload_platform_specific<F: Funge>(
+    _ctx: &mut InstructionContext<F>,
+    _fpr: i32,
+) -> bool {
     false
 }

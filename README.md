@@ -14,9 +14,9 @@ interpreters available.
 Much like [cfunge], the rfunge's command-line interface supports a sandbox mode
 in which instructions like `i`, `o` and `=` are disabled.
 
-RFunge is (in principle) embeddable, and beside the main Rust API, there are
-rudimentary C and WASM APIs. It should run on most systems supported by Rust
-(tested on Linux, Windows and WASM).
+RFunge is (in principle) embeddable, and beside the main Rust API, there is a
+WASM API used for the web version. It should run on most systems supported by
+Rust (tested on Linux, MacOS, Windows and WASM).
 
 ## WebAssembly
 

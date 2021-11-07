@@ -29,11 +29,12 @@ async-std = "1.10.0"
 colored = "2.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.63"
+wasm-bindgen = { version = "0.2.63", features = ["serde-serialize"] }
 js-sys = "0.3.53"
 getrandom = { version = "0.2", features = ["js"] }
 chrono = { version = "0.4", features = ["wasmbind"] }
 wasm-bindgen-futures = "0.4.28"
+serde = { version = "1.0.130", features = ["derive"] }
 # console_error_panic_hook = "0.1.6"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

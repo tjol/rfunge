@@ -44,128 +44,59 @@ export class TurtleWindow extends LitElement {
 }
 window.customElements.define('rfunge-turt-window', TurtleWindow)
 
-class RGB {
-  constructor (r, g, b) {
-    this.r = r
-    this.g = g
-    this.b = b
-  }
-
-  get cssColour () {
-    return `rgb(${this.r}, ${this.g}, ${this.b})`
-  }
+function cssColour (colour) {
+  return `rgb(${colour.r}, ${colour.g}, ${colour.b})`
 }
 
-export class TurtleState {
+export class TurtleDisplay {
   constructor (app) {
     this._app = app
-    this._heading = 0
-    this._x = 0
-    this._y = 0
-    this._penDown = false
-    this._lines = []
-    this._dots = []
-    this._colour = new RGB(0, 0, 0)
-    this._backgroundColour = null
-    this._haveDrawn = false
+    this._redraw = false
   }
 
-  turnLeft (degrees) {
-    this._heading -= degrees
-  }
-  setHeading (degrees) {
-    this._heading = degrees
-  }
-  getHeading () {
-    return this._heading
-  }
-  setPen (down) {
-    if (this._penDown && !down) {
-      // Pen going up, was down
-      if (!this._haveDrawn) {
-        // Add a dot
-        this._dots.push({pos: [this._x, this._y], colour: this._colour});
-      }
-    }
-    this._penDown = down
-    if (!this._penDown) {
-      this._haveDrawn = false
-    }
-  }
-  isPenDown () {
-    return this._penDown
-  }
-  forward (pixels) {
-    // calculate the new position
-    const heading_rad = (this._heading / 180) * Math.PI
-    const destX = this._x + pixels * Math.cos(heading_rad)
-    const destY = this._y + pixels * Math.sin(heading_rad)
-    if (this._penDown) {
-      this._lines.push({
-        from: [this._x, this._y],
-        to: [destX, destY],
-        colour: this._colour
-      })
-      this._haveDrawn = true
-      this._redraw()
-    }
-    this._x = destX
-    this._y = destY
-  }
-  setColour (r, g, b) {
-    this._colour = new RGB(r, g, b)
-  }
-  clearWithColour (r, g, b) {
-    this._backgroundColour = new RGB(r, g, b)
-    this._lines = []
-    this._redraw()
-  }
   display (show) {
     this._app.turtActive = show
-    setTimeout(() => this._redraw(), 0)
   }
-  teleport (x, y) {
-    this._x = x
-    this._y = y
+
+  isDisplayVisible () {
+    return this._app.turtActive
   }
-  position () {
-    return [this._x, this._y]
-  }
-  bounds () {
-    if (this._lines.length === 0 && this._dots.length === 0) {
+
+  _bounds (lines, dots) {
+    if (lines.length === 0 && dots.length === 0) {
       return [0, 0, 0, 0]
     }
     let top = null
     let left = null
     let bottom = null
     let right = null
-    for (const l of this._lines) {
-      const minX = Math.min(l.from[0], l.to[0])
-      const minY = Math.min(l.from[1], l.to[1])
-      const maxX = Math.max(l.from[0], l.to[0])
-      const maxY = Math.max(l.from[1], l.to[1])
+    for (const l of lines) {
+      const minX = Math.min(l.from.x, l.to.x)
+      const minY = Math.min(l.from.y, l.to.y)
+      const maxX = Math.max(l.from.x, l.to.x)
+      const maxY = Math.max(l.from.y, l.to.y)
       top = top == null ? minY : Math.min(minY, top)
       left = left == null ? minX : Math.min(minX, left)
       bottom = bottom == null ? maxY : Math.max(maxY, bottom)
       right = right == null ? maxX : Math.max(maxX, right)
     }
-    for (const d of this._dots) {
-      top = top == null ? d.pos[1] : Math.min(d.pos[1], top)
-      left = left == null ? d.pos[0] : Math.min(d.pos[0], left)
-      bottom = bottom == null ? d.pos[1] : Math.max(d.pos[1], bottom)
-      right = right == null ? d.pos[0] : Math.max(d.pos[0], right)
+    for (const d of dots) {
+      top = top == null ? d.pos.y : Math.min(d.pos.y, top)
+      left = left == null ? d.pos.x : Math.min(d.pos.x, left)
+      bottom = bottom == null ? d.pos.y : Math.max(d.pos.y, bottom)
+      right = right == null ? d.pos.x : Math.max(d.pos.x, right)
     }
     return [left, top, right, bottom]
   }
 
-  print () {
+  print (background, lines, dots) {
     // create a new canvas
     const canvas = document.createElement('canvas')
     // minimum size
     canvas.width = 10
     canvas.height = 10
     // Draw, expanding the canvas
-    this._drawToCanvas(canvas, false)
+    this._drawToCanvas(canvas, false, background, lines, dots)
     // Get the image
     const url = canvas.toDataURL()
     const linkElem = document.createElement('a')
@@ -176,8 +107,8 @@ export class TurtleState {
     document.body.removeChild(linkElem)
   }
 
-  _drawToCanvas (canvas, rescale = true) {
-    const [left, top, right, bottom] = this.bounds()
+  _drawToCanvas (canvas, rescale = true, background, lines, dots) {
+    const [left, top, right, bottom] = this._bounds(lines, dots)
     let { width, height } = canvas
     // Do have have to scale to fit?
     const imageWidth = right - left + 8
@@ -205,49 +136,61 @@ export class TurtleState {
     // Draw
     const ctx = canvas.getContext('2d')
     // Step 1: fill in the background
-    if (this._backgroundColour == null) {
+    if (background == null) {
       ctx.clearRect(0, 0, width, height)
     } else {
-      ctx.fillStyle = this._backgroundColour.cssColour
+      ctx.fillStyle = cssColour(background)
       ctx.fillRect(0, 0, width, height)
     }
     // Step 2: draw all the lines
-    for (const line of this._lines) {
+    for (const line of lines) {
       ctx.beginPath()
-      ctx.strokeStyle = line.colour.cssColour
-      ctx.moveTo(offsetX +  scale * line.from[0], offsetY + scale * line.from[1])
-      ctx.lineTo(offsetX + scale * line.to[0], offsetY + scale * line.to[1])
+      ctx.strokeStyle = cssColour(line.colour)
+      ctx.moveTo(offsetX + scale * line.from.x, offsetY + scale * line.from.y)
+      ctx.lineTo(offsetX + scale * line.to.x, offsetY + scale * line.to.y)
       ctx.lineWidth = scale
-      ctx.lineCap = "square"
+      ctx.lineCap = 'square'
       ctx.stroke()
     }
     // Step 3: draw all the dots
-    for (const dot of this._dots) {
-      ctx.fillStyle = dot.colour.cssColour
-      ctx.fillRect(offsetX + scale * (dot.pos[0] - 0.5),
-                   offsetY + scale * (dot.pos[1] - 0.5),
-                   scale, scale)
-    }
-    // Step 4: if the pen is down, maybe draw a dot
-    if (this._penDown && !this._haveDrawn)
-    {
-      ctx.fillStyle = this._colour.cssColour
-      ctx.fillRect(offsetX + scale * (this._x - 0.5),
-                   offsetY + scale * (this._y - 0.5),
-                   scale, scale)
+    for (const dot of dots) {
+      ctx.fillStyle = cssColour(dot.colour)
+      ctx.fillRect(
+        offsetX + scale * (dot.pos.x - 0.5),
+        offsetY + scale * (dot.pos.y - 0.5),
+        scale,
+        scale
+      )
     }
   }
 
-  _redraw () {
-    if (this._app.turtActive && this._app.turtWindowRef.value != null) {
-      const turtWnd = this._app.turtWindowRef.value
-      const canvas = turtWnd._canvasRef.value
-      if (canvas != null) {
-        // Resize the canvas
-        canvas.width = canvas.parentNode.clientWidth
-        // Draw the image
-        this._drawToCanvas(canvas, true)
+  draw (background, lines, dots) {
+    this._background = background
+    this._lines = lines
+    this._dots = dots
+    this._redraw = true
+    setTimeout(() => {
+      if (
+        this._app.turtActive &&
+        this._app.turtWindowRef.value != null &&
+        this._redraw
+      ) {
+        const turtWnd = this._app.turtWindowRef.value
+        const canvas = turtWnd._canvasRef.value
+        if (canvas != null) {
+          // Resize the canvas
+          canvas.width = canvas.parentNode.clientWidth
+          // Draw the image
+          this._drawToCanvas(
+            canvas,
+            true,
+            this._background,
+            this._lines,
+            this._dots
+          )
+        }
+        this._redraw = false
       }
-    }
+    }, 0)
   }
 }

@@ -20,12 +20,48 @@ use hashbrown::HashMap;
 
 use num::ToPrimitive;
 
+#[cfg(target_family = "wasm")]
+use serde::{Deserialize, Serialize};
+
 use super::string_to_fingerprint;
 use crate::interpreter::instruction_set::{
     sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::{Funge, InstructionPointer, InterpreterEnv};
 
+#[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy)]
+pub struct Colour {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+#[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy)]
+pub struct Point {
+    x: i32,
+    y: i32,
+}
+
+#[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy)]
+pub struct Line {
+    pub from: Point,
+    pub to: Point,
+    pub colour: Colour,
+}
+
+#[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy)]
+pub struct Dot {
+    pub pos: Point,
+    pub colour: Colour,
+}
+
+/// Trait for a general turtle robot implementation
+///
+/// This could be anything from an HTML5 canvas to a LEGO Mindstorms robot
 pub trait TurtleRobot {
     fn turn_left(&mut self, degrees: i32);
     fn set_heading(&mut self, degrees: i32);
@@ -33,16 +69,188 @@ pub trait TurtleRobot {
     fn set_pen(&mut self, down: bool);
     fn is_pen_down(&self) -> bool;
     fn forward(&mut self, pixels: i32);
-    fn set_colour(&mut self, r: u8, g: u8, b: u8);
-    fn clear_with_colour(&mut self, r: u8, g: u8, b: u8);
+    fn set_colour(&mut self, rgb: Colour);
+    fn clear_with_colour(&mut self, rgb: Colour);
     fn display(&mut self, show: bool);
-    fn teleport(&mut self, x: i32, y: i32);
-    fn position(&self) -> (i32, i32);
-    fn bounds(&self) -> ((i32, i32), (i32, i32));
+    fn teleport(&mut self, dest: Point);
+    fn position(&self) -> Point;
+    fn bounds(&self) -> (Point, Point);
     fn print(&mut self);
 }
 
+/// Trait for a typical graphical display (could also be a bitmap of vector graphic)
+/// used by the virtual turtle
+pub trait TurtleDisplay {
+    fn display(&mut self, show: bool);
+    fn display_visible(&self) -> bool;
+    fn draw(&mut self, background: Option<Colour>, lines: &[Line], dots: &[Dot]);
+    fn print(&mut self, background: Option<Colour>, lines: &[Line], dots: &[Dot]);
+}
+
+/// Struct implementing TurtleRobot for a generic graphical output
+pub struct SimpleRobot<D: TurtleDisplay> {
+    display: D,
+    lines: Vec<Line>,
+    dots: Vec<Dot>,
+    heading: i32,
+    position: Point,
+    pen_down: bool,
+    colour: Colour,
+    background: Option<Colour>,
+    have_drawn: bool,
+}
+
+/// Type expected from env.fingerprint_support_library()
 pub type TurtleRobotBox = Box<dyn TurtleRobot>;
+
+impl<D: TurtleDisplay> SimpleRobot<D> {
+    pub fn new(display: D) -> Self {
+        Self {
+            display,
+            lines: vec![],
+            dots: vec![],
+            heading: 0,
+            position: Point { x: 0, y: 0 },
+            pen_down: false,
+            colour: Colour { r: 0, g: 0, b: 0 },
+            background: None,
+            have_drawn: false,
+        }
+    }
+
+    fn redraw(&mut self, print: bool) {
+        if self.display.display_visible() {
+            let mut all_dots;
+            let mut dots: &[Dot] = &self.dots;
+            if self.pen_down && !self.have_drawn {
+                all_dots = Some(self.dots.clone());
+                all_dots.as_mut().unwrap().push(Dot {
+                    pos: self.position,
+                    colour: self.colour,
+                });
+                dots = all_dots.as_ref().unwrap();
+            }
+            if print {
+                self.display.print(self.background, &self.lines, dots);
+            } else {
+                self.display.draw(self.background, &self.lines, dots);
+            }
+        }
+    }
+}
+
+impl<D: TurtleDisplay + 'static> SimpleRobot<D> {
+    pub fn new_in_box(display: D) -> TurtleRobotBox {
+        Box::new(Self::new(display))
+    }
+}
+
+impl<D: TurtleDisplay> TurtleRobot for SimpleRobot<D> {
+    fn turn_left(&mut self, degrees: i32) {
+        self.heading -= degrees;
+    }
+    fn set_heading(&mut self, degrees: i32) {
+        self.heading = degrees;
+    }
+    fn heading(&self) -> i32 {
+        self.heading
+    }
+    fn set_pen(&mut self, down: bool) {
+        if self.pen_down && !down && !self.have_drawn {
+            // make a dot
+            self.dots.push(Dot {
+                pos: self.position,
+                colour: self.colour,
+            });
+        } else if !self.pen_down {
+            self.have_drawn = false;
+        }
+        self.pen_down = down;
+        self.redraw(false);
+    }
+    fn is_pen_down(&self) -> bool {
+        self.pen_down
+    }
+    fn forward(&mut self, pixels: i32) {
+        let heading_rad = (self.heading as f64) / 180.0 * std::f64::consts::PI;
+        let dest = Point {
+            x: self.position.x + (pixels as f64 * heading_rad.cos()).round() as i32,
+            y: self.position.y + (pixels as f64 * heading_rad.sin()).round() as i32,
+        };
+        if self.pen_down {
+            self.lines.push(Line {
+                from: self.position,
+                to: dest,
+                colour: self.colour,
+            });
+            self.have_drawn = true;
+            self.redraw(false)
+        }
+        self.position = dest;
+    }
+    fn set_colour(&mut self, rgb: Colour) {
+        self.colour = rgb;
+    }
+    fn clear_with_colour(&mut self, rgb: Colour) {
+        self.background = Some(rgb);
+        self.lines.clear();
+        self.dots.clear();
+        self.have_drawn = false;
+        self.redraw(false)
+    }
+    fn display(&mut self, show: bool) {
+        self.display.display(show);
+        self.redraw(false);
+    }
+    fn teleport(&mut self, dest: Point) {
+        if self.pen_down && !self.have_drawn {
+            // Leave a dot at the old location
+            self.dots.push(Dot {
+                pos: self.position,
+                colour: self.colour,
+            });
+        }
+        self.position = dest;
+        self.redraw(false);
+    }
+    fn position(&self) -> Point {
+        self.position
+    }
+    fn bounds(&self) -> (Point, Point) {
+        let points = self
+            .lines
+            .iter()
+            .flat_map(|l| [l.from, l.to])
+            .chain(self.dots.iter().map(|d| d.pos));
+        let mut min_x = None;
+        let mut max_x = None;
+        let mut min_y = None;
+        let mut max_y = None;
+        for p in points {
+            min_x = Some(std::cmp::min(min_x.unwrap_or(p.x), p.x));
+            max_x = Some(std::cmp::max(max_x.unwrap_or(p.x), p.x));
+            min_y = Some(std::cmp::min(min_y.unwrap_or(p.y), p.y));
+            max_y = Some(std::cmp::max(max_y.unwrap_or(p.y), p.y));
+        }
+        if min_x.is_none() {
+            return (Point { x: 0, y: 0 }, Point { x: 0, y: 0 });
+        } else {
+            return (
+                Point {
+                    x: min_x.unwrap(),
+                    y: min_y.unwrap(),
+                },
+                Point {
+                    x: max_x.unwrap(),
+                    y: max_y.unwrap(),
+                },
+            );
+        }
+    }
+    fn print(&mut self) {
+        self.redraw(true);
+    }
+}
 
 /// From the catseye library
 ///
@@ -130,12 +338,13 @@ pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
         .pop_layer(&"LRHFBPCNDTEAQUI".chars().collect::<Vec<char>>())
 }
 
-fn pop_colour<F: Funge>(ip: &mut InstructionPointer<F>) -> (u8, u8, u8) {
+fn pop_colour<F: Funge>(ip: &mut InstructionPointer<F>) -> Colour {
     let colour_24bit = ip.pop().to_i32().unwrap_or_default();
-    let r = ((colour_24bit & 0xff0000) >> 16) as u8;
-    let g = ((colour_24bit & 0xff00) >> 8) as u8;
-    let b = (colour_24bit & 0xff) as u8;
-    return (r, g, b);
+    Colour {
+        r: ((colour_24bit & 0xff0000) >> 16) as u8,
+        g: ((colour_24bit & 0xff00) >> 8) as u8,
+        b: (colour_24bit & 0xff) as u8,
+    }
 }
 
 fn trun_left<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
@@ -228,8 +437,7 @@ fn pen_colour<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let (r, g, b) = pop_colour(&mut ctx.ip);
-        robot.set_colour(r, g, b);
+        robot.set_colour(pop_colour(&mut ctx.ip));
     } else {
         ctx.ip.reflect();
     }
@@ -242,8 +450,7 @@ fn clear_paper<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let (r, g, b) = pop_colour(&mut ctx.ip);
-        robot.clear_with_colour(r, g, b);
+        robot.clear_with_colour(pop_colour(&mut ctx.ip));
     } else {
         ctx.ip.reflect();
     }
@@ -272,7 +479,7 @@ fn teleport<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     {
         let y = ctx.ip.pop().to_i32().unwrap_or_default();
         let x = ctx.ip.pop().to_i32().unwrap_or_default();
-        robot.teleport(x, y);
+        robot.teleport(Point { x, y });
     } else {
         ctx.ip.reflect();
     }
@@ -315,7 +522,7 @@ fn query_position<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResul
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_ref::<TurtleRobotBox>())
     {
-        let (x, y) = robot.position();
+        let Point { x, y } = robot.position();
         ctx.ip.push(x.into());
         ctx.ip.push(y.into());
     } else {
@@ -330,7 +537,13 @@ fn query_bounds<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult 
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_ref::<TurtleRobotBox>())
     {
-        let ((left, top), (right, bottom)) = robot.bounds();
+        let (
+            Point { x: left, y: top },
+            Point {
+                x: right,
+                y: bottom,
+            },
+        ) = robot.bounds();
         ctx.ip.push(left.into());
         ctx.ip.push(top.into());
         ctx.ip.push(right.into());

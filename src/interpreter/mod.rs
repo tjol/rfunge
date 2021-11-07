@@ -16,7 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-pub(crate) mod fingerprints;
+pub mod fingerprints;
 pub mod instruction_set;
 mod instructions;
 pub mod ip;

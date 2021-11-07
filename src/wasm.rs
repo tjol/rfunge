@@ -16,7 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#![cfg(target_arch = "wasm32")]
+#![cfg(target_family = "wasm")]
 
 use std::any::Any;
 use std::cmp::min;
@@ -33,7 +33,9 @@ use wasm_bindgen_futures::JsFuture;
 
 use crate::fungespace::SrcIO;
 use crate::interpreter::fingerprints::string_to_fingerprint;
-use crate::interpreter::fingerprints::TURT::{TurtleRobot, TurtleRobotBox};
+use crate::interpreter::fingerprints::TURT::{
+    Colour, Dot, Line, SimpleRobot, TurtleDisplay, TurtleRobotBox,
+};
 use crate::{
     bfvec, new_befunge_interpreter, read_funge_src, safe_fingerprints, BefungeVec, ExecMode,
     FungeSpace, IOMode, Interpreter, InterpreterEnv, PagedFungeSpace, ProgramResult, RunMode,
@@ -42,7 +44,7 @@ use crate::{
 #[wasm_bindgen]
 extern "C" {
     pub type JSEnvInterface;
-    pub type JSTurtleRobot;
+    pub type JSTurtleDisplay;
 
     #[wasm_bindgen(method, js_name = "writeOutput")]
     fn write_output(this: &JSEnvInterface, s: &str);
@@ -52,82 +54,59 @@ extern "C" {
     fn env_vars(this: &JSEnvInterface) -> js_sys::Object;
     #[wasm_bindgen(method, js_name = "readInput")]
     fn read_input(this: &JSEnvInterface) -> js_sys::Promise;
-    #[wasm_bindgen(method, getter)]
-    fn turtle(this: &JSEnvInterface) -> JSTurtleRobot;
+    #[wasm_bindgen(method, getter, js_name = "turtleDisplay")]
+    fn turtle_display(this: &JSEnvInterface) -> JSTurtleDisplay;
 
-    #[wasm_bindgen(method, js_name = "turnLeft")]
-    fn turn_left(this: &JSTurtleRobot, degrees: i32);
-    #[wasm_bindgen(method, js_name = "setHeading")]
-    fn set_heading(this: &JSTurtleRobot, degrees: i32);
-    #[wasm_bindgen(method, js_name = "getHeading")]
-    fn heading(this: &JSTurtleRobot) -> i32;
-    #[wasm_bindgen(method, js_name = "setPen")]
-    fn set_pen(this: &JSTurtleRobot, down: bool);
-    #[wasm_bindgen(method, js_name = "isPenDown")]
-    fn is_pen_down(this: &JSTurtleRobot) -> bool;
     #[wasm_bindgen(method)]
-    fn forward(this: &JSTurtleRobot, pixels: i32);
-    #[wasm_bindgen(method, js_name = "setColour")]
-    fn set_colour(this: &JSTurtleRobot, r: u8, g: u8, b: u8);
-    #[wasm_bindgen(method, js_name = "clearWithColour")]
-    fn clear_with_colour(this: &JSTurtleRobot, r: u8, g: u8, b: u8);
+    fn display(this: &JSTurtleDisplay, show: bool);
+    #[wasm_bindgen(method, js_name = "isDisplayVisible")]
+    fn display_visible(this: &JSTurtleDisplay) -> bool;
     #[wasm_bindgen(method)]
-    fn display(this: &JSTurtleRobot, show: bool);
+    fn draw(this: &JSTurtleDisplay, background: JsValue, lines: Vec<JsValue>, dots: Vec<JsValue>);
     #[wasm_bindgen(method)]
-    fn teleport(this: &JSTurtleRobot, x: i32, y: i32);
-    #[wasm_bindgen(method)]
-    fn position(this: &JSTurtleRobot) -> Vec<i32>;
-    #[wasm_bindgen(method)]
-    fn bounds(this: &JSTurtleRobot) -> Vec<i32>;
-    #[wasm_bindgen(method)]
-    fn print(this: &JSTurtleRobot);
+    fn print(this: &JSTurtleDisplay, background: JsValue, lines: Vec<JsValue>, dots: Vec<JsValue>);
 }
 
-struct TurtleRobotWrapper {
-    robot: JSTurtleRobot,
+struct TurtleDisplayWrapper {
+    display: JSTurtleDisplay,
 }
 
-impl TurtleRobot for TurtleRobotWrapper {
-    fn turn_left(&mut self, degrees: i32) {
-        self.robot.turn_left(degrees)
-    }
-    fn set_heading(&mut self, degrees: i32) {
-        self.robot.set_heading(degrees)
-    }
-    fn heading(&self) -> i32 {
-        self.robot.heading()
-    }
-    fn set_pen(&mut self, down: bool) {
-        self.robot.set_pen(down)
-    }
-    fn is_pen_down(&self) -> bool {
-        self.robot.is_pen_down()
-    }
-    fn forward(&mut self, pixels: i32) {
-        self.robot.forward(pixels)
-    }
-    fn set_colour(&mut self, r: u8, g: u8, b: u8) {
-        self.robot.set_colour(r, g, b)
-    }
-    fn clear_with_colour(&mut self, r: u8, g: u8, b: u8) {
-        self.robot.clear_with_colour(r, g, b)
-    }
+impl TurtleDisplay for TurtleDisplayWrapper {
     fn display(&mut self, show: bool) {
-        self.robot.display(show)
+        self.display.display(show);
     }
-    fn teleport(&mut self, x: i32, y: i32) {
-        self.robot.teleport(x, y)
+    fn display_visible(&self) -> bool {
+        self.display.display_visible()
     }
-    fn position(&self) -> (i32, i32) {
-        let pos_vec = self.robot.position();
-        (pos_vec[0], pos_vec[1])
+    fn draw(&mut self, background: Option<Colour>, lines: &[Line], dots: &[Dot]) {
+        self.display.draw(
+            background
+                .as_ref()
+                .and_then(|c| JsValue::from_serde(c).ok())
+                .unwrap_or(JsValue::NULL),
+            lines
+                .iter()
+                .filter_map(|l| JsValue::from_serde(l).ok())
+                .collect(),
+            dots.iter()
+                .filter_map(|d| JsValue::from_serde(d).ok())
+                .collect(),
+        )
     }
-    fn bounds(&self) -> ((i32, i32), (i32, i32)) {
-        let bound_vec = self.robot.bounds();
-        ((bound_vec[0], bound_vec[1]), (bound_vec[2], bound_vec[3]))
-    }
-    fn print(&mut self) {
-        self.robot.print()
+    fn print(&mut self, background: Option<Colour>, lines: &[Line], dots: &[Dot]) {
+        self.display.print(
+            background
+                .as_ref()
+                .and_then(|c| JsValue::from_serde(c).ok())
+                .unwrap_or(JsValue::NULL),
+            lines
+                .iter()
+                .filter_map(|l| JsValue::from_serde(l).ok())
+                .collect(),
+            dots.iter()
+                .filter_map(|d| JsValue::from_serde(d).ok())
+                .collect(),
+        )
     }
 }
 
@@ -287,8 +266,8 @@ impl InterpreterEnv for JSEnv {
     fn fingerprint_support_library(&mut self, fpr: i32) -> Option<&mut dyn Any> {
         if fpr == string_to_fingerprint("TURT") {
             if self.turt_helper.is_none() {
-                self.turt_helper = Some(Box::new(TurtleRobotWrapper {
-                    robot: self.inner.turtle(),
+                self.turt_helper = Some(SimpleRobot::new_in_box(TurtleDisplayWrapper {
+                    display: self.inner.turtle_display(),
                 }));
             }
             self.turt_helper.as_mut().map(|x| x as &mut dyn Any)
