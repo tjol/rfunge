@@ -119,9 +119,7 @@ where
             }
             Ok(TurtGuiMsg::OpenDisplay) => {
                 // Try to create a winit event loop
-                match std::panic::catch_unwind(|| {
-                    EventLoop::with_user_event()
-                }) {
+                match std::panic::catch_unwind(EventLoop::with_user_event) {
                     Ok(el) => {
                         event_loop = el;
                         break;
