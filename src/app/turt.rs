@@ -26,9 +26,16 @@ use std::sync::{
 };
 
 #[cfg(feature = "turt-gui")]
-use piston_window::{
-    clear, Context, Ellipse, G2d, Line as PistonLine, PistonWindow, WindowSettings,
+use glutin::{
+    dpi::LogicalSize,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+    ContextBuilder, WindowedContext,
 };
+
+// #[cfg(feature = "turt-gui")]
+// use shader_version::OpenGL;
 
 use rfunge::interpreter::fingerprints::TURT::{calc_bounds, Colour, Dot, Line, TurtleDisplay};
 
@@ -47,10 +54,12 @@ struct TurtImage {
 }
 
 #[cfg(feature = "turt-gui")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TurtGuiMsg {
     Finished,
     OpenDisplay,
     CloseDisplay,
+    Redraw,
 }
 
 #[cfg(feature = "turt-gui")]
@@ -64,6 +73,12 @@ pub struct LocalTurtDisplay {
 #[cfg(not(feature = "turt-gui"))]
 #[derive(Debug, Default)]
 pub struct LocalTurtDisplay;
+
+#[cfg(feature = "turt-gui")]
+struct TurtWindowState {
+    pub wnd_ctx: WindowedContext<glutin::PossiblyCurrent>,
+    pub canvas: femtovg::Canvas<femtovg::renderer::OpenGl>,
+}
 
 impl LocalTurtDisplay {
     pub fn new() -> Self {
@@ -100,8 +115,10 @@ where
             Ok(TurtGuiMsg::Finished) => {
                 return finish();
             }
-            Ok(TurtGuiMsg::OpenDisplay) => {}
-            Ok(TurtGuiMsg::CloseDisplay) => {
+            Ok(TurtGuiMsg::OpenDisplay) => {
+                break;
+            }
+            Ok(_) => {
                 // Display is not open right now
                 continue;
             }
@@ -109,87 +126,162 @@ where
                 panic!("Unexpected RecvError");
             }
         }
-        // Open the TURT display
-        if let Ok(mut window) = WindowSettings::new("RFunge TURT", (600, 600))
-            .exit_on_esc(true)
-            .build::<PistonWindow>()
-        {
-            disp_active.store(true, Ordering::Release);
-            while let Some(ev) = window.next() {
-                window.draw_2d(&ev, |c, g, _d| {
-                    if let Ok(img) = disp_state.lock() {
-                        draw_turt(&c, g, &*img);
-                    }
-                });
-                // Check for messages from the worker thread
-                match rx.try_recv() {
-                    Ok(TurtGuiMsg::CloseDisplay) => {
-                        break;
-                    }
-                    Ok(TurtGuiMsg::Finished) => {
-                        return finish();
-                    }
-                    Err(mpsc::TryRecvError::Empty) | Ok(TurtGuiMsg::OpenDisplay) => {
-                        // expected
-                        continue;
-                    }
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        panic!("Unexpected disconnect!");
-                    }
+    }
+
+    // We have been asked to open a TURT display!
+    // create a winit event loop
+    let event_loop = EventLoop::with_user_event();
+    let event_loop_proxy = event_loop.create_proxy();
+    // Forward messages into the event loop as user events
+    std::thread::spawn(move || loop {
+        match rx.recv() {
+            Ok(msg) => {
+                event_loop_proxy.send_event(msg).ok();
+                if msg == TurtGuiMsg::Finished {
+                    return;
                 }
             }
+            Err(_) => {
+                eprintln!("[Guru tempted to meditate]");
+            }
         }
-        disp_active.store(false, Ordering::Release);
-    }
+    });
+
+    let event_loop_proxy = event_loop.create_proxy();
+
+    // Inject an initial command into the event loop (the one we just got: open)
+    event_loop_proxy
+        .send_event(TurtGuiMsg::OpenDisplay)
+        .unwrap();
+
+    let mut window_state = None;
+
+    // Run the loop
+    event_loop.run(move |evt, el, control_flow| {
+        *control_flow = ControlFlow::Wait;
+        match evt {
+            Event::UserEvent(TurtGuiMsg::OpenDisplay) => {
+                let wb = WindowBuilder::new()
+                    .with_title("RFunge TURT")
+                    .with_inner_size(LogicalSize::new(400., 400.));
+                // TODO graceful failure
+                let wc = ContextBuilder::new().build_windowed(wb, el).unwrap();
+                let wnd_ctx = unsafe { wc.make_current() }.unwrap();
+                // Create the FemtoVG renderer and canvas
+                use femtovg::renderer::OpenGl;
+                // let renderer = OpenGl::new_from_glutin_context(&wnd_ctx).unwrap();
+                let renderer = OpenGl::new(|s| wnd_ctx.get_proc_address(s) as *const _).unwrap();
+                let canvas = femtovg::Canvas::new(renderer).unwrap();
+                // Store the window-related stuff in the state variable
+                window_state = Some(TurtWindowState { wnd_ctx, canvas });
+                // Arrange for a redraw
+                event_loop_proxy.send_event(TurtGuiMsg::Redraw).unwrap();
+                disp_active.store(true, Ordering::Release);
+            }
+            Event::UserEvent(TurtGuiMsg::CloseDisplay) => {
+                window_state = None;
+                disp_active.store(false, Ordering::Release);
+            }
+            Event::UserEvent(TurtGuiMsg::Finished) => {
+                *control_flow = ControlFlow::Exit;
+            }
+            Event::UserEvent(TurtGuiMsg::Redraw) => {
+                if let Some(ws) = window_state.as_ref() {
+                    ws.wnd_ctx.window().request_redraw();
+                }
+            }
+            Event::RedrawRequested(_) => {
+                if let Some(ws) = window_state.as_mut() {
+                    let dpi_factor = ws.wnd_ctx.window().scale_factor();
+                    let size = ws.wnd_ctx.window().inner_size();
+                    // println!("dpi {:?}", dpi_factor);
+                    ws.canvas
+                        .set_size(size.width as u32, size.height as u32, dpi_factor as f32);
+                    if let Ok(img) = disp_state.lock() {
+                        draw_turt(&mut ws.canvas, &img);
+                    }
+                    ws.canvas.flush();
+                    ws.wnd_ctx.swap_buffers().unwrap();
+                }
+            }
+            Event::WindowEvent { ref event, .. } => match event {
+                WindowEvent::Resized(physical_size) => {
+                    if let Some(ws) = window_state.as_mut() {
+                        ws.wnd_ctx.resize(*physical_size);
+                    }
+                }
+                WindowEvent::CloseRequested => {
+                    event_loop_proxy
+                        .send_event(TurtGuiMsg::CloseDisplay)
+                        .unwrap();
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    });
 }
 
 #[cfg(feature = "turt-gui")]
-fn draw_turt(c: &Context, g: &mut G2d, img: &TurtImage) {
-    // Get the bounds
+fn draw_turt<R: femtovg::Renderer>(c: &mut femtovg::Canvas<R>, img: &TurtImage) {
+    use femtovg::{Color, LineCap, Paint, Path};
+
+    let width = c.width();
+    let height = c.height();
+    c.reset_transform();
+
+    c.clear_rect(
+        0,
+        0,
+        width as u32,
+        height as u32,
+        img.background
+            .map(fvg_colour)
+            .unwrap_or_else(|| Color::rgb(0xff, 0xff, 0xff)),
+    );
+
+    // println!("Cleared w {} h {}", width, height);
+
+    // Figure out the right transformation
     const PADDING: i32 = 10;
     let (Point { x: x0, y: y0 }, Point { x: x1, y: y1 }) =
         calc_bounds(img.lines.iter(), img.dots.iter());
-    let img_width = (x1 - x0 + PADDING) as f64;
-    let img_height = (y1 - y0 + PADDING) as f64;
-    // Get the window size
-    let [width, height] = c.get_view_size();
+    let img_width = (x1 - x0 + PADDING) as f32;
+    let img_height = (y1 - y0 + PADDING) as f32;
+
     // How the image is scaled depends on the aspect ratio
     let window_aspect = width / height;
     let img_aspect = img_width / img_height;
-    let xscale;
-    let yscale;
-    if window_aspect > img_aspect {
+    let scale = if window_aspect > img_aspect {
         // match height
-        yscale = 2.0 / img_height;
-        xscale = yscale / window_aspect;
+        height / img_height
     } else {
         // match width
-        xscale = 2.0 / img_width;
-        yscale = xscale * window_aspect;
-    }
-    // Build the transformation matrix
-    let dx = xscale * (-(x0 + x1) as f64 / 2.0);
-    let dy = yscale * ((y0 + y1) as f64 / 2.0);
-    let transform = [[xscale, 0.0, dx], [0.0, -yscale, dy]];
+        width / img_width
+    };
+    c.scale(scale, scale);
 
-    clear(img.background.map(gfx_colour).unwrap_or([1.0; 4]), g);
+    // Centre the image
+    let dx = width / scale / 2.0 - (x0 + x1) as f32 / 2.0;
+    let dy = height / scale / 2.0 - (y0 + y1) as f32 / 2.0;
+    c.translate(dx, dy);
+
     for line in &img.lines {
-        let line_style = PistonLine::new_round(gfx_colour(line.colour), 0.5);
-        line_style.draw_from_to(
-            gfx_pt(line.from),
-            gfx_pt(line.to),
-            &c.draw_state,
-            transform,
-            g,
-        );
+        let mut paint = Paint::color(fvg_colour(line.colour));
+        paint.set_line_cap(LineCap::Round);
+        paint.set_line_width(1.0);
+
+        let mut path = Path::new();
+        path.move_to(line.from.x as f32, line.from.y as f32);
+        path.line_to(line.to.x as f32, line.to.y as f32);
+        c.stroke_path(&mut path, paint);
     }
+
     for dot in &img.dots {
-        Ellipse::new(gfx_colour(dot.colour)).draw(
-            [dot.pos.x as f64 - 0.5, dot.pos.y as f64 - 0.5, 1.0, 1.0],
-            &c.draw_state,
-            transform,
-            g,
-        );
+        let paint = Paint::color(fvg_colour(dot.colour));
+        let mut path = Path::new();
+        path.circle(dot.pos.x as f32, dot.pos.y as f32, 0.5);
+        c.fill_path(&mut path, paint);
     }
 }
 
@@ -198,18 +290,8 @@ fn css_colour(clr: Colour) -> String {
 }
 
 #[cfg(feature = "turt-gui")]
-fn gfx_colour(clr: Colour) -> [f32; 4] {
-    [
-        clr.r as f32 / 255.0,
-        clr.g as f32 / 255.0,
-        clr.b as f32 / 255.0,
-        1.0,
-    ]
-}
-
-#[cfg(feature = "turt-gui")]
-fn gfx_pt(p: Point) -> [f64; 2] {
-    [p.x as f64, p.y as f64]
+fn fvg_colour(clr: Colour) -> femtovg::Color {
+    femtovg::Color::rgb(clr.r, clr.g, clr.b)
 }
 
 impl TurtleDisplay for LocalTurtDisplay {

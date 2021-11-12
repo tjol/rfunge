@@ -5,3 +5,4 @@ Cargo.lock
 /www/rfunge.src.tar.xz
 .*sw?
 *~
+.DS_Store
