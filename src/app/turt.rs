@@ -29,7 +29,7 @@ use std::sync::{
 use glutin::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
     window::WindowBuilder,
     ContextBuilder, WindowedContext,
 };
@@ -109,6 +109,8 @@ where
 
     let finish = || worker_handle.join().unwrap();
 
+    let event_loop;
+
     // Wait for messages from the worker thread
     loop {
         match rx.recv() {
@@ -116,7 +118,19 @@ where
                 return finish();
             }
             Ok(TurtGuiMsg::OpenDisplay) => {
-                break;
+                // Try to create a winit event loop
+                match std::panic::catch_unwind(|| {
+                    EventLoop::with_user_event()
+                }) {
+                    Ok(el) => {
+                        event_loop = el;
+                        break;
+                    }
+                    Err(_) => {
+                        eprintln!("Error intializing GUI, continuing without.");
+                        disp_active.store(false, Ordering::Release);
+                    }
+                }
             }
             Ok(_) => {
                 // Display is not open right now
@@ -130,7 +144,6 @@ where
 
     // We have been asked to open a TURT display!
     // create a winit event loop
-    let event_loop = EventLoop::with_user_event();
     let event_loop_proxy = event_loop.create_proxy();
     // Forward messages into the event loop as user events
     std::thread::spawn(move || loop {
@@ -161,22 +174,15 @@ where
         *control_flow = ControlFlow::Wait;
         match evt {
             Event::UserEvent(TurtGuiMsg::OpenDisplay) => {
-                let wb = WindowBuilder::new()
-                    .with_title("RFunge TURT")
-                    .with_inner_size(LogicalSize::new(400., 400.));
-                // TODO graceful failure
-                let wc = ContextBuilder::new().build_windowed(wb, el).unwrap();
-                let wnd_ctx = unsafe { wc.make_current() }.unwrap();
-                // Create the FemtoVG renderer and canvas
-                use femtovg::renderer::OpenGl;
-                // let renderer = OpenGl::new_from_glutin_context(&wnd_ctx).unwrap();
-                let renderer = OpenGl::new(|s| wnd_ctx.get_proc_address(s) as *const _).unwrap();
-                let canvas = femtovg::Canvas::new(renderer).unwrap();
-                // Store the window-related stuff in the state variable
-                window_state = Some(TurtWindowState { wnd_ctx, canvas });
-                // Arrange for a redraw
-                event_loop_proxy.send_event(TurtGuiMsg::Redraw).unwrap();
-                disp_active.store(true, Ordering::Release);
+                window_state = create_turt_window(el);
+                if window_state.is_some() {
+                    // Arrange for a redraw
+                    event_loop_proxy.send_event(TurtGuiMsg::Redraw).unwrap();
+                    disp_active.store(true, Ordering::Release);
+                } else {
+                    eprintln!("Error creating window!");
+                    disp_active.store(false, Ordering::Release);
+                }
             }
             Event::UserEvent(TurtGuiMsg::CloseDisplay) => {
                 window_state = None;
@@ -220,6 +226,21 @@ where
             _ => {}
         }
     });
+}
+
+fn create_turt_window<E>(el: &EventLoopWindowTarget<E>) -> Option<TurtWindowState> {
+    let wb = WindowBuilder::new()
+        .with_title("RFunge TURT")
+        .with_inner_size(LogicalSize::new(400., 400.));
+    let wc = ContextBuilder::new().build_windowed(wb, el).ok()?;
+    let wnd_ctx = unsafe { wc.make_current() }.ok()?;
+    // Create the FemtoVG renderer and canvas
+    use femtovg::renderer::OpenGl;
+    // let renderer = OpenGl::new_from_glutin_context(&wnd_ctx).unwrap();
+    let renderer = OpenGl::new(|s| wnd_ctx.get_proc_address(s) as *const _).ok()?;
+    let canvas = femtovg::Canvas::new(renderer).unwrap();
+    // Store the window-related stuff in the state variable
+    Some(TurtWindowState { wnd_ctx, canvas })
 }
 
 #[cfg(feature = "turt-gui")]
