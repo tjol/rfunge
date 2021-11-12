@@ -228,6 +228,7 @@ where
     });
 }
 
+#[cfg(feature = "turt-gui")]
 fn create_turt_window<E>(el: &EventLoopWindowTarget<E>) -> Option<TurtWindowState> {
     let wb = WindowBuilder::new()
         .with_title("RFunge TURT")
