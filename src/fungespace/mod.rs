@@ -35,6 +35,9 @@ pub use self::paged::PagedFungeSpace;
 /// Generic index into funge space. Specific implementations of funge-space
 /// require additional traits to be implemented, as do some instructions.
 pub trait FungeIndex: Eq + Copy + Debug + 'static {
+    /// The number of scalars per vector
+    const RANK: i32;
+
     /// Minimum across all components of the index:
     /// Get the largest index for which all components are less than or equal
     /// to the corresponding components of `self` and `other`.
@@ -74,9 +77,6 @@ pub trait FungeIndex: Eq + Copy + Debug + 'static {
     ) -> Option<Self>
     where
         Pred: FnMut(&Self) -> bool;
-
-    /// The number of scalars per vector
-    fn rank() -> i32;
 
     /// Get the index corresponding to the origin
     fn origin() -> Self;

@@ -32,16 +32,14 @@ impl<T> FungeIndex for T
 where
     T: FungeValue,
 {
+    const RANK: i32 = 1;
+
     fn joint_min(&self, other: &Self) -> Self {
         min(*self, *other)
     }
 
     fn joint_max(&self, other: &Self) -> Self {
         max(*self, *other)
-    }
-
-    fn rank() -> i32 {
-        1
     }
 
     fn find_joint_min_where<Pred>(
@@ -280,6 +278,8 @@ impl<T> FungeIndex for BefungeVec<T>
 where
     T: FungeValue,
 {
+    const RANK: i32 = 1;
+
     #[inline(always)]
     fn joint_min(&self, other: &Self) -> Self {
         Self {
@@ -294,10 +294,6 @@ where
             x: max(self.x, other.x),
             y: max(self.y, other.y),
         }
-    }
-
-    fn rank() -> i32 {
-        2
     }
 
     fn find_joint_min_where<Pred>(

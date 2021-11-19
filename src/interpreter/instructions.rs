@@ -323,7 +323,7 @@ pub fn sysinfo<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     sysinfo_cells.push((std::path::MAIN_SEPARATOR as i32).into());
 
     // 7. numer of scalars per vector
-    sysinfo_cells.push(F::Idx::rank().into());
+    sysinfo_cells.push(F::Idx::RANK.into());
 
     // 8. IP ID
     sysinfo_cells.push(ctx.ip.id);
@@ -348,7 +348,7 @@ pub fn sysinfo<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
 
     let idx: F::Value = (sysinfo_cells.len() as i32).into();
     // Only calculate the next bit if we need it as it's quite expensive
-    if n <= 0.into() || (n > idx && n <= idx + (2 * F::Idx::rank()).into()) {
+    if n <= 0.into() || (n > idx && n <= idx + (2 * F::Idx::RANK).into()) {
         // 13. Least point
 
         let mut tmp_vec = Vec::new();
