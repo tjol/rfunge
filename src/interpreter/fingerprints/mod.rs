@@ -36,6 +36,9 @@ pub mod TURT;
 #[cfg(not(target_family = "wasm"))]
 mod SOCK;
 
+#[cfg(not(target_family = "wasm"))]
+mod TERM;
+
 use super::{Funge, InstructionContext};
 
 /// Convert a fingerprint string to a numeric fingerprint
@@ -51,7 +54,7 @@ pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
 /// Get a list of all available fingerprints that are considered "safe" (i.e.,
 /// no executing external commands, no IO)
 pub fn safe_fingerprints() -> Vec<i32> {
-    vec![
+    let mut fprts = vec![
         string_to_fingerprint("NULL"),
         string_to_fingerprint("BOOL"),
         string_to_fingerprint("HRTI"),
@@ -65,7 +68,11 @@ pub fn safe_fingerprints() -> Vec<i32> {
         string_to_fingerprint("FPRT"),
         string_to_fingerprint("JSTR"),
         string_to_fingerprint("FRTH"),
-    ]
+    ];
+    if cfg!(not(target_family = "wasm")) {
+        fprts.push(string_to_fingerprint("TERM"));
+    }
+    fprts
 }
 
 /// Get a list of all available fingerprints
@@ -116,6 +123,8 @@ pub(crate) fn load<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool 
 pub(crate) fn load_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
         SOCK::load(ctx)
+    } else if fpr == string_to_fingerprint("TERM") {
+        TERM::load(ctx)
     } else {
         false
     }
@@ -170,6 +179,8 @@ pub(crate) fn unload_platform_specific<F: Funge>(
 ) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
         SOCK::unload(ctx)
+    } else if fpr == string_to_fingerprint("TERM") {
+        TERM::unload(ctx)
     } else {
         false
     }
