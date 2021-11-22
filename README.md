@@ -42,30 +42,29 @@ that require it (such as [Mycology]).
 The native build uses handprint 0x52464e47 ('RFNG'), the WebAssembly build uses
 handprint 0x52464e57 ('RFNW').
 
-## How to install
+## How to build (native)
 
-To build and install rfunge, you will need an up-to-date installation of rust
-and cargo (stable), which you can get with [rustup](https://rustup.rs/).
-
-To build a local checkout, run
-
-    cargo build
-
-or
+By default, rfunge is built with support for a GUI display for the TURT fingerprint,
+but without support for NCRS (ncurses). To build with the default features, run
 
     cargo build --release
 
 The binary will be placed under `target`.
 
-To install rfunge, you can run
+To build without the GUI, run
 
-    cargo install --path .
+    cargo build --release --no-default-features
 
-from a local checkout, or, aternatively
+and to build with NCRS support, run
 
-    cargo install --git https://github.com/tjol/rfunge
+    cargo build --release --features ncurses
 
-## How to build the WebAssembly version
+Building with NCRS will only work on a UNIX system (Linux, MacOS) with the ncurses
+library and header(s) and a C compiler. It will not work on Windows.
+
+To install, look into the options for `cargo install`.
+
+## How to build (WebAssembly)
 
 You will need [wasm-pack] to build the WASM package. If `wasm-pack` is installed,
 you can run `./build_wasm.sh` to build; the WASM binary, and a wrapper script will

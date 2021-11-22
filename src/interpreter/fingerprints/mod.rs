@@ -33,6 +33,9 @@ mod REFC;
 mod ROMA;
 pub mod TURT;
 
+#[cfg(all(feature = "ncurses", not(target_family = "wasm")))]
+mod NCRS;
+
 #[cfg(not(target_family = "wasm"))]
 mod SOCK;
 
@@ -81,6 +84,9 @@ pub fn all_fingerprints() -> Vec<i32> {
     fprts.push(string_to_fingerprint("TURT"));
     if cfg!(not(target_family = "wasm")) {
         fprts.push(string_to_fingerprint("SOCK"));
+        if cfg!(feature = "ncurses") {
+            fprts.push(string_to_fingerprint("NCRS"));
+        }
     }
     fprts
 }
@@ -126,8 +132,22 @@ pub(crate) fn load_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, 
     } else if fpr == string_to_fingerprint("TERM") {
         TERM::load(ctx)
     } else {
+        maybe_load_ncrs(ctx, fpr)
+    }
+}
+
+#[cfg(all(feature = "ncurses", not(target_family = "wasm")))]
+fn maybe_load_ncrs<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+    if fpr == string_to_fingerprint("NCRS") {
+        NCRS::load(ctx)
+    } else {
         false
     }
+}
+
+#[cfg(not(any(feature = "ncurses", target_family = "wasm")))]
+fn maybe_load_ncrs<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
+    false
 }
 
 #[cfg(target_family = "wasm")]
@@ -182,8 +202,22 @@ pub(crate) fn unload_platform_specific<F: Funge>(
     } else if fpr == string_to_fingerprint("TERM") {
         TERM::unload(ctx)
     } else {
+        maybe_unload_ncrs(ctx, fpr)
+    }
+}
+
+#[cfg(all(feature = "ncurses", not(target_family = "wasm")))]
+fn maybe_unload_ncrs<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+    if fpr == string_to_fingerprint("NCRS") {
+        NCRS::unload(ctx)
+    } else {
         false
     }
+}
+
+#[cfg(not(any(feature = "ncurses", target_family = "wasm")))]
+fn maybe_unload_ncrs<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
+    false
 }
 
 #[cfg(target_family = "wasm")]
