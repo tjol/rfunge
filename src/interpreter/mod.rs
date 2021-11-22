@@ -90,11 +90,11 @@ where
     Env: InterpreterEnv + 'static,
 {
     /// Currently active IPs
-    pub ips: Vec<Option<InstructionPointer<Self>>>,
+    pub ips: Vec<Option<Box<InstructionPointer<Self>>>>,
     /// Funge-space
-    pub space: Option<Space>,
+    pub space: Option<Box<Space>>,
     /// User-supplied environment permitting access to the outside world
-    pub env: Option<Env>,
+    pub env: Option<Box<Env>>,
 }
 
 impl<Idx, Space, Env> Funge for Interpreter<Idx, Space, Env>
@@ -301,9 +301,9 @@ where
 {
     pub fn new(space: Space, env: Env) -> Self {
         Self {
-            ips: vec![Some(InstructionPointer::<Self>::new())],
-            space: Some(space),
-            env: Some(env),
+            ips: vec![Some(Box::new(InstructionPointer::<Self>::new()))],
+            space: Some(Box::new(space)),
+            env: Some(Box::new(env)),
         }
     }
 }

@@ -54,31 +54,39 @@ pub enum InstructionResult {
 /// State of the interpreter. An (async) instruction takes ownership of this
 /// while it is being executed.
 pub struct InstructionContext<F: Funge + 'static> {
-    pub ip: InstructionPointer<F>,
-    pub space: F::Space,
-    pub env: F::Env,
+    pub ip: Box<InstructionPointer<F>>,
+    pub space: Box<F::Space>,
+    pub env: Box<F::Env>,
 }
 
-/// Type for a generic instruction (`F: Funge`) that can be stored and called
-/// at will
-pub type Instruction<F> = Rc<
+pub enum Instruction<F: Funge + 'static> {
+    SyncInstruction(fn(&mut InstructionContext<F>) -> InstructionResult),
+    AsyncInstruction(AsyncInstructionPtr<F>),
+}
+
+pub type AsyncInstructionPtr<F> = Rc<
     dyn Fn(
         InstructionContext<F>,
     ) -> Pin<Box<dyn Future<Output = (InstructionContext<F>, InstructionResult)>>>,
 >;
 
+impl<F: Funge + 'static> Clone for Instruction<F> {
+    fn clone(&self) -> Self {
+        match self {
+            Instruction::SyncInstruction(f) => Instruction::SyncInstruction(*f),
+            Instruction::AsyncInstruction(af) => Instruction::AsyncInstruction(af.clone()),
+        }
+    }
+}
+
 /// Turn a regular fuction into an `Instruction`
-pub fn sync_instruction<F, Func>(func: Func) -> Instruction<F>
+pub fn sync_instruction<F: Funge + 'static>(
+    func: fn(&mut InstructionContext<F>) -> InstructionResult,
+) -> Instruction<F>
 where
     F: Funge + 'static,
-    Func: Fn(&mut InstructionContext<F>) -> InstructionResult + Copy + 'static,
 {
-    Rc::new(move |mut ctx| {
-        Box::pin(async move {
-            let result = func(&mut ctx);
-            (ctx, result)
-        })
-    })
+    Instruction::SyncInstruction(func)
 }
 
 /// Turn a regular async function into an `Instruction`
@@ -88,7 +96,7 @@ where
     Func: Fn(InstructionContext<F>) -> Fut + Copy + 'static,
     Fut: Future<Output = (InstructionContext<F>, InstructionResult)>,
 {
-    Rc::new(move |ctx| Box::pin(async move { func(ctx).await }))
+    Instruction::AsyncInstruction(Rc::new(move |ctx| Box::pin(async move { func(ctx).await })))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -456,8 +464,15 @@ async fn exec_normal_instruction<F: Funge + 'static>(
         Some(c) => {
             if MotionCmds::apply_delta(c, &mut ctx.ip) {
                 // ok
-            } else if let Some(instr_fn) = ctx.ip.instructions.get_instruction(raw_instruction) {
-                return (instr_fn)(ctx).await;
+            } else if let Some(instr) = ctx.ip.instructions.get_instruction(raw_instruction) {
+                // return (instr_fn)(ctx).await;
+                return match instr {
+                    Instruction::SyncInstruction(func) => {
+                        let res = func(&mut ctx);
+                        (ctx, res)
+                    }
+                    Instruction::AsyncInstruction(async_func) => (async_func)(ctx).await,
+                };
             } else {
                 ctx.ip.reflect();
                 ctx.env.warn(&format!("Unknown instruction: '{}'", c));
