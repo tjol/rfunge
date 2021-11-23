@@ -60,10 +60,10 @@ pub struct InstructionContext<'a, F: Funge + 'static> {
 }
 
 impl<'b, 'a: 'b, F: Funge + 'static> InstructionContext<'a, F> {
-    pub async fn in_subcontext_async<Func, R>(&'b mut self, f: Func) -> R
+    pub async fn in_subcontext_async<Func, Fut>(&'b mut self, f: Func) -> Fut::Output
     where
-        Func:
-            FnOnce(&'b mut InstructionContext<'b, F>) -> Pin<Box<dyn Future<Output = R> + 'b>> + 'b,
+        Func: FnOnce(&'b mut InstructionContext<'b, F>) -> Fut + 'b,
+        Fut: Future + 'b,
     {
         let mut ctx2 = InstructionContext::<'b, F> {
             ip: self.ip,

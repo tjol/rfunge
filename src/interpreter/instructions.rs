@@ -51,10 +51,8 @@ pub fn iterate<'a, F: Funge>(
             let old_loc = ctx.ip.location;
             ctx.ip.location = new_loc;
             let new_val2 = new_val;
-            ctx.in_subcontext_async(|ctx2| {
-                Box::pin(async move { exec_instruction(new_val2, ctx2).await })
-            })
-            .await;
+            ctx.in_subcontext_async(|ctx2| async { exec_instruction(new_val2, ctx2).await })
+                .await;
             let (new_loc2, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
             new_loc = new_loc2;
             new_val = *new_val_ref;
@@ -72,8 +70,8 @@ pub fn iterate<'a, F: Funge>(
                 for _ in 0..n {
                     let new_val2 = new_val;
                     let res = ctx
-                        .in_subcontext_async(|ctx2| {
-                            Box::pin(async move { exec_instruction(new_val2, ctx2).await })
+                        .in_subcontext_async(|ctx2| async {
+                            exec_instruction(new_val2, ctx2).await
                         })
                         .await;
                     match res {
