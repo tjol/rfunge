@@ -21,7 +21,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::cmp::Ordering;
 use std::cmp::{max, min};
+use std::future::Future;
 use std::mem::size_of;
+use std::pin::Pin;
 
 use chrono::prelude::Utc;
 use chrono::{Datelike, Timelike};
@@ -34,56 +36,55 @@ use super::{ExecMode, IOMode};
 use super::{Funge, InstructionContext, InstructionResult, InterpreterEnv};
 use crate::fungespace::{FungeIndex, FungeSpace, FungeValue, SrcIO};
 
-pub async fn iterate<F: Funge>(
-    mut ctx: InstructionContext<F>,
-) -> (InstructionContext<F>, InstructionResult) {
-    let n = ctx.ip.pop();
-    let (mut new_loc, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
-    let mut new_val = *new_val_ref;
-    let mut loop_result = InstructionResult::Continue;
-    let mut new_val_c = new_val.to_char();
-    while new_val_c == ';' {
-        // skip what must be skipped
-        // fake-execute!
-        let old_loc = ctx.ip.location;
-        ctx.ip.location = new_loc;
-        let (ctx_, _) = exec_instruction(new_val, ctx).await;
-        ctx = ctx_;
-        let (new_loc2, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
-        new_loc = new_loc2;
-        new_val = *new_val_ref;
-        ctx.ip.location = old_loc;
-        new_val_c = new_val.to_char();
-    }
-    if let Some(n) = n.to_usize() {
-        if n == 0 {
-            // surprising behaviour! 1k leads to the next instruction
-            // being executed twice, 0k to it being skipped
+pub fn iterate<F: Funge>(
+    ctx: &'_ mut InstructionContext<F>,
+) -> Pin<Box<dyn Future<Output = InstructionResult> + '_>> {
+    Box::pin(async move {
+        let n = ctx.ip.pop();
+        let (mut new_loc, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
+        let mut new_val = *new_val_ref;
+        let mut loop_result = InstructionResult::Continue;
+        let mut new_val_c = new_val.to_char();
+        while new_val_c == ';' {
+            // skip what must be skipped
+            // fake-execute!
+            let old_loc = ctx.ip.location;
             ctx.ip.location = new_loc;
-            loop_result = InstructionResult::Continue;
-        } else {
-            let mut forks = 0;
-            for _ in 0..n {
-                let (ctx_, result) = exec_instruction(new_val, ctx).await;
-                ctx = ctx_;
-                match result {
-                    InstructionResult::Continue => {}
-                    InstructionResult::Fork(n) => {
-                        forks += n;
-                        loop_result = InstructionResult::Fork(forks)
-                    }
-                    res => {
-                        loop_result = res;
-                        break;
+            exec_instruction(new_val, ctx).await;
+            let (new_loc2, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
+            new_loc = new_loc2;
+            new_val = *new_val_ref;
+            ctx.ip.location = old_loc;
+            new_val_c = new_val.to_char();
+        }
+        if let Some(n) = n.to_usize() {
+            if n == 0 {
+                // surprising behaviour! 1k leads to the next instruction
+                // being executed twice, 0k to it being skipped
+                ctx.ip.location = new_loc;
+                loop_result = InstructionResult::Continue;
+            } else {
+                let mut forks = 0;
+                for _ in 0..n {
+                    match exec_instruction(new_val, ctx).await {
+                        InstructionResult::Continue => {}
+                        InstructionResult::Fork(n) => {
+                            forks += n;
+                            loop_result = InstructionResult::Fork(forks)
+                        }
+                        res => {
+                            loop_result = res;
+                            break;
+                        }
                     }
                 }
             }
+        } else {
+            // Reflect on over- or underflow
+            ctx.ip.reflect();
         }
-    } else {
-        // Reflect on over- or underflow
-        ctx.ip.reflect();
-    }
-    (ctx, loop_result)
+        loop_result
+    })
 }
 
 pub fn begin_block<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {

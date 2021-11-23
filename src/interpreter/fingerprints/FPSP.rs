@@ -16,12 +16,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::future::Future;
+use std::pin::Pin;
+
 use futures_lite::io::AsyncWriteExt;
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
 use crate::interpreter::instruction_set::{
-    async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 use crate::{FungeValue, InterpreterEnv};
@@ -67,7 +70,7 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     layer.insert('L', sync_instruction(log10));
     layer.insert('M', sync_instruction(mul));
     layer.insert('N', sync_instruction(neg));
-    layer.insert('P', async_instruction(print_fpsp));
+    layer.insert('P', Instruction::AsyncInstruction(print_fpsp));
     layer.insert('Q', sync_instruction(sqrt));
     layer.insert('R', sync_instruction(conv_str2fpsp));
     layer.insert('S', sync_instruction(sub));
@@ -123,15 +126,17 @@ fn conv_str2fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-async fn print_fpsp<F: Funge>(
-    mut ctx: InstructionContext<F>,
-) -> (InstructionContext<F>, InstructionResult) {
-    let f = val_to_fpsp(ctx.ip.pop());
-    let s = format!("{:.6} ", f);
-    if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
-        ctx.ip.reflect();
-    }
-    (ctx, InstructionResult::Continue)
+fn print_fpsp<F: Funge>(
+    ctx: &'_ mut InstructionContext<F>,
+) -> Pin<Box<dyn Future<Output = InstructionResult> + '_>> {
+    Box::pin(async move {
+        let f = val_to_fpsp(ctx.ip.pop());
+        let s = format!("{:.6} ", f);
+        if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
+            ctx.ip.reflect();
+        }
+        InstructionResult::Continue
+    })
 }
 
 fn add<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {

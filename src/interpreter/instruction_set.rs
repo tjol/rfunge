@@ -20,7 +20,7 @@ use hashbrown::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::pin::Pin;
-use std::rc::Rc;
+// use std::rc::Rc;
 use std::str;
 
 use futures_lite::io::{AsyncReadExt, AsyncWriteExt};
@@ -64,11 +64,15 @@ pub enum Instruction<F: Funge + 'static> {
     AsyncInstruction(AsyncInstructionPtr<F>),
 }
 
-pub type AsyncInstructionPtr<F> = Rc<
-    dyn Fn(
-        InstructionContext<F>,
-    ) -> Pin<Box<dyn Future<Output = (InstructionContext<F>, InstructionResult)>>>,
->;
+// pub type AsyncInstructionPtr<F> = Rc<
+//     dyn for<'a> Fn(
+//         &'a mut InstructionContext<F>,
+//     ) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>>,
+// >;
+pub type AsyncInstructionPtr<F> =
+    for<'a> fn(
+        &'a mut InstructionContext<F>,
+    ) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>>;
 
 impl<F: Funge + 'static> Clone for Instruction<F> {
     fn clone(&self) -> Self {
@@ -87,16 +91,6 @@ where
     F: Funge + 'static,
 {
     Instruction::SyncInstruction(func)
-}
-
-/// Turn a regular async function into an `Instruction`
-pub fn async_instruction<F, Func, Fut>(func: Func) -> Instruction<F>
-where
-    F: Funge + 'static,
-    Func: Fn(InstructionContext<F>) -> Fut + Copy + 'static,
-    Fut: Future<Output = (InstructionContext<F>, InstructionResult)>,
-{
-    Instruction::AsyncInstruction(Rc::new(move |ctx| Box::pin(async move { func(ctx).await })))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -146,7 +140,7 @@ impl<F: Funge + 'static> InstructionSet<F> {
 
         // Add standard instructions (other than those implemented directly
         // in the main match statement in exec_normal_instructions)
-        instruction_vec['k' as usize].push(async_instruction(instructions::iterate));
+        instruction_vec['k' as usize].push(Instruction::AsyncInstruction(instructions::iterate));
         instruction_vec['{' as usize].push(sync_instruction(instructions::begin_block));
         instruction_vec['}' as usize].push(sync_instruction(instructions::end_block));
         instruction_vec['u' as usize].push(sync_instruction(instructions::stack_under_stack));
@@ -198,8 +192,8 @@ impl<F: Funge + 'static> InstructionSet<F> {
 #[inline]
 pub(super) async fn exec_instruction<F: Funge + 'static>(
     raw_instruction: F::Value,
-    ctx: InstructionContext<F>,
-) -> (InstructionContext<F>, InstructionResult) {
+    ctx: &mut InstructionContext<F>,
+) -> InstructionResult {
     match ctx.ip.instructions.mode {
         InstructionMode::Normal => exec_normal_instruction(raw_instruction, ctx).await,
         InstructionMode::String => exec_string_instruction(raw_instruction, ctx).await,
@@ -209,21 +203,21 @@ pub(super) async fn exec_instruction<F: Funge + 'static>(
 #[inline]
 async fn exec_normal_instruction<F: Funge + 'static>(
     raw_instruction: F::Value,
-    mut ctx: InstructionContext<F>,
-) -> (InstructionContext<F>, InstructionResult) {
+    ctx: &mut InstructionContext<F>,
+) -> InstructionResult {
     match raw_instruction.try_to_char() {
         Some(' ') => {
-            return (ctx, InstructionResult::Skip);
+            return InstructionResult::Skip;
         }
         Some('@') => {
-            return (ctx, InstructionResult::Stop);
+            return InstructionResult::Stop;
         }
         Some('t') => {
-            return (ctx, InstructionResult::Fork(1));
+            return InstructionResult::Fork(1);
         }
         Some('q') => {
             let res = InstructionResult::Exit(ctx.ip.pop().to_i32().unwrap_or(-1));
-            return (ctx, res);
+            return res;
         }
         Some('#') => {
             // Trampoline
@@ -237,7 +231,7 @@ async fn exec_normal_instruction<F: Funge + 'static>(
                     break;
                 }
             }
-            return (ctx, InstructionResult::Skip);
+            return InstructionResult::Skip;
         }
         Some('$') => {
             ctx.ip.pop();
@@ -429,7 +423,7 @@ async fn exec_normal_instruction<F: Funge + 'static>(
                 fpr += ctx.ip.pop().to_i32().unwrap_or(0);
             }
             if fpr != 0 && ctx.env.is_fingerprint_enabled(fpr) {
-                if fingerprints::load(&mut ctx, fpr) {
+                if fingerprints::load(ctx, fpr) {
                     ctx.ip.push(fpr.into());
                     ctx.ip.push(1.into());
                 } else {
@@ -447,7 +441,7 @@ async fn exec_normal_instruction<F: Funge + 'static>(
                 fpr += ctx.ip.pop().to_i32().unwrap_or(0);
             }
             if fpr != 0 {
-                if fingerprints::unload(&mut ctx, fpr) {
+                if fingerprints::unload(ctx, fpr) {
                     ctx.ip.push(fpr.into());
                     ctx.ip.push(1.into());
                 } else {
@@ -467,10 +461,7 @@ async fn exec_normal_instruction<F: Funge + 'static>(
             } else if let Some(instr) = ctx.ip.instructions.get_instruction(raw_instruction) {
                 // return (instr_fn)(ctx).await;
                 return match instr {
-                    Instruction::SyncInstruction(func) => {
-                        let res = func(&mut ctx);
-                        (ctx, res)
-                    }
+                    Instruction::SyncInstruction(func) => func(ctx),
                     Instruction::AsyncInstruction(async_func) => (async_func)(ctx).await,
                 };
             } else {
@@ -483,14 +474,14 @@ async fn exec_normal_instruction<F: Funge + 'static>(
             ctx.env.warn("Unknown non-Unicode instruction!");
         }
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
 #[inline]
 async fn exec_string_instruction<F: Funge + 'static>(
     raw_instruction: F::Value,
-    mut ctx: InstructionContext<F>,
-) -> (InstructionContext<F>, InstructionResult) {
+    ctx: &mut InstructionContext<F>,
+) -> InstructionResult {
     // did we just skip over a space?
     let prev_loc = ctx.ip.location - ctx.ip.delta;
     let prev_val = ctx.space[prev_loc];
@@ -506,7 +497,7 @@ async fn exec_string_instruction<F: Funge + 'static>(
             ctx.ip.push(raw_instruction);
         }
     }
-    (ctx, InstructionResult::Continue)
+    InstructionResult::Continue
 }
 
 #[cfg(test)]

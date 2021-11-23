@@ -16,13 +16,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::future::Future;
 use std::mem::size_of;
+use std::pin::Pin;
 
 use futures_lite::io::AsyncWriteExt;
 use hashbrown::HashMap;
 
 use crate::interpreter::instruction_set::{
-    async_instruction, sync_instruction, Instruction, InstructionContext, InstructionResult,
+    sync_instruction, Instruction, InstructionContext, InstructionResult,
 };
 use crate::interpreter::Funge;
 use crate::{FungeValue, InterpreterEnv};
@@ -55,7 +57,7 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     layer.insert('M', sync_instruction(mul));
     layer.insert('N', sync_instruction(neg));
     layer.insert('O', sync_instruction(rem));
-    layer.insert('P', async_instruction(print_long));
+    layer.insert('P', Instruction::AsyncInstruction(print_long));
     layer.insert('R', sync_instruction(shift_right));
     layer.insert('S', sync_instruction(sub));
     layer.insert('Z', sync_instruction(parse_long));
@@ -101,17 +103,19 @@ fn extend<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
     InstructionResult::Continue
 }
 
-async fn print_long<F: Funge>(
-    mut ctx: InstructionContext<F>,
-) -> (InstructionContext<F>, InstructionResult) {
-    let lo = ctx.ip.pop();
-    let hi = ctx.ip.pop();
-    let lng = vals_to_i128(hi, lo);
-    let s = format!("{} ", lng);
-    if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
-        ctx.ip.reflect();
-    }
-    (ctx, InstructionResult::Continue)
+fn print_long<F: Funge>(
+    ctx: &'_ mut InstructionContext<F>,
+) -> Pin<Box<dyn Future<Output = InstructionResult> + '_>> {
+    Box::pin(async move {
+        let lo = ctx.ip.pop();
+        let hi = ctx.ip.pop();
+        let lng = vals_to_i128(hi, lo);
+        let s = format!("{} ", lng);
+        if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
+            ctx.ip.reflect();
+        }
+        InstructionResult::Continue
+    })
 }
 
 fn parse_long<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {

@@ -212,7 +212,7 @@ where
 
                     go_again = false;
                     // Hand context over to exec_instruction
-                    let (ctx, result) = exec_instruction(instruction, ctx).await;
+                    let result = exec_instruction(instruction, &mut ctx).await;
                     // Move everything from `ctx` back to `self`
                     self.ips[ip_idx].replace(ctx.ip);
                     self.space.replace(ctx.space);
