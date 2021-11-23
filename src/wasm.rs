@@ -301,18 +301,18 @@ impl BefungeInterpreter {
     }
 
     pub fn close(self) -> JSEnvInterface {
-        self.interpreter.env.unwrap().inner
+        self.interpreter.env.inner
     }
 
     #[wasm_bindgen(js_name = "loadSrc")]
     pub fn load_src(&mut self, src: &str) {
-        read_funge_src(self.interpreter.space.as_mut().unwrap(), src);
+        read_funge_src(&mut self.interpreter.space, src);
     }
 
     #[wasm_bindgen(js_name = "replaceSrc")]
     pub fn replace_src(&mut self, src: &str) {
-        self.interpreter.space = Some(PagedFungeSpace::new_with_page_size(bfvec(80, 25)));
-        read_funge_src(self.interpreter.space.as_mut().unwrap(), src);
+        self.interpreter.space = PagedFungeSpace::new_with_page_size(bfvec(80, 25));
+        read_funge_src(&mut self.interpreter.space, src);
     }
 
     #[wasm_bindgen(js_name = "runAsync")]
@@ -371,24 +371,20 @@ impl BefungeInterpreter {
 
     #[wasm_bindgen(js_name = "ipLocation")]
     pub fn ip_location(&self, ip_idx: usize) -> Option<Vec<i32>> {
-        let loc = self.interpreter.ips.get(ip_idx)?.as_ref()?.location;
+        let loc = self.interpreter.ips.get(ip_idx)?.location;
         Some(vec![loc.x, loc.y])
     }
 
     #[wasm_bindgen(js_name = "ipDelta")]
     pub fn ip_delta(&self, ip_idx: usize) -> Option<Vec<i32>> {
-        let d = self.interpreter.ips.get(ip_idx)?.as_ref()?.delta;
+        let d = self.interpreter.ips.get(ip_idx)?.delta;
         Some(vec![d.x, d.y])
     }
 
     #[wasm_bindgen(js_name = "projectedIpLocation")]
     pub fn projected_ip_location(&self, ip_idx: usize) -> Option<Vec<i32>> {
-        let ip = self.interpreter.ips.get(ip_idx)?.as_ref()?;
-        let (next_loc, _) = self
-            .interpreter
-            .space
-            .as_ref()?
-            .move_by(ip.location, ip.delta);
+        let ip = self.interpreter.ips.get(ip_idx)?;
+        let (next_loc, _) = self.interpreter.space.move_by(ip.location, ip.delta);
         Some(vec![next_loc.x, next_loc.y])
     }
 
@@ -397,7 +393,6 @@ impl BefungeInterpreter {
         self.interpreter
             .ips
             .get(ip_idx)
-            .and_then(|maybe_ip| maybe_ip.as_ref())
             .map(|ip| ip.stack_stack.len())
             .unwrap_or(0)
     }
@@ -408,14 +403,13 @@ impl BefungeInterpreter {
         self.interpreter
             .ips
             .get(ip_idx)
-            .and_then(|maybe_ip| maybe_ip.as_ref())
             .and_then(|ip| ip.stack_stack.get(stack_idx))
             .map(|v| v.clone())
     }
 
     #[wasm_bindgen(js_name = "getSrc")]
     pub fn get_src(&self) -> String {
-        let space = self.interpreter.space.as_ref().unwrap();
+        let space = &self.interpreter.space;
         let mut start = space.min_idx().unwrap_or(bfvec(0, 0));
         start = bfvec(min(0, start.x), min(0, start.y));
         let end_incl = space.max_idx().unwrap_or(bfvec(0, 0));
@@ -425,7 +419,7 @@ impl BefungeInterpreter {
 
     #[wasm_bindgen(js_name = "getSrcLines")]
     pub fn get_src_lines(&self) -> Vec<JsValue> {
-        let space = self.interpreter.space.as_ref().unwrap();
+        let space = &self.interpreter.space;
         let mut start = space.min_idx().unwrap_or(bfvec(0, 0));
         start = bfvec(min(0, start.x), min(0, start.y));
         let end_incl = space.max_idx().unwrap_or(bfvec(0, 0));
