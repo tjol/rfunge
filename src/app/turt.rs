@@ -101,7 +101,7 @@ where
 
     let worker_handle = std::thread::spawn(move || {
         let mut interpreter = make_interpreter();
-        interpreter.env.as_mut().unwrap().init_turt(disp);
+        interpreter.env.init_turt(disp);
         let result = interpreter.run(RunMode::Run);
         tx.send(TurtGuiMsg::Finished).ok();
         result

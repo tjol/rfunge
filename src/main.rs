@@ -221,12 +221,11 @@ where
 {
     run::<_, Interpreter<Idx, Space, CmdLineEnv>>(move || {
         let mut interpreter = make_interpreter();
-        let space_ref: &mut Space = &mut interpreter.space.as_mut().unwrap();
         if is_unicode {
             let src_str = String::from_utf8(src_bin).unwrap();
-            read_funge_src(space_ref, &src_str);
+            read_funge_src(&mut interpreter.space, &src_str);
         } else {
-            read_funge_src_bin(space_ref, &src_bin);
+            read_funge_src_bin(&mut interpreter.space, &src_bin);
         }
         interpreter
     })

@@ -36,9 +36,9 @@ use super::{ExecMode, IOMode};
 use super::{Funge, InstructionContext, InstructionResult, InterpreterEnv};
 use crate::fungespace::{FungeIndex, FungeSpace, FungeValue, SrcIO};
 
-pub fn iterate<F: Funge>(
-    ctx: &'_ mut InstructionContext<F>,
-) -> Pin<Box<dyn Future<Output = InstructionResult> + '_>> {
+pub fn iterate<'a, F: Funge>(
+    ctx: &'a mut InstructionContext<'a, F>,
+) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>> {
     Box::pin(async move {
         let n = ctx.ip.pop();
         let (mut new_loc, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
@@ -50,7 +50,11 @@ pub fn iterate<F: Funge>(
             // fake-execute!
             let old_loc = ctx.ip.location;
             ctx.ip.location = new_loc;
-            exec_instruction(new_val, ctx).await;
+            let new_val2 = new_val;
+            ctx.in_subcontext_async(|ctx2| {
+                Box::pin(async move { exec_instruction(new_val2, ctx2).await })
+            })
+            .await;
             let (new_loc2, new_val_ref) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
             new_loc = new_loc2;
             new_val = *new_val_ref;
@@ -66,7 +70,13 @@ pub fn iterate<F: Funge>(
             } else {
                 let mut forks = 0;
                 for _ in 0..n {
-                    match exec_instruction(new_val, ctx).await {
+                    let new_val2 = new_val;
+                    let res = ctx
+                        .in_subcontext_async(|ctx2| {
+                            Box::pin(async move { exec_instruction(new_val2, ctx2).await })
+                        })
+                        .await;
+                    match res {
                         InstructionResult::Continue => {}
                         InstructionResult::Fork(n) => {
                             forks += n;
@@ -248,11 +258,11 @@ pub fn output_file<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResu
     if match ctx.env.get_iomode() {
         IOMode::Binary => ctx.env.write_file(
             &filename,
-            &F::Idx::get_src_bin(&ctx.space, &start, &size, strip),
+            &F::Idx::get_src_bin(ctx.space, &start, &size, strip),
         ),
         IOMode::Text => ctx.env.write_file(
             &filename,
-            F::Idx::get_src_str(&ctx.space, &start, &size, strip).as_bytes(),
+            F::Idx::get_src_str(ctx.space, &start, &size, strip).as_bytes(),
         ),
     }
     .is_err()

@@ -53,39 +53,50 @@ pub enum InstructionResult {
 
 /// State of the interpreter. An (async) instruction takes ownership of this
 /// while it is being executed.
-pub struct InstructionContext<F: Funge + 'static> {
-    pub ip: Box<InstructionPointer<F>>,
-    pub space: Box<F::Space>,
-    pub env: Box<F::Env>,
+pub struct InstructionContext<'a, F: Funge + 'static> {
+    pub ip: &'a mut InstructionPointer<F>,
+    pub space: &'a mut F::Space,
+    pub env: &'a mut F::Env,
+}
+
+impl<'b, 'a: 'b, F: Funge + 'static> InstructionContext<'a, F> {
+    pub async fn in_subcontext_async<Func, R>(&'b mut self, f: Func) -> R
+    where
+        Func:
+            FnOnce(&'b mut InstructionContext<'b, F>) -> Pin<Box<dyn Future<Output = R> + 'b>> + 'b,
+    {
+        let mut ctx2 = InstructionContext::<'b, F> {
+            ip: self.ip,
+            space: self.space,
+            env: self.env,
+        };
+        // casting await the lifetime because I cannot figure out the bounds :-/
+        f(unsafe { &mut *(&mut ctx2 as *mut InstructionContext<'b, F>) }).await
+    }
 }
 
 pub enum Instruction<F: Funge + 'static> {
-    SyncInstruction(fn(&mut InstructionContext<F>) -> InstructionResult),
+    SyncInstruction(fn(&mut InstructionContext<'_, F>) -> InstructionResult),
     AsyncInstruction(AsyncInstructionPtr<F>),
 }
 
-// pub type AsyncInstructionPtr<F> = Rc<
-//     dyn for<'a> Fn(
-//         &'a mut InstructionContext<F>,
-//     ) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>>,
-// >;
 pub type AsyncInstructionPtr<F> =
     for<'a> fn(
-        &'a mut InstructionContext<F>,
+        &'a mut InstructionContext<'a, F>,
     ) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>>;
 
 impl<F: Funge + 'static> Clone for Instruction<F> {
     fn clone(&self) -> Self {
         match self {
             Instruction::SyncInstruction(f) => Instruction::SyncInstruction(*f),
-            Instruction::AsyncInstruction(af) => Instruction::AsyncInstruction(af.clone()),
+            Instruction::AsyncInstruction(af) => Instruction::AsyncInstruction(*af),
         }
     }
 }
 
 /// Turn a regular fuction into an `Instruction`
 pub fn sync_instruction<F: Funge + 'static>(
-    func: fn(&mut InstructionContext<F>) -> InstructionResult,
+    func: fn(&mut InstructionContext<'_, F>) -> InstructionResult,
 ) -> Instruction<F>
 where
     F: Funge + 'static,
@@ -190,9 +201,9 @@ impl<F: Funge + 'static> InstructionSet<F> {
 }
 
 #[inline]
-pub(super) async fn exec_instruction<F: Funge + 'static>(
+pub(super) async fn exec_instruction<'a, F: Funge + 'static>(
     raw_instruction: F::Value,
-    ctx: &mut InstructionContext<F>,
+    ctx: &'a mut InstructionContext<'a, F>,
 ) -> InstructionResult {
     match ctx.ip.instructions.mode {
         InstructionMode::Normal => exec_normal_instruction(raw_instruction, ctx).await,
@@ -201,9 +212,9 @@ pub(super) async fn exec_instruction<F: Funge + 'static>(
 }
 
 #[inline]
-async fn exec_normal_instruction<F: Funge + 'static>(
+async fn exec_normal_instruction<'a, F: Funge + 'static>(
     raw_instruction: F::Value,
-    ctx: &mut InstructionContext<F>,
+    ctx: &'a mut InstructionContext<'a, F>,
 ) -> InstructionResult {
     match raw_instruction.try_to_char() {
         Some(' ') => {
@@ -480,7 +491,7 @@ async fn exec_normal_instruction<F: Funge + 'static>(
 #[inline]
 async fn exec_string_instruction<F: Funge + 'static>(
     raw_instruction: F::Value,
-    ctx: &mut InstructionContext<F>,
+    ctx: &mut InstructionContext<'_, F>,
 ) -> InstructionResult {
     // did we just skip over a space?
     let prev_loc = ctx.ip.location - ctx.ip.delta;
@@ -505,7 +516,7 @@ mod tests {
     use super::super::tests::TestFunge;
     use super::*;
 
-    type TestCtx = InstructionContext<TestFunge>;
+    type TestCtx<'a> = InstructionContext<'a, TestFunge>;
 
     #[test]
     fn test_instruction_layers() {
@@ -526,7 +537,7 @@ mod tests {
         assert!(matches!(is.get_instruction('3' as i64), None));
     }
 
-    fn nop_for_test(_ctx: &mut TestCtx) -> InstructionResult {
+    fn nop_for_test(_ctx: &mut TestCtx<'_>) -> InstructionResult {
         InstructionResult::Continue
     }
 }

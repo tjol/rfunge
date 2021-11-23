@@ -140,9 +140,9 @@ fn conv_str2fpdp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn print_fpdp<F: Funge>(
-    ctx: &'_ mut InstructionContext<F>,
-) -> Pin<Box<dyn Future<Output = InstructionResult> + '_>> {
+fn print_fpdp<'a, F: Funge>(
+    ctx: &'a mut InstructionContext<'a, F>,
+) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>> {
     Box::pin(async move {
         let lo = ctx.ip.pop();
         let hi = ctx.ip.pop();

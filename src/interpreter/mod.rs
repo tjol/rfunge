@@ -90,11 +90,11 @@ where
     Env: InterpreterEnv + 'static,
 {
     /// Currently active IPs
-    pub ips: Vec<Option<Box<InstructionPointer<Self>>>>,
+    pub ips: Vec<InstructionPointer<Self>>,
     /// Funge-space
-    pub space: Option<Box<Space>>,
+    pub space: Space,
     /// User-supplied environment permitting access to the outside world
-    pub env: Option<Box<Env>>,
+    pub env: Env,
 }
 
 impl<Idx, Space, Env> Funge for Interpreter<Idx, Space, Env>
@@ -192,9 +192,8 @@ where
                 let mut go_again = true;
                 location_log.truncate(0);
                 while go_again {
-                    let ip = self.ips[ip_idx].as_ref().unwrap();
-                    let (new_loc, new_val) =
-                        self.space.as_mut().unwrap().move_by(ip.location, ip.delta);
+                    let ip = &self.ips[ip_idx];
+                    let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
                     let instruction = *new_val;
                     // Check that this loop is not infinite
                     if location_log.iter().any(|l| *l == new_loc) {
@@ -204,19 +203,15 @@ where
                     }
                     // Move everything to an instruction context
                     let mut ctx = InstructionContext {
-                        ip: self.ips[ip_idx].take().unwrap(),
-                        space: self.space.take().unwrap(),
-                        env: self.env.take().unwrap(),
+                        ip: &mut self.ips[ip_idx],
+                        space: &mut self.space,
+                        env: &mut self.env,
                     };
                     ctx.ip.location = new_loc;
 
                     go_again = false;
                     // Hand context over to exec_instruction
                     let result = exec_instruction(instruction, &mut ctx).await;
-                    // Move everything from `ctx` back to `self`
-                    self.ips[ip_idx].replace(ctx.ip);
-                    self.space.replace(ctx.space);
-                    self.env.replace(ctx.env);
                     // Continue
                     match result {
                         InstructionResult::Continue => {}
@@ -234,15 +229,10 @@ where
                         }
                         InstructionResult::Fork(n_forks) => {
                             // Find an ID for the new IP
-                            let mut new_id = self
-                                .ips
-                                .iter()
-                                .map(|ip| ip.as_ref().unwrap().id)
-                                .max()
-                                .unwrap()
-                                + 1.into();
+                            let mut new_id =
+                                self.ips.iter().map(|ip| ip.id).max().unwrap() + 1.into();
                             for _ in 0..n_forks {
-                                let ip = &mut self.ips[ip_idx].as_mut().unwrap(); // borrow
+                                let ip = &mut self.ips[ip_idx]; // borrow
                                 let mut new_ip = ip.clone(); // Create the IP
                                 new_ip.id = new_id;
                                 new_id += 1.into();
@@ -256,7 +246,7 @@ where
 
             // handle forks
             for (ip_idx, new_ip) in new_ips.drain(0..).rev() {
-                self.ips.insert(ip_idx, Some(new_ip));
+                self.ips.insert(ip_idx, new_ip);
                 // Fix ip indices in stopped_ips
                 for idx in stopped_ips.iter_mut() {
                     if *idx >= ip_idx {
@@ -301,9 +291,9 @@ where
 {
     pub fn new(space: Space, env: Env) -> Self {
         Self {
-            ips: vec![Some(Box::new(InstructionPointer::<Self>::new()))],
-            space: Some(Box::new(space)),
-            env: Some(Box::new(env)),
+            ips: vec![InstructionPointer::<Self>::new()],
+            space,
+            env,
         }
     }
 }

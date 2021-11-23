@@ -126,9 +126,9 @@ fn conv_str2fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult
     InstructionResult::Continue
 }
 
-fn print_fpsp<F: Funge>(
-    ctx: &'_ mut InstructionContext<F>,
-) -> Pin<Box<dyn Future<Output = InstructionResult> + '_>> {
+fn print_fpsp<'a, F: Funge>(
+    ctx: &'a mut InstructionContext<'a, F>,
+) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>> {
     Box::pin(async move {
         let f = val_to_fpsp(ctx.ip.pop());
         let s = format!("{:.6} ", f);
