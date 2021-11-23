@@ -117,11 +117,14 @@ fn run_b98_test(program_path: &Path, output_path: &Path) {
         });
 
         {
+            let space_ref: &mut rfunge::PagedFungeSpace<rfunge::BefungeVec<i32>, i32> =
+                &mut interpreter.space.as_mut().unwrap();
+
             let mut src = Vec::<u8>::new();
             File::open(program_path)
                 .and_then(|mut f| f.read_to_end(&mut src))
                 .unwrap();
-            read_funge_src_bin(interpreter.space.as_mut().unwrap(), &src);
+            read_funge_src_bin(space_ref, &src);
         }
 
         assert_eq!(interpreter.run(RunMode::Run), ProgramResult::Done(0));
