@@ -192,7 +192,7 @@ where
                 let mut go_again = true;
                 location_log.truncate(0);
                 while go_again {
-                    let ip = &self.ips[ip_idx];
+                    let ip = &mut self.ips[ip_idx];
                     let (new_loc, new_val) = self.space.move_by(ip.location, ip.delta);
                     let instruction = *new_val;
                     // Check that this loop is not infinite
@@ -202,12 +202,12 @@ where
                         location_log.push(new_loc);
                     }
                     // Move everything to an instruction context
+                    ip.location = new_loc;
                     let mut ctx = InstructionContext {
-                        ip: &mut self.ips[ip_idx],
+                        ip,
                         space: &mut self.space,
                         env: &mut self.env,
                     };
-                    ctx.ip.location = new_loc;
 
                     go_again = false;
                     // Hand context over to exec_instruction
