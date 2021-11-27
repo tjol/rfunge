@@ -232,6 +232,7 @@ fn create_turt_window<E>(el: &EventLoopWindowTarget<E>) -> Option<TurtWindowStat
         .with_title("RFunge TURT")
         .with_inner_size(LogicalSize::new(400., 400.));
     let wc = ContextBuilder::new().build_windowed(wb, el).ok()?;
+    // The OpenGL API is unsafe and there's nothing glutin can do about it.
     let wnd_ctx = unsafe { wc.make_current() }.ok()?;
     // Create the FemtoVG renderer and canvas
     use femtovg::renderer::OpenGl;

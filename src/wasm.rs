@@ -332,6 +332,9 @@ impl BefungeInterpreter {
     pub fn run_limited_async(&mut self, loop_limit: u32) -> js_sys::Promise {
         let self_ptr: *mut Self = self;
         wasm_bindgen_futures::future_to_promise(async move {
+            // Circumventing the borrow checker: the JS code promises not to
+            // destroy the interpreter while it is running, and self lives at
+            // a fixed place in memory. The compiler can't know these things.
             let this: &mut Self = unsafe { &mut *self_ptr };
             let result = match this
                 .interpreter
@@ -352,6 +355,7 @@ impl BefungeInterpreter {
     pub fn step_async(&mut self) -> js_sys::Promise {
         let self_ptr: *mut Self = self;
         wasm_bindgen_futures::future_to_promise(async move {
+            // see comment in run_limited_async
             let this: &mut Self = unsafe { &mut *self_ptr };
             let result = match this.interpreter.run_async(RunMode::Step).await {
                 ProgramResult::Done(returncode) => Some(returncode),
