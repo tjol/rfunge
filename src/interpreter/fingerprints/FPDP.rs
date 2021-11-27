@@ -99,11 +99,11 @@ pub fn unload<F: Funge>(
 
 pub fn ints_to_fpdp(ih: i32, il: i32) -> f64 {
     let i: u64 = (ih as u64 & 0xffffffff) << 32 | (il as u64 & 0xffffffff);
-    unsafe { *((&i as *const u64) as *const f64) }
+    f64::from_bits(i)
 }
 
 pub fn fpdp2ints(f: f64) -> (i32, i32) {
-    let i: u64 = unsafe { *((&f as *const f64) as *const u64) };
+    let i: u64 = f.to_bits();
     ((i >> 32) as i32, (i & 0xffffffff) as i32)
 }
 

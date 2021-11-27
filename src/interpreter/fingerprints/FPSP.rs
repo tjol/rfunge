@@ -96,11 +96,11 @@ pub fn unload<F: Funge>(
 }
 
 pub fn int_to_fpsp(i: i32) -> f32 {
-    unsafe { *((&i as *const i32) as *const f32) }
+    f32::from_bits(i as u32)
 }
 
 pub fn fpsp2int(f: f32) -> i32 {
-    unsafe { *((&f as *const f32) as *const i32) }
+    f.to_bits() as i32
 }
 
 pub fn val_to_fpsp<T: FungeValue>(i: T) -> f32 {
