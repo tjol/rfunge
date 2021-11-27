@@ -504,8 +504,6 @@ mod tests {
     use super::super::tests::TestFunge;
     use super::*;
 
-    type TestCtx<'a> = InstructionContext<'a, TestFunge>;
-
     #[test]
     fn test_instruction_layers() {
         let mut is = InstructionSet::<TestFunge>::new();
