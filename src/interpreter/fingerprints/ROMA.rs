@@ -18,10 +18,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use hashbrown::HashMap;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
 /// From the catseye library
 ///
@@ -41,7 +41,11 @@ use crate::interpreter::Funge;
 /// Note that these are just digits, you still have to do the arithmetic
 /// yourself. Executing `MCMLXXXIV` will not leave 1984 on the stack. But
 /// executing `MCM\-+LXXX+++IV\-++` should.
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('I', sync_instruction(unum));
     layer.insert('V', sync_instruction(quinque));
@@ -51,47 +55,78 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     layer.insert('D', sync_instruction(quingenti));
     layer.insert('M', sync_instruction(mille));
 
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip
-        .instructions
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions
         .pop_layer(&['I', 'V', 'X', 'L', 'C', 'D', 'M'])
 }
 
-fn unum<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.push(1.into());
+fn unum<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.push(1.into());
     InstructionResult::Continue
 }
 
-fn quinque<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.push(5.into());
+fn quinque<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.push(5.into());
     InstructionResult::Continue
 }
 
-fn decem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.push(10.into());
+fn decem<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.push(10.into());
     InstructionResult::Continue
 }
 
-fn quinquaginta<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.push(50.into());
+fn quinquaginta<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.push(50.into());
     InstructionResult::Continue
 }
 
-fn centum<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.push(100.into());
+fn centum<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.push(100.into());
     InstructionResult::Continue
 }
 
-fn quingenti<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.push(500.into());
+fn quingenti<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.push(500.into());
     InstructionResult::Continue
 }
 
-fn mille<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.push(1000.into());
+fn mille<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.push(1000.into());
     InstructionResult::Continue
 }

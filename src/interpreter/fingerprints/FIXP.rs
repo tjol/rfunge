@@ -22,10 +22,10 @@ use hashbrown::HashMap;
 use num::{Signed, ToPrimitive};
 
 use super::BOOL;
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
 /// From the rcFunge docs:
 ///
@@ -52,7 +52,11 @@ use crate::interpreter::Funge;
 /// thereby giving 4 digits of decimal precision.
 ///
 /// Trigonometric functions work in degrees. not radians.
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(BOOL::and));
     layer.insert('B', sync_instruction(arccos));
@@ -70,13 +74,16 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     layer.insert('U', sync_instruction(arctan));
     layer.insert('V', sync_instruction(abs));
     layer.insert('X', sync_instruction(BOOL::xor));
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip
-        .instructions
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions
         .pop_layer(&"ABCDIJNOPQRSTUVX".chars().collect::<Vec<char>>())
 }
 
@@ -88,50 +95,72 @@ fn deg2rad(angle: f64) -> f64 {
     angle * PI / 180.
 }
 
-fn arccos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).acos();
-    ctx.ip
-        .push(((rad2deg(radians) * 10000.).round() as i32).into());
+fn arccos<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let radians = (ip.pop().to_f64().unwrap_or(0.) / 10000.).acos();
+    ip.push(((rad2deg(radians) * 10000.).round() as i32).into());
     InstructionResult::Continue
 }
 
-fn cos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
-    ctx.ip
-        .push(((radians.cos() * 10000.).round() as i32).into());
+fn cos<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let radians = deg2rad(ip.pop().to_f64().unwrap_or(0.) / 10000.);
+    ip.push(((radians.cos() * 10000.).round() as i32).into());
     InstructionResult::Continue
 }
 
-fn arcsin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).asin();
-    ctx.ip
-        .push(((rad2deg(radians) * 10000.).round() as i32).into());
+fn arcsin<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let radians = (ip.pop().to_f64().unwrap_or(0.) / 10000.).asin();
+    ip.push(((rad2deg(radians) * 10000.).round() as i32).into());
     InstructionResult::Continue
 }
 
-fn sin<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
-    ctx.ip
-        .push(((radians.sin() * 10000.).round() as i32).into());
+fn sin<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let radians = deg2rad(ip.pop().to_f64().unwrap_or(0.) / 10000.);
+    ip.push(((radians.sin() * 10000.).round() as i32).into());
     InstructionResult::Continue
 }
 
-fn arctan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let radians = (ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.).atan();
-    ctx.ip
-        .push(((rad2deg(radians) * 10000.).round() as i32).into());
+fn arctan<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let radians = (ip.pop().to_f64().unwrap_or(0.) / 10000.).atan();
+    ip.push(((rad2deg(radians) * 10000.).round() as i32).into());
     InstructionResult::Continue
 }
 
-fn tan<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let radians = deg2rad(ctx.ip.pop().to_f64().unwrap_or(0.) / 10000.);
-    ctx.ip
-        .push(((radians.tan() * 10000.).round() as i32).into());
+fn tan<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let radians = deg2rad(ip.pop().to_f64().unwrap_or(0.) / 10000.);
+    ip.push(((radians.tan() * 10000.).round() as i32).into());
     InstructionResult::Continue
 }
 
-fn rnd<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let limit = ctx.ip.pop();
+fn rnd<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let limit = ip.pop();
     let sgn = limit.signum();
     let abs_limit = (limit * sgn).to_i32().unwrap_or_else(i32::max_value);
     let number = if abs_limit == 0 {
@@ -141,43 +170,67 @@ fn rnd<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
         F::Value::from(rndnum as i32) * sgn
     };
 
-    ctx.ip.push(number);
+    ip.push(number);
     InstructionResult::Continue
 }
 
-fn neg<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let n = ctx.ip.pop();
-    ctx.ip.push(-n);
+fn neg<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let n = ip.pop();
+    ip.push(-n);
     InstructionResult::Continue
 }
 
-fn mulpi<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let n = ctx.ip.pop().to_f64().unwrap_or_default() * PI;
-    ctx.ip.push((n as i32).into());
+fn mulpi<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let n = ip.pop().to_f64().unwrap_or_default() * PI;
+    ip.push((n as i32).into());
     InstructionResult::Continue
 }
 
-fn sqrt<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let n = ctx.ip.pop().to_f64().unwrap_or_default().sqrt();
-    ctx.ip.push((n as i32).into());
+fn sqrt<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let n = ip.pop().to_f64().unwrap_or_default().sqrt();
+    ip.push((n as i32).into());
     InstructionResult::Continue
 }
 
-fn pow<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let b = ctx.ip.pop().to_i32().unwrap_or_default();
-    let a = ctx.ip.pop().to_f64().unwrap_or_default();
-    ctx.ip.push((a.powi(b).round() as i32).into());
+fn pow<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let b = ip.pop().to_i32().unwrap_or_default();
+    let a = ip.pop().to_f64().unwrap_or_default();
+    ip.push((a.powi(b).round() as i32).into());
     InstructionResult::Continue
 }
 
-fn sgn<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let n = ctx.ip.pop();
-    ctx.ip.push(n.signum());
+fn sgn<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let n = ip.pop();
+    ip.push(n.signum());
     InstructionResult::Continue
 }
 
-fn abs<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let n = ctx.ip.pop();
-    ctx.ip.push(n * n.signum());
+fn abs<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let n = ip.pop();
+    ip.push(n * n.signum());
     InstructionResult::Continue
 }

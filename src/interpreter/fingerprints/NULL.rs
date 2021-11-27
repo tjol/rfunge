@@ -18,32 +18,43 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use hashbrown::HashMap;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
 /// After successfully loading fingerprint 0x4e554c4c, all 26 instructions
 /// `A` to `Z` take on the semantics of `r`.
 ///
 /// This can be loaded before loading a regular transparent fingerprint to
 /// make it act opaquely.
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
         layer.insert(c, sync_instruction(reflect));
     }
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip
-        .instructions
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions
         .pop_layer(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect::<Vec<char>>())
 }
 
-fn reflect<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    ctx.ip.reflect();
+fn reflect<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    ip.reflect();
     InstructionResult::Continue
 }

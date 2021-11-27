@@ -19,10 +19,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use divrem::DivRem;
 use hashbrown::HashMap;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
 /// From the catseye library
 ///
@@ -61,39 +61,55 @@ use crate::interpreter::Funge;
 /// `U` is interpreted as the Euclidian remainder: round *q* such that *r* > 0.
 /// This is what CCBI does; cfunge, pyfunge, and, again, rcfunge, do something
 /// mathematically unsound (they return the absolute value of the C remainder).
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('M', sync_instruction(signed_rem));
     layer.insert('U', sync_instruction(unsigned_rem));
     layer.insert('R', sync_instruction(c_rem));
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip.instructions.pop_layer(&['M', 'U', 'R'])
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions.pop_layer(&['M', 'U', 'R'])
 }
 
-fn signed_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let b = ctx.ip.pop();
-    let a = ctx.ip.pop();
+fn signed_rem<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let b = ip.pop();
+    let a = ip.pop();
     if b == 0.into() {
-        ctx.ip.push(0.into());
+        ip.push(0.into());
     } else {
         let (q, r) = a.div_rem(b); // truncating
-        ctx.ip.push(if q < 0.into() { r + b } else { r });
+        ip.push(if q < 0.into() { r + b } else { r });
     }
     InstructionResult::Continue
 }
 
-fn unsigned_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let b = ctx.ip.pop();
-    let a = ctx.ip.pop();
+fn unsigned_rem<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let b = ip.pop();
+    let a = ip.pop();
     if b == 0.into() {
-        ctx.ip.push(0.into());
+        ip.push(0.into());
     } else {
         let r = a % b; // truncating
-        ctx.ip.push(if r < 0.into() {
+        ip.push(if r < 0.into() {
             if b > 0.into() {
                 r + b
             } else {
@@ -106,13 +122,17 @@ fn unsigned_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult 
     InstructionResult::Continue
 }
 
-fn c_rem<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let b = ctx.ip.pop();
-    let a = ctx.ip.pop();
+fn c_rem<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let b = ip.pop();
+    let a = ip.pop();
     if b == 0.into() {
-        ctx.ip.push(0.into());
+        ip.push(0.into());
     } else {
-        ctx.ip.push(a % b); // default in Rust
+        ip.push(a % b); // default in Rust
     }
     InstructionResult::Continue
 }

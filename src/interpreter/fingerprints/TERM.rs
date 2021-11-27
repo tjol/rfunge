@@ -29,10 +29,10 @@ use crossterm::{
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
 /// From the rcFunge docs
 ///
@@ -45,7 +45,11 @@ use crate::interpreter::Funge;
 /// S   ( -- )  Clear to end of screen
 /// U   ( n -- )    Move cursor up n lines
 ///
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('C', sync_instruction(clear_screen));
     layer.insert('D', sync_instruction(down));
@@ -55,75 +59,106 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     layer.insert('S', sync_instruction(clear_to_eos));
     layer.insert('U', sync_instruction(up));
 
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip
-        .instructions
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions
         .pop_layer(&['C', 'D', 'G', 'H', 'L', 'S', 'U'])
 }
 
-fn clear_screen<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn clear_screen<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
     let mut stdout = stdout();
     if stdout.execute(Clear(ClearType::All)).is_err() {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn down<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn down<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
     (|| -> Option<()> {
         let mut stdout = stdout();
-        let n = ctx.ip.pop().to_u16()?;
+        let n = ip.pop().to_u16()?;
         execute!(stdout, MoveDown(n)).ok()
     })()
-    .unwrap_or_else(|| ctx.ip.reflect());
+    .unwrap_or_else(|| ip.reflect());
     InstructionResult::Continue
 }
 
-fn goto<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn goto<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
     (|| -> Option<()> {
         let mut stdout = stdout();
-        let y = ctx.ip.pop().to_u16()?;
-        let x = ctx.ip.pop().to_u16()?;
+        let y = ip.pop().to_u16()?;
+        let x = ip.pop().to_u16()?;
         execute!(stdout, MoveTo(x, y)).ok()
     })()
-    .unwrap_or_else(|| ctx.ip.reflect());
+    .unwrap_or_else(|| ip.reflect());
     InstructionResult::Continue
 }
 
-fn home<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn home<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
     let mut stdout = stdout();
     if stdout.execute(MoveTo(0, 0)).is_err() {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn clear_to_eol<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn clear_to_eol<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
     let mut stdout = stdout();
     if stdout.execute(Clear(ClearType::UntilNewLine)).is_err() {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn clear_to_eos<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn clear_to_eos<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
     let mut stdout = stdout();
     if stdout.execute(Clear(ClearType::FromCursorDown)).is_err() {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn up<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn up<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
     (|| -> Option<()> {
         let mut stdout = stdout();
-        let n = ctx.ip.pop().to_u16()?;
+        let n = ip.pop().to_u16()?;
         execute!(stdout, MoveUp(n)).ok()
     })()
-    .unwrap_or_else(|| ctx.ip.reflect());
+    .unwrap_or_else(|| ip.reflect());
     InstructionResult::Continue
 }

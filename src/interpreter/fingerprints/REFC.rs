@@ -22,9 +22,7 @@ use std::rc::Rc;
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
-};
+use crate::interpreter::instruction_set::{sync_instruction, Instruction, InstructionResult};
 use crate::interpreter::Funge;
 use crate::interpreter::MotionCmds;
 use crate::InstructionPointer;
@@ -57,16 +55,24 @@ use crate::InstructionPointer;
 /// fingerprint is loaded twice, independently, by two IPs, the IPs get
 /// separate ref lists. (But the ref list is shared between IPs forked off after
 /// loading).
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('R', sync_instruction(reference));
     layer.insert('D', sync_instruction(dereference));
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip.instructions.pop_layer(&['R', 'D'])
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions.pop_layer(&['R', 'D'])
 }
 
 fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>> {
@@ -83,10 +89,14 @@ fn get_reflist<F: Funge>(ip: &mut InstructionPointer<F>) -> RefMut<Vec<F::Idx>> 
         .unwrap()
 }
 
-fn reference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let vec = MotionCmds::pop_vector(&mut ctx.ip);
+fn reference<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let vec = MotionCmds::pop_vector(ip);
     let ref_idx = {
-        let mut rl = get_reflist(&mut ctx.ip);
+        let mut rl = get_reflist(ip);
         match rl.iter().position(|v| *v == vec) {
             Some(idx) => (idx as i32).into(),
             None => {
@@ -95,20 +105,23 @@ fn reference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
             }
         }
     };
-    ctx.ip.push(ref_idx);
+    ip.push(ref_idx);
     InstructionResult::Continue
 }
 
-fn dereference<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(vec) = ctx
-        .ip
+fn dereference<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(vec) = ip
         .pop()
         .to_usize()
-        .and_then(|idx| get_reflist(&mut ctx.ip).get(idx).copied())
+        .and_then(|idx| get_reflist(ip).get(idx).copied())
     {
-        MotionCmds::push_vector(&mut ctx.ip, vec);
+        MotionCmds::push_vector(ip, vec);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }

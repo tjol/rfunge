@@ -51,38 +51,22 @@ pub enum InstructionResult {
     Panic,
 }
 
-/// State of the interpreter. An (async) instruction takes ownership of this
-/// while it is being executed.
-pub struct InstructionContext<'a, F: Funge + 'static> {
-    pub ip: &'a mut InstructionPointer<F>,
-    pub space: &'a mut F::Space,
-    pub env: &'a mut F::Env,
-}
-
-impl<'b, 'a: 'b, F: Funge + 'static> InstructionContext<'a, F> {
-    pub async fn in_subcontext_async<Func, Fut>(&'b mut self, f: Func) -> Fut::Output
-    where
-        Func: FnOnce(&'b mut InstructionContext<'b, F>) -> Fut + 'b,
-        Fut: Future + 'b,
-    {
-        let mut ctx2 = InstructionContext::<'b, F> {
-            ip: self.ip,
-            space: self.space,
-            env: self.env,
-        };
-        // casting await the lifetime because I cannot figure out the bounds :-/
-        f(unsafe { &mut *(&mut ctx2 as *mut InstructionContext<'b, F>) }).await
-    }
-}
-
 pub enum Instruction<F: Funge + 'static> {
-    SyncInstruction(fn(&mut InstructionContext<'_, F>) -> InstructionResult),
+    SyncInstruction(SyncInstructionPtr<F>),
     AsyncInstruction(AsyncInstructionPtr<F>),
 }
 
+pub type SyncInstructionPtr<F> = fn(
+    &mut InstructionPointer<F>,
+    &mut <F as Funge>::Space,
+    &mut <F as Funge>::Env,
+) -> InstructionResult;
+
 pub type AsyncInstructionPtr<F> =
     for<'a> fn(
-        &'a mut InstructionContext<'a, F>,
+        &'a mut InstructionPointer<F>,
+        &'a mut <F as Funge>::Space,
+        &'a mut <F as Funge>::Env,
     ) -> Pin<Box<dyn Future<Output = InstructionResult> + 'a>>;
 
 impl<F: Funge + 'static> Clone for Instruction<F> {
@@ -95,9 +79,7 @@ impl<F: Funge + 'static> Clone for Instruction<F> {
 }
 
 /// Turn a regular fuction into an `Instruction`
-pub fn sync_instruction<F: Funge + 'static>(
-    func: fn(&mut InstructionContext<'_, F>) -> InstructionResult,
-) -> Instruction<F>
+pub fn sync_instruction<F: Funge + 'static>(func: SyncInstructionPtr<F>) -> Instruction<F>
 where
     F: Funge + 'static,
 {
@@ -203,18 +185,22 @@ impl<F: Funge + 'static> InstructionSet<F> {
 #[inline]
 pub(super) async fn exec_instruction<'a, F: Funge + 'static>(
     raw_instruction: F::Value,
-    ctx: &'a mut InstructionContext<'a, F>,
+    ip: &'a mut InstructionPointer<F>,
+    space: &'a mut F::Space,
+    env: &'a mut F::Env,
 ) -> InstructionResult {
-    match ctx.ip.instructions.mode {
-        InstructionMode::Normal => exec_normal_instruction(raw_instruction, ctx).await,
-        InstructionMode::String => exec_string_instruction(raw_instruction, ctx).await,
+    match ip.instructions.mode {
+        InstructionMode::Normal => exec_normal_instruction(raw_instruction, ip, space, env).await,
+        InstructionMode::String => exec_string_instruction(raw_instruction, ip, space, env).await,
     }
 }
 
 #[inline]
 async fn exec_normal_instruction<'a, F: Funge + 'static>(
     raw_instruction: F::Value,
-    ctx: &'a mut InstructionContext<'a, F>,
+    ip: &'a mut InstructionPointer<F>,
+    space: &'a mut F::Space,
+    env: &'a mut F::Env,
 ) -> InstructionResult {
     match raw_instruction.try_to_char() {
         Some(' ') => {
@@ -227,17 +213,17 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
             return InstructionResult::Fork(1);
         }
         Some('q') => {
-            let res = InstructionResult::Exit(ctx.ip.pop().to_i32().unwrap_or(-1));
+            let res = InstructionResult::Exit(ip.pop().to_i32().unwrap_or(-1));
             return res;
         }
         Some('#') => {
             // Trampoline
-            ctx.ip.location = ctx.ip.location + ctx.ip.delta;
+            ip.location = ip.location + ip.delta;
         }
         Some(';') => {
             loop {
-                let (new_loc, new_val) = ctx.space.move_by(ctx.ip.location, ctx.ip.delta);
-                ctx.ip.location = new_loc;
+                let (new_loc, new_val) = space.move_by(ip.location, ip.delta);
+                ip.location = new_loc;
                 if new_val.to_char() == ';' {
                     break;
                 }
@@ -245,70 +231,70 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
             return InstructionResult::Skip;
         }
         Some('$') => {
-            ctx.ip.pop();
+            ip.pop();
         }
         Some('n') => {
-            ctx.ip.stack_mut().drain(0..);
+            ip.stack_mut().drain(0..);
         }
         Some('\\') => {
-            let a = ctx.ip.pop();
-            let b = ctx.ip.pop();
-            ctx.ip.push(a);
-            ctx.ip.push(b);
+            let a = ip.pop();
+            let b = ip.pop();
+            ip.push(a);
+            ip.push(b);
         }
         Some(':') => {
-            let n = ctx.ip.pop();
-            ctx.ip.push(n);
-            ctx.ip.push(n);
+            let n = ip.pop();
+            ip.push(n);
+            ip.push(n);
         }
         Some(digit) if ('0'..='9').contains(&digit) => {
-            ctx.ip.push(((digit as i32) - ('0' as i32)).into());
+            ip.push(((digit as i32) - ('0' as i32)).into());
         }
         Some(digit) if ('a'..='f').contains(&digit) => {
-            ctx.ip.push((0xa + (digit as i32) - ('a' as i32)).into());
+            ip.push((0xa + (digit as i32) - ('a' as i32)).into());
         }
         Some('"') => {
-            ctx.ip.instructions.mode = InstructionMode::String;
+            ip.instructions.mode = InstructionMode::String;
         }
         Some('\'') => {
-            let loc = ctx.ip.location + ctx.ip.delta;
-            ctx.ip.push(ctx.space[loc]);
-            ctx.ip.location = loc;
+            let loc = ip.location + ip.delta;
+            ip.push(space[loc]);
+            ip.location = loc;
         }
         Some('s') => {
-            let loc = ctx.ip.location + ctx.ip.delta;
-            ctx.space[loc] = ctx.ip.pop();
-            ctx.ip.location = loc;
+            let loc = ip.location + ip.delta;
+            space[loc] = ip.pop();
+            ip.location = loc;
         }
         Some('.') => {
-            let s = format!("{} ", ctx.ip.pop());
-            if ctx.env.output_writer().write(s.as_bytes()).await.is_err() {
-                ctx.env.warn("IO Error");
+            let s = format!("{} ", ip.pop());
+            if env.output_writer().write(s.as_bytes()).await.is_err() {
+                env.warn("IO Error");
             }
         }
         Some(',') => {
-            let c = ctx.ip.pop();
-            let buf = match ctx.env.get_iomode() {
+            let c = ip.pop();
+            let buf = match env.get_iomode() {
                 IOMode::Text => format!("{}", c.to_char()).into_bytes(),
                 IOMode::Binary => vec![(c & 0xff.into()).to_u8().unwrap()],
             };
-            if ctx.env.output_writer().write(&buf).await.is_err() {
-                ctx.env.warn("IO Error");
+            if env.output_writer().write(&buf).await.is_err() {
+                env.warn("IO Error");
             }
         }
         Some('~') => {
-            match ctx.env.get_iomode() {
+            match env.get_iomode() {
                 IOMode::Binary => {
                     let mut buf = [0_u8; 1];
-                    match ctx.env.input_reader().read(&mut buf).await {
-                        Ok(1) => ctx.ip.push((buf[0] as i32).into()),
-                        _ => ctx.ip.reflect(),
+                    match env.input_reader().read(&mut buf).await {
+                        Ok(1) => ip.push((buf[0] as i32).into()),
+                        _ => ip.reflect(),
                     }
                 }
                 IOMode::Text => {
                     // Read bytes and decode
                     let mut buf = Vec::new();
-                    let reader = ctx.env.input_reader();
+                    let reader = env.input_reader();
                     loop {
                         let idx = buf.len();
                         buf.push(0_u8);
@@ -319,7 +305,7 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
                                     Ok(s) => {
                                         // Good!
                                         let c = s.chars().next().unwrap();
-                                        ctx.ip.push((c as i32).into());
+                                        ip.push((c as i32).into());
                                         break;
                                     }
                                     Err(err) => {
@@ -329,7 +315,7 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
                                             }
                                             Some(_) => {
                                                 // Invalid
-                                                ctx.ip.reflect();
+                                                ip.reflect();
                                                 break;
                                             }
                                         }
@@ -338,7 +324,7 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
                             }
                             _ => {
                                 // Read error
-                                ctx.ip.reflect();
+                                ip.reflect();
                                 break;
                             }
                         }
@@ -348,7 +334,7 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
         }
         Some('&') => {
             let mut buf = Vec::new();
-            let reader = ctx.env.input_reader();
+            let reader = env.input_reader();
             let mut maybe_line = None;
             loop {
                 let idx = buf.len();
@@ -370,119 +356,119 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
             if let Some(line) = maybe_line {
                 let maybe_i: Result<i32, _> = line.trim().parse();
                 if let Ok(i) = maybe_i {
-                    ctx.ip.push(i.into());
+                    ip.push(i.into());
                 } else {
-                    ctx.ip.reflect();
+                    ip.reflect();
                 }
             } else {
-                ctx.ip.reflect();
+                ip.reflect();
             }
         }
         Some('+') => {
-            let b = ctx.ip.pop();
-            let a = ctx.ip.pop();
-            ctx.ip.push(a + b);
+            let b = ip.pop();
+            let a = ip.pop();
+            ip.push(a + b);
         }
         Some('-') => {
-            let b = ctx.ip.pop();
-            let a = ctx.ip.pop();
-            ctx.ip.push(a - b);
+            let b = ip.pop();
+            let a = ip.pop();
+            ip.push(a - b);
         }
         Some('*') => {
-            let b = ctx.ip.pop();
-            let a = ctx.ip.pop();
-            ctx.ip.push(a * b);
+            let b = ip.pop();
+            let a = ip.pop();
+            ip.push(a * b);
         }
         Some('/') => {
-            let b = ctx.ip.pop();
-            let a = ctx.ip.pop();
-            ctx.ip.push(if b != 0.into() { a / b } else { 0.into() });
+            let b = ip.pop();
+            let a = ip.pop();
+            ip.push(if b != 0.into() { a / b } else { 0.into() });
         }
         Some('%') => {
-            let b = ctx.ip.pop();
-            let a = ctx.ip.pop();
-            ctx.ip.push(if b != 0.into() { a % b } else { 0.into() });
+            let b = ip.pop();
+            let a = ip.pop();
+            ip.push(if b != 0.into() { a % b } else { 0.into() });
         }
         Some('`') => {
-            let b = ctx.ip.pop();
-            let a = ctx.ip.pop();
-            ctx.ip.push(if a > b { 1.into() } else { 0.into() });
+            let b = ip.pop();
+            let a = ip.pop();
+            ip.push(if a > b { 1.into() } else { 0.into() });
         }
         Some('!') => {
-            let v = ctx.ip.pop();
-            ctx.ip.push(if v == 0.into() { 1.into() } else { 0.into() });
+            let v = ip.pop();
+            ip.push(if v == 0.into() { 1.into() } else { 0.into() });
         }
         Some('j') => {
-            ctx.ip.location = ctx.ip.location + ctx.ip.delta * ctx.ip.pop();
+            ip.location = ip.location + ip.delta * ip.pop();
         }
         Some('x') => {
-            ctx.ip.delta = MotionCmds::pop_vector(&mut ctx.ip);
+            ip.delta = MotionCmds::pop_vector(ip);
         }
         Some('p') => {
-            let loc = MotionCmds::pop_vector(&mut ctx.ip) + ctx.ip.storage_offset;
-            ctx.space[loc] = ctx.ip.pop();
+            let loc = MotionCmds::pop_vector(ip) + ip.storage_offset;
+            space[loc] = ip.pop();
         }
         Some('g') => {
-            let loc = MotionCmds::pop_vector(&mut ctx.ip) + ctx.ip.storage_offset;
-            ctx.ip.push(ctx.space[loc]);
+            let loc = MotionCmds::pop_vector(ip) + ip.storage_offset;
+            ip.push(space[loc]);
         }
         Some('(') => {
-            let count = ctx.ip.pop().to_usize().unwrap_or(0);
+            let count = ip.pop().to_usize().unwrap_or(0);
             let mut fpr = 0;
             for _ in 0..count {
                 fpr <<= 8;
-                fpr += ctx.ip.pop().to_i32().unwrap_or(0);
+                fpr += ip.pop().to_i32().unwrap_or(0);
             }
-            if fpr != 0 && ctx.env.is_fingerprint_enabled(fpr) {
-                if fingerprints::load(ctx, fpr) {
-                    ctx.ip.push(fpr.into());
-                    ctx.ip.push(1.into());
+            if fpr != 0 && env.is_fingerprint_enabled(fpr) {
+                if fingerprints::load(ip, space, env, fpr) {
+                    ip.push(fpr.into());
+                    ip.push(1.into());
                 } else {
-                    ctx.ip.reflect();
+                    ip.reflect();
                 }
             } else {
-                ctx.ip.reflect();
+                ip.reflect();
             }
         }
         Some(')') => {
-            let count = ctx.ip.pop().to_usize().unwrap_or(0);
+            let count = ip.pop().to_usize().unwrap_or(0);
             let mut fpr = 0;
             for _ in 0..count {
                 fpr <<= 8;
-                fpr += ctx.ip.pop().to_i32().unwrap_or(0);
+                fpr += ip.pop().to_i32().unwrap_or(0);
             }
             if fpr != 0 {
-                if fingerprints::unload(ctx, fpr) {
-                    ctx.ip.push(fpr.into());
-                    ctx.ip.push(1.into());
+                if fingerprints::unload(ip, space, env, fpr) {
+                    ip.push(fpr.into());
+                    ip.push(1.into());
                 } else {
-                    ctx.ip.reflect();
+                    ip.reflect();
                 }
             } else {
-                ctx.ip.reflect();
+                ip.reflect();
             }
         }
         Some('r') => {
-            ctx.ip.reflect();
+            ip.reflect();
         }
         Some('z') => {}
         Some(c) => {
-            if MotionCmds::apply_delta(c, &mut ctx.ip) {
+            if MotionCmds::apply_delta(c, ip) {
                 // ok
-            } else if let Some(instr) = ctx.ip.instructions.get_instruction(raw_instruction) {
+            } else if let Some(instr) = ip.instructions.get_instruction(raw_instruction) {
                 // return (instr_fn)(ctx).await;
                 return match instr {
-                    Instruction::SyncInstruction(func) => func(ctx),
-                    Instruction::AsyncInstruction(async_func) => (async_func)(ctx).await,
+                    Instruction::SyncInstruction(func) => func(ip, space, env),
+                    Instruction::AsyncInstruction(async_func) => (async_func)(ip, space, env).await,
                 };
             } else {
-                ctx.ip.reflect();
-                ctx.env.warn(&format!("Unknown instruction: '{}'", c));
+                ip.reflect();
+                env.warn(&format!("Unknown instruction: '{}'", c));
             }
         }
         None => {
-            ctx.ip.reflect();
-            ctx.env.warn("Unknown non-Unicode instruction!");
+            ip.reflect();
+            env.warn("Unknown non-Unicode instruction!");
         }
     }
     InstructionResult::Continue
@@ -491,21 +477,23 @@ async fn exec_normal_instruction<'a, F: Funge + 'static>(
 #[inline]
 async fn exec_string_instruction<F: Funge + 'static>(
     raw_instruction: F::Value,
-    ctx: &mut InstructionContext<'_, F>,
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    _env: &mut F::Env,
 ) -> InstructionResult {
     // did we just skip over a space?
-    let prev_loc = ctx.ip.location - ctx.ip.delta;
-    let prev_val = ctx.space[prev_loc];
+    let prev_loc = ip.location - ip.delta;
+    let prev_val = space[prev_loc];
     if prev_val == (' ' as i32).into() {
-        ctx.ip.push(prev_val);
+        ip.push(prev_val);
     }
     match raw_instruction.to_char() {
         '"' => {
-            ctx.ip.instructions.mode = InstructionMode::Normal;
+            ip.instructions.mode = InstructionMode::Normal;
         }
         _ => {
             // Push this character.
-            ctx.ip.push(raw_instruction);
+            ip.push(raw_instruction);
         }
     }
     InstructionResult::Continue
@@ -537,7 +525,11 @@ mod tests {
         assert!(matches!(is.get_instruction('3' as i64), None));
     }
 
-    fn nop_for_test(_ctx: &mut TestCtx<'_>) -> InstructionResult {
+    fn nop_for_test(
+        _ip: &mut InstructionPointer<TestFunge>,
+        _space: &mut <TestFunge as Funge>::Space,
+        _env: &mut <TestFunge as Funge>::Env,
+    ) -> InstructionResult {
         InstructionResult::Continue
     }
 }

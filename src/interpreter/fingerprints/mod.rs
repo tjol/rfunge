@@ -42,7 +42,7 @@ mod SOCK;
 #[cfg(not(target_family = "wasm"))]
 mod TERM;
 
-use super::{Funge, InstructionContext};
+use super::{Funge, InstructionPointer};
 
 /// Convert a fingerprint string to a numeric fingerprint
 pub fn string_to_fingerprint(fpr_str: &str) -> i32 {
@@ -91,138 +91,179 @@ pub fn all_fingerprints() -> Vec<i32> {
     fprts
 }
 
-pub(crate) fn load<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+pub(crate) fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+    fpr: i32,
+) -> bool {
     if fpr == string_to_fingerprint("NULL") {
-        NULL::load(ctx)
+        NULL::load(ip, space, env)
     } else if fpr == string_to_fingerprint("BOOL") {
-        BOOL::load(ctx)
+        BOOL::load(ip, space, env)
     } else if fpr == string_to_fingerprint("HRTI") {
-        HRTI::load(ctx)
+        HRTI::load(ip, space, env)
     } else if fpr == string_to_fingerprint("FIXP") {
-        FIXP::load(ctx)
+        FIXP::load(ip, space, env)
     } else if fpr == string_to_fingerprint("ROMA") {
-        ROMA::load(ctx)
+        ROMA::load(ip, space, env)
     } else if fpr == string_to_fingerprint("MODU") {
-        MODU::load(ctx)
+        MODU::load(ip, space, env)
     } else if fpr == string_to_fingerprint("REFC") {
-        REFC::load(ctx)
+        REFC::load(ip, space, env)
     } else if fpr == string_to_fingerprint("FPSP") {
-        FPSP::load(ctx)
+        FPSP::load(ip, space, env)
     } else if fpr == string_to_fingerprint("FPDP") {
-        FPDP::load(ctx)
+        FPDP::load(ip, space, env)
     } else if fpr == string_to_fingerprint("LONG") {
-        LONG::load(ctx)
+        LONG::load(ip, space, env)
     } else if fpr == string_to_fingerprint("FPRT") {
-        FPRT::load(ctx)
+        FPRT::load(ip, space, env)
     } else if fpr == string_to_fingerprint("JSTR") {
-        JSTR::load(ctx)
+        JSTR::load(ip, space, env)
     } else if fpr == string_to_fingerprint("FRTH") {
-        FRTH::load(ctx)
+        FRTH::load(ip, space, env)
     } else if fpr == string_to_fingerprint("TURT") {
-        TURT::load(ctx)
+        TURT::load(ip, space, env)
     } else {
-        load_platform_specific(ctx, fpr)
+        load_platform_specific(ip, space, env, fpr)
     }
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub(crate) fn load_platform_specific<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+pub(crate) fn load_platform_specific<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+    fpr: i32,
+) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
-        SOCK::load(ctx)
+        SOCK::load(ip, space, env)
     } else if fpr == string_to_fingerprint("TERM") {
-        TERM::load(ctx)
+        TERM::load(ip, space, env)
     } else {
-        maybe_load_ncrs(ctx, fpr)
+        maybe_load_ncrs(ip, space, env, fpr)
     }
 }
 
 #[cfg(all(feature = "ncurses", not(target_family = "wasm")))]
-fn maybe_load_ncrs<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+fn maybe_load_ncrs<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+    fpr: i32,
+) -> bool {
     if fpr == string_to_fingerprint("NCRS") {
-        NCRS::load(ctx)
+        NCRS::load(ip, space, env)
     } else {
         false
     }
 }
 
 #[cfg(not(any(feature = "ncurses", target_family = "wasm")))]
-fn maybe_load_ncrs<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
-    false
-}
-
-#[cfg(target_family = "wasm")]
-pub(crate) fn load_platform_specific<F: Funge>(
-    _ctx: &mut InstructionContext<F>,
+fn maybe_load_ncrs<F: Funge>(
+    _ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
     _fpr: i32,
 ) -> bool {
     false
 }
 
-pub(crate) fn unload<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+#[cfg(target_family = "wasm")]
+pub(crate) fn load_platform_specific<F: Funge>(
+    _ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+    _fpr: i32,
+) -> bool {
+    false
+}
+
+pub(crate) fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+    fpr: i32,
+) -> bool {
     if fpr == string_to_fingerprint("NULL") {
-        NULL::unload(ctx)
+        NULL::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("BOOL") {
-        BOOL::unload(ctx)
+        BOOL::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("HRTI") {
-        HRTI::unload(ctx)
+        HRTI::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("FIXP") {
-        FIXP::unload(ctx)
+        FIXP::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("ROMA") {
-        ROMA::unload(ctx)
+        ROMA::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("MODU") {
-        MODU::unload(ctx)
+        MODU::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("REFC") {
-        REFC::unload(ctx)
+        REFC::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("FPSP") {
-        FPSP::unload(ctx)
+        FPSP::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("FPDP") {
-        FPDP::unload(ctx)
+        FPDP::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("LONG") {
-        LONG::unload(ctx)
+        LONG::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("FPRT") {
-        FPRT::unload(ctx)
+        FPRT::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("JSTR") {
-        JSTR::unload(ctx)
+        JSTR::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("FRTH") {
-        FRTH::unload(ctx)
+        FRTH::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("TURT") {
-        TURT::unload(ctx)
+        TURT::unload(ip, space, env)
     } else {
-        unload_platform_specific(ctx, fpr)
+        unload_platform_specific(ip, space, env, fpr)
     }
 }
 
 #[cfg(not(target_family = "wasm"))]
 pub(crate) fn unload_platform_specific<F: Funge>(
-    ctx: &mut InstructionContext<F>,
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
     fpr: i32,
 ) -> bool {
     if fpr == string_to_fingerprint("SOCK") {
-        SOCK::unload(ctx)
+        SOCK::unload(ip, space, env)
     } else if fpr == string_to_fingerprint("TERM") {
-        TERM::unload(ctx)
+        TERM::unload(ip, space, env)
     } else {
-        maybe_unload_ncrs(ctx, fpr)
+        maybe_unload_ncrs(ip, space, env, fpr)
     }
 }
 
 #[cfg(all(feature = "ncurses", not(target_family = "wasm")))]
-fn maybe_unload_ncrs<F: Funge>(ctx: &mut InstructionContext<F>, fpr: i32) -> bool {
+fn maybe_unload_ncrs<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+    fpr: i32,
+) -> bool {
     if fpr == string_to_fingerprint("NCRS") {
-        NCRS::unload(ctx)
+        NCRS::unload(ip, space, env)
     } else {
         false
     }
 }
 
 #[cfg(not(any(feature = "ncurses", target_family = "wasm")))]
-fn maybe_unload_ncrs<F: Funge>(_ctx: &mut InstructionContext<F>, _fpr: i32) -> bool {
+fn maybe_unload_ncrs<F: Funge>(
+    _ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+    _fpr: i32,
+) -> bool {
     false
 }
 
 #[cfg(target_family = "wasm")]
 pub(crate) fn unload_platform_specific<F: Funge>(
-    _ctx: &mut InstructionContext<F>,
+    _ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
     _fpr: i32,
 ) -> bool {
     false

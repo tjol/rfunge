@@ -24,9 +24,7 @@ use num::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 use super::string_to_fingerprint;
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
-};
+use crate::interpreter::instruction_set::{sync_instruction, Instruction, InstructionResult};
 use crate::interpreter::{Funge, InstructionPointer, InterpreterEnv};
 
 #[cfg_attr(target_family = "wasm", derive(Serialize, Deserialize))]
@@ -307,10 +305,13 @@ impl<D: TurtleDisplay> TurtleRobot for SimpleRobot<D> {
 /// be shared amongst all IP's. The turtle is not defined to wrap if it goes
 /// out of bounds (after all this interface might just as well be used to
 /// drive a **real** turtle robot.)
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> bool {
     // Do we have TURT support from the environment?
-    if ctx
-        .env
+    if env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_ref::<TurtleRobotBox>())
         .is_none()
@@ -333,14 +334,17 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
         layer.insert('Q', sync_instruction(query_position));
         layer.insert('U', sync_instruction(query_bounds));
         layer.insert('I', sync_instruction(print_drawing));
-        ctx.ip.instructions.add_layer(layer);
+        ip.instructions.add_layer(layer);
         true
     }
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip
-        .instructions
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions
         .pop_layer(&"LRHFBPCNDTEAQUI".chars().collect::<Vec<char>>())
 }
 
@@ -353,193 +357,235 @@ fn pop_colour<F: Funge>(ip: &mut InstructionPointer<F>) -> Colour {
     }
 }
 
-fn trun_left<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn trun_left<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let angle = ctx.ip.pop().to_i32().unwrap_or_default();
+        let angle = ip.pop().to_i32().unwrap_or_default();
         robot.turn_left(angle);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn turn_right<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn turn_right<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let angle = ctx.ip.pop().to_i32().unwrap_or_default();
+        let angle = ip.pop().to_i32().unwrap_or_default();
         robot.turn_left(-angle);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn set_heading<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn set_heading<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let angle = ctx.ip.pop().to_i32().unwrap_or_default();
+        let angle = ip.pop().to_i32().unwrap_or_default();
         robot.set_heading(angle);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn forward<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn forward<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let dist = ctx.ip.pop().to_i32().unwrap_or_default();
+        let dist = ip.pop().to_i32().unwrap_or_default();
         robot.forward(dist);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn back<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn back<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let dist = ctx.ip.pop().to_i32().unwrap_or_default();
+        let dist = ip.pop().to_i32().unwrap_or_default();
         robot.forward(-dist);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn pen_position<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn pen_position<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let pos = ctx.ip.pop() == 1.into();
+        let pos = ip.pop() == 1.into();
         robot.set_pen(pos);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn pen_colour<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn pen_colour<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        robot.set_colour(pop_colour(&mut ctx.ip));
+        robot.set_colour(pop_colour(ip));
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn clear_paper<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn clear_paper<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        robot.clear_with_colour(pop_colour(&mut ctx.ip));
+        robot.clear_with_colour(pop_colour(ip));
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn display<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn display<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let disp = ctx.ip.pop() == 1.into();
+        let disp = ip.pop() == 1.into();
         robot.display(disp);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn teleport<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn teleport<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
-        let y = ctx.ip.pop().to_i32().unwrap_or_default();
-        let x = ctx.ip.pop().to_i32().unwrap_or_default();
+        let y = ip.pop().to_i32().unwrap_or_default();
+        let x = ip.pop().to_i32().unwrap_or_default();
         robot.teleport(Point { x, y });
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn query_pen<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn query_pen<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_ref::<TurtleRobotBox>())
     {
-        ctx.ip.push(if robot.is_pen_down() {
+        ip.push(if robot.is_pen_down() {
             1.into()
         } else {
             0.into()
         });
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn query_heading<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn query_heading<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_ref::<TurtleRobotBox>())
     {
-        ctx.ip.push(robot.heading().into());
+        ip.push(robot.heading().into());
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn query_position<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn query_position<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_ref::<TurtleRobotBox>())
     {
         let Point { x, y } = robot.position();
-        ctx.ip.push(x.into());
-        ctx.ip.push(y.into());
+        ip.push(x.into());
+        ip.push(y.into());
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn query_bounds<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn query_bounds<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_ref::<TurtleRobotBox>())
     {
@@ -550,25 +596,28 @@ fn query_bounds<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult 
                 y: bottom,
             },
         ) = robot.bounds();
-        ctx.ip.push(left.into());
-        ctx.ip.push(top.into());
-        ctx.ip.push(right.into());
-        ctx.ip.push(bottom.into());
+        ip.push(left.into());
+        ip.push(top.into());
+        ip.push(right.into());
+        ip.push(bottom.into());
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn print_drawing<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    if let Some(robot) = ctx
-        .env
+fn print_drawing<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    if let Some(robot) = env
         .fingerprint_support_library(string_to_fingerprint("TURT"))
         .and_then(|lib| lib.downcast_mut::<TurtleRobotBox>())
     {
         robot.print();
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }

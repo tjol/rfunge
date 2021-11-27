@@ -26,10 +26,10 @@ use ncurses::constants::ERR;
 use hashbrown::HashMap;
 use num::ToPrimitive;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
 thread_local! {
     static STDSCR: RefCell<Option<nc::WINDOW>> = RefCell::default();
@@ -57,7 +57,11 @@ thread_local! {
 /// other operations to be displayed. You *must* call 'I' at the beginning
 /// *and* end of each program that uses NCRS.
 ///
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('B', sync_instruction(beep));
     layer.insert('E', sync_instruction(echo_mode));
@@ -72,135 +76,186 @@ pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
     layer.insert('S', sync_instruction(addstr));
     layer.insert('C', sync_instruction(clear));
 
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip
-        .instructions
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> bool {
+    ip.instructions
         .pop_layer(&['B', 'E', 'G', 'I', 'K', 'M', 'N', 'R', 'U', 'P', 'P', 'C'])
 }
 
-fn beep<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn beep<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
     if nc::flash() == ERR {
-        ctx.ip.reflect()
+        ip.reflect()
     }
     InstructionResult::Continue
 }
 
-fn echo_mode<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let m = ctx.ip.pop().to_i32().unwrap_or(-1);
+fn echo_mode<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    let m = ip.pop().to_i32().unwrap_or(-1);
     if match m {
         0 => nc::noecho(),
         1 => nc::echo(),
         _ => ERR,
     } == ERR
     {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn getch<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn getch<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
     let c = nc::getch();
     if c == ERR {
-        ctx.ip.reflect();
+        ip.reflect();
     } else {
-        ctx.ip.push(c.into());
+        ip.push(c.into());
     }
     InstructionResult::Continue
 }
 
-fn init_curses<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn init_curses<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
     STDSCR.with(|stdscr_rc| {
-        let m = ctx.ip.pop().to_i32().unwrap_or_default();
+        let m = ip.pop().to_i32().unwrap_or_default();
         if m == 1 {
             stdscr_rc.replace(Some(nc::initscr()));
         } else {
             stdscr_rc.borrow_mut().take();
             if nc::endwin() == ERR {
-                ctx.ip.reflect();
+                ip.reflect();
             }
         }
         InstructionResult::Continue
     })
 }
 
-fn keypad_mode<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn keypad_mode<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
     STDSCR.with(|stdscr_rc| {
         if let Some(stdscr) = *(stdscr_rc.borrow()) {
-            let m = ctx.ip.pop().to_i32().unwrap_or(-1);
+            let m = ip.pop().to_i32().unwrap_or(-1);
             if match m {
                 0 => nc::keypad(stdscr, false),
                 1 => nc::keypad(stdscr, true),
                 _ => ERR,
             } == ERR
             {
-                ctx.ip.reflect();
+                ip.reflect();
             }
         } else {
-            ctx.ip.reflect();
+            ip.reflect();
         }
         InstructionResult::Continue
     })
 }
 
-fn move_cursor<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let y = ctx.ip.pop().to_i32().unwrap_or_default();
-    let x = ctx.ip.pop().to_i32().unwrap_or_default();
+fn move_cursor<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    let y = ip.pop().to_i32().unwrap_or_default();
+    let x = ip.pop().to_i32().unwrap_or_default();
     if nc::mv(x, y) == ERR {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn input_mode<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let m = ctx.ip.pop().to_i32().unwrap_or(-1);
+fn input_mode<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    let m = ip.pop().to_i32().unwrap_or(-1);
     if match m {
         0 => nc::cbreak(),
         1 => nc::nocbreak(),
         _ => ERR,
     } == ERR
     {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn refresh<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
+fn refresh<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
     if nc::refresh() == ERR {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn ungetch<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let c = ctx.ip.pop().to_i32().unwrap_or_default();
+fn ungetch<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    let c = ip.pop().to_i32().unwrap_or_default();
     if nc::ungetch(c) == ERR {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn addch<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let c = ctx.ip.pop().to_u32().unwrap_or_default() as nc::chtype;
+fn addch<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    let c = ip.pop().to_u32().unwrap_or_default() as nc::chtype;
     if nc::addch(c) == ERR {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn addstr<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let s = ctx.ip.pop_0gnirts();
+fn addstr<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    let s = ip.pop_0gnirts();
     if nc::addstr(&s) == ERR {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn clear<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let m = ctx.ip.pop().to_i32().unwrap_or(-1);
+fn clear<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    space: &mut F::Space,
+    env: &mut F::Env,
+) -> InstructionResult {
+    let m = ip.pop().to_i32().unwrap_or(-1);
     if match m {
         0 => nc::clear(),
         1 => nc::clrtoeol(),
@@ -208,7 +263,7 @@ fn clear<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
         _ => ERR,
     } == ERR
     {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }

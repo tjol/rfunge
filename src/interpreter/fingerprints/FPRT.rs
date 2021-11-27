@@ -24,10 +24,10 @@ use super::FPDP::vals_to_fpdp;
 use super::FPSP::val_to_fpsp;
 use super::LONG::vals_to_i128;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
 /// From the rcFunge docs:
 ///
@@ -40,79 +40,105 @@ use crate::interpreter::Funge;
 ///
 /// Formats are printf style
 /// Error in any function reflects
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('D', sync_instruction(sprintf_fpdp));
     layer.insert('F', sync_instruction(sprintf_fpsp));
     layer.insert('I', sync_instruction(sprintf_int));
     layer.insert('L', sync_instruction(sprintf_long));
     layer.insert('S', sync_instruction(sprintf_str));
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip
-        .instructions
-        .pop_layer(&['D', 'F', 'I', 'L', 'S'][..])
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions.pop_layer(&['D', 'F', 'I', 'L', 'S'][..])
 }
 
-fn sprintf_int<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let arg = ctx.ip.pop().to_i64().unwrap_or_default();
-    let fmt = ctx.ip.pop_0gnirts();
+fn sprintf_int<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let arg = ip.pop().to_i64().unwrap_or_default();
+    let fmt = ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ctx.ip.push_0gnirts(&s);
+        ip.push_0gnirts(&s);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn sprintf_long<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let lo = ctx.ip.pop();
-    let hi = ctx.ip.pop();
+fn sprintf_long<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let lo = ip.pop();
+    let hi = ip.pop();
     let arg = vals_to_i128(hi, lo) as i64; // sprintf does not support i128
-    let fmt = ctx.ip.pop_0gnirts();
+    let fmt = ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ctx.ip.push_0gnirts(&s);
+        ip.push_0gnirts(&s);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn sprintf_fpdp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let lo = ctx.ip.pop();
-    let hi = ctx.ip.pop();
+fn sprintf_fpdp<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let lo = ip.pop();
+    let hi = ip.pop();
     let arg = vals_to_fpdp(hi, lo);
-    let fmt = ctx.ip.pop_0gnirts();
+    let fmt = ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ctx.ip.push_0gnirts(&s);
+        ip.push_0gnirts(&s);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn sprintf_fpsp<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let i = ctx.ip.pop();
+fn sprintf_fpsp<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let i = ip.pop();
     let arg = val_to_fpsp(i); // sprintf does not support i128
-    let fmt = ctx.ip.pop_0gnirts();
+    let fmt = ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ctx.ip.push_0gnirts(&s);
+        ip.push_0gnirts(&s);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }
 
-fn sprintf_str<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let arg = ctx.ip.pop_0gnirts();
-    let fmt = ctx.ip.pop_0gnirts();
+fn sprintf_str<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let arg = ip.pop_0gnirts();
+    let fmt = ip.pop_0gnirts();
     if let Ok(s) = sprintf!(&fmt, arg) {
-        ctx.ip.push_0gnirts(&s);
+        ip.push_0gnirts(&s);
     } else {
-        ctx.ip.reflect();
+        ip.reflect();
     }
     InstructionResult::Continue
 }

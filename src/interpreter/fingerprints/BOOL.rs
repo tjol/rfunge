@@ -18,48 +18,72 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use hashbrown::HashMap;
 
-use crate::interpreter::instruction_set::{
-    sync_instruction, Instruction, InstructionContext, InstructionResult,
+use crate::interpreter::{
+    instruction_set::{sync_instruction, Instruction},
+    Funge, InstructionPointer, InstructionResult,
 };
-use crate::interpreter::Funge;
 
-pub fn load<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
+pub fn load<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
     let mut layer = HashMap::<char, Instruction<F>>::new();
     layer.insert('A', sync_instruction(and));
     layer.insert('O', sync_instruction(or));
     layer.insert('N', sync_instruction(not));
     layer.insert('X', sync_instruction(xor));
-    ctx.ip.instructions.add_layer(layer);
+    ip.instructions.add_layer(layer);
     true
 }
 
-pub fn unload<F: Funge>(ctx: &mut InstructionContext<F>) -> bool {
-    ctx.ip.instructions.pop_layer(&['A', 'O', 'N', 'X'])
+pub fn unload<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> bool {
+    ip.instructions.pop_layer(&['A', 'O', 'N', 'X'])
 }
 
-pub(super) fn and<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let b = ctx.ip.pop();
-    let a = ctx.ip.pop();
-    ctx.ip.push(a & b);
+pub(super) fn and<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let b = ip.pop();
+    let a = ip.pop();
+    ip.push(a & b);
     InstructionResult::Continue
 }
 
-pub(super) fn or<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let b = ctx.ip.pop();
-    let a = ctx.ip.pop();
-    ctx.ip.push(a | b);
+pub(super) fn or<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let b = ip.pop();
+    let a = ip.pop();
+    ip.push(a | b);
     InstructionResult::Continue
 }
 
-fn not<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let n = ctx.ip.pop();
-    ctx.ip.push(!n);
+fn not<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let n = ip.pop();
+    ip.push(!n);
     InstructionResult::Continue
 }
 
-pub(super) fn xor<F: Funge>(ctx: &mut InstructionContext<F>) -> InstructionResult {
-    let b = ctx.ip.pop();
-    let a = ctx.ip.pop();
-    ctx.ip.push(a ^ b);
+pub(super) fn xor<F: Funge>(
+    ip: &mut InstructionPointer<F>,
+    _space: &mut F::Space,
+    _env: &mut F::Env,
+) -> InstructionResult {
+    let b = ip.pop();
+    let a = ip.pop();
+    ip.push(a ^ b);
     InstructionResult::Continue
 }

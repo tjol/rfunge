@@ -33,7 +33,7 @@ use self::instruction_set::exec_instruction;
 use self::ip::CreateInstructionPointer;
 use super::fungespace::{FungeSpace, FungeValue, SrcIO};
 
-pub use self::instruction_set::{InstructionContext, InstructionMode, InstructionResult};
+pub use self::instruction_set::{InstructionMode, InstructionResult};
 pub use self::ip::InstructionPointer;
 pub use self::motion::MotionCmds;
 pub use fingerprints::{all_fingerprints, safe_fingerprints, string_to_fingerprint};
@@ -203,15 +203,10 @@ where
                     }
                     // Move everything to an instruction context
                     ip.location = new_loc;
-                    let mut ctx = InstructionContext {
-                        ip,
-                        space: &mut self.space,
-                        env: &mut self.env,
-                    };
-
                     go_again = false;
                     // Hand context over to exec_instruction
-                    let result = exec_instruction(instruction, &mut ctx).await;
+                    let result =
+                        exec_instruction(instruction, ip, &mut self.space, &mut self.env).await;
                     // Continue
                     match result {
                         InstructionResult::Continue => {}
